@@ -13,15 +13,17 @@ class UpdateStudentProfileEvent extends ProfileEvent {
   final String? emergencyPhone;
   final String? bloodGroup;
   final String? medicalNotes;
+  final String? documentUrl;
 
   const UpdateStudentProfileEvent({
     this.emergencyPhone,
     this.bloodGroup,
     this.medicalNotes,
+    this.documentUrl,
   });
 
   @override
-  List<Object?> get props => [emergencyPhone, bloodGroup, medicalNotes];
+  List<Object?> get props => [emergencyPhone, bloodGroup, medicalNotes, documentUrl];
 }
 
 class LoadStaffProfileEvent extends ProfileEvent {}

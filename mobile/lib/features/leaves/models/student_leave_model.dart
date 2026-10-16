@@ -10,6 +10,8 @@ class StudentLeaveModel {
   final String endDate;
   final String reason;
   final String status; // 'PENDING' | 'APPROVED' | 'REJECTED'
+  final String? documentUrl;
+  final String? attachmentName;
   final String? rejectionReason;
   final String? remarks;
   final String? reviewedByName;
@@ -28,6 +30,8 @@ class StudentLeaveModel {
     required this.endDate,
     required this.reason,
     required this.status,
+    this.documentUrl,
+    this.attachmentName,
     this.rejectionReason,
     this.remarks,
     this.reviewedByName,
@@ -48,6 +52,8 @@ class StudentLeaveModel {
       endDate: json['end_date'] as String,
       reason: json['reason'] as String,
       status: (json['status'] as String).toUpperCase(),
+      documentUrl: json['document_url'] as String? ?? json['documentUrl'] as String?,
+      attachmentName: json['attachment_name'] as String? ?? json['attachmentName'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
       remarks: json['remarks'] as String?,
       reviewedByName: json['reviewed_by_name'] as String?,

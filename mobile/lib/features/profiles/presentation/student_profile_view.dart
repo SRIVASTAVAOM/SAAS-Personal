@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/document_picker_bottom_sheet.dart';
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
@@ -196,6 +197,7 @@ class StudentProfileView extends StatelessWidget {
               _buildRow('Emergency Phone', p.emergencyPhone ?? 'Not Provided'),
               _buildRow('Blood Group', p.bloodGroup ?? 'Not Provided'),
               _buildRow('Medical Notes', p.medicalNotes ?? 'None recorded'),
+              _buildRow('Medical / ID Document', (p.documentUrl != null && p.documentUrl!.isNotEmpty) ? 'Document Uploaded' : 'None Attached'),
             ],
           ),
         ),
@@ -269,69 +271,175 @@ class StudentProfileView extends StatelessWidget {
     final phoneController = TextEditingController(text: profile.emergencyPhone ?? '');
     final bloodGroupController = TextEditingController(text: profile.bloodGroup ?? '');
     final notesController = TextEditingController(text: profile.medicalNotes ?? '');
+    String? docUrl = profile.documentUrl;
+    String? docName = (profile.documentUrl != null && profile.documentUrl!.isNotEmpty)
+        ? 'Medical_or_ID_Document.pdf'
+        : null;
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text(
-          'Edit Emergency & Health',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Emergency Phone',
-                  hintText: '+91 9876543210',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: bloodGroupController,
-                decoration: const InputDecoration(
-                  labelText: 'Blood Group',
-                  hintText: 'e.g. O+, A+, B-',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Medical Notes / Allergies',
-                  hintText: 'e.g. Asthmatic, peanut allergy',
-                ),
-              ),
-            ],
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text(
+            'Edit Emergency & Health',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Emergency Phone',
+                    hintText: '+91 9876543210',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: bloodGroupController,
+                  decoration: const InputDecoration(
+                    labelText: 'Blood Group',
+                    hintText: 'e.g. O+, A+, B-',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Medical Notes / Allergies',
+                    hintText: 'e.g. Asthmatic, peanut allergy',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.scaffoldBackground,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Medical / ID Document (Optional)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryText,
+                            ),
+                          ),
+                          if (docUrl != null && docUrl!.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  docUrl = null;
+                                  docName = null;
+                                });
+                              },
+                              child: const Text(
+                                'Remove',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      if (docName == null) ...[
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final doc = await DocumentPickerBottomSheet.show(
+                              dialogCtx,
+                              title: 'Attach Student Document',
+                              subtitle:
+                                  'Choose from device storage or take a photo with camera',
+                              categoryPrefix: 'student_profile',
+                            );
+                            if (doc != null) {
+                              setDialogState(() {
+                                docName = doc.name;
+                                docUrl = doc.url;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.upload_file, size: 14),
+                          label: const Text('Attach Document (Optional)',
+                              style: TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.border),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Icon(
+                              docName!.toLowerCase().endsWith('.pdf')
+                                  ? Icons.picture_as_pdf
+                                  : Icons.camera_alt_outlined,
+                              size: 16,
+                              color: docName!.toLowerCase().endsWith('.pdf')
+                                  ? const Color(0xFFB91C1C)
+                                  : const Color(0xFF2563EB),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                docName!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.primaryText,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              final newPhone = phoneController.text.trim();
-              final newBlood = bloodGroupController.text.trim();
-              final newNotes = notesController.text.trim();
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newPhone = phoneController.text.trim();
+                final newBlood = bloodGroupController.text.trim();
+                final newNotes = notesController.text.trim();
 
-              context.read<ProfileBloc>().add(
-                    UpdateStudentProfileEvent(
-                      emergencyPhone: newPhone.isNotEmpty ? newPhone : null,
-                      bloodGroup: newBlood.isNotEmpty ? newBlood : null,
-                      medicalNotes: newNotes.isNotEmpty ? newNotes : null,
-                    ),
-                  );
-              Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
+                context.read<ProfileBloc>().add(
+                      UpdateStudentProfileEvent(
+                        emergencyPhone: newPhone.isNotEmpty ? newPhone : null,
+                        bloodGroup: newBlood.isNotEmpty ? newBlood : null,
+                        medicalNotes: newNotes.isNotEmpty ? newNotes : null,
+                        documentUrl: docUrl,
+                      ),
+                    );
+                Navigator.pop(dialogCtx);
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
       ),
     );
   }

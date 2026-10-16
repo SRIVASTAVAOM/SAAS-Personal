@@ -36,6 +36,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         emergencyPhone: event.emergencyPhone,
         bloodGroup: event.bloodGroup,
         medicalNotes: event.medicalNotes,
+        documentUrl: event.documentUrl,
       );
       emit(ProfileUpdateSuccess('Profile updated successfully', updated));
       emit(StudentProfileLoaded(updated));

@@ -96,6 +96,7 @@ class ApiEndpoints {
   static String get studentLeaves => '$baseUrl/leaves/student';
   static String get studentMyLeaves => '$baseUrl/leaves/student/my-leaves';
   static String get studentClassLeaves => '$baseUrl/leaves/student/class-requests';
+  static String get studentPendingApprovals => '$baseUrl/leaves/student/pending-approvals';
   static String updateStudentLeaveStatus(String id) =>
       '$baseUrl/leaves/student/$id/status';
   static String updateStudentByTeacher(String studentId) =>

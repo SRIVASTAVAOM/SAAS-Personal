@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/document_picker_bottom_sheet.dart';
 import '../bloc/leaves_bloc.dart';
 import '../bloc/leaves_event.dart';
 import '../bloc/leaves_state.dart';
@@ -8,19 +9,25 @@ import '../models/staff_leave_model.dart';
 import '../models/student_leave_model.dart';
 
 class TeacherLeaveView extends StatefulWidget {
-  const TeacherLeaveView({super.key});
+  final int initialTab;
+
+  const TeacherLeaveView({super.key, this.initialTab = 0});
 
   @override
   State<TeacherLeaveView> createState() => _TeacherLeaveViewState();
 }
 
 class _TeacherLeaveViewState extends State<TeacherLeaveView> {
-  int _currentTab = 0; // 0: My Leaves, 1: Student Leave Requests
+  late int _currentTab; // 0: My Leaves, 1: Student Leave Requests
 
   @override
   void initState() {
     super.initState();
+    _currentTab = widget.initialTab;
     context.read<LeavesBloc>().add(const LoadStaffMyLeavesEvent());
+    if (_currentTab == 1) {
+      context.read<LeavesBloc>().add(const LoadClassStudentLeavesEvent());
+    }
   }
 
 
@@ -30,6 +37,8 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
     String leaveType = 'CASUAL';
     String startDate = DateTime.now().toIso8601String().split('T')[0];
     String endDate = DateTime.now().toIso8601String().split('T')[0];
+    String? selectedDocumentName;
+    String? selectedDocumentUrl;
 
     showDialog(
       context: context,
@@ -165,6 +174,119 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 12),
+                      // Optional Document Attachment
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: const [
+                                    Icon(Icons.attach_file,
+                                        size: 15,
+                                        color: AppColors.secondaryText),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Supporting Document (Optional)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primaryText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (selectedDocumentName != null)
+                                  InkWell(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        selectedDocumentName = null;
+                                        selectedDocumentUrl = null;
+                                      });
+                                    },
+                                    child: const Text(
+                                      'Remove',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.error,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (selectedDocumentName == null) ...[
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final doc =
+                                      await DocumentPickerBottomSheet.show(
+                                    dialogCtx,
+                                    title: 'Attach Leave Document',
+                                    subtitle:
+                                        'Choose from device storage or take a photo with camera',
+                                    categoryPrefix: 'staff_leave_doc',
+                                  );
+                                  if (doc != null) {
+                                    setDialogState(() {
+                                      selectedDocumentName = doc.name;
+                                      selectedDocumentUrl = doc.url;
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.upload_file, size: 15),
+                                label: const Text('Attach Document (Optional)',
+                                    style: TextStyle(fontSize: 11)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: AppColors.border),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                ),
+                              ),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Icon(
+                                    selectedDocumentName!
+                                            .toLowerCase()
+                                            .endsWith('.pdf')
+                                        ? Icons.picture_as_pdf
+                                        : Icons.camera_alt_outlined,
+                                    size: 16,
+                                    color: selectedDocumentName!
+                                            .toLowerCase()
+                                            .endsWith('.pdf')
+                                        ? const Color(0xFFB91C1C)
+                                        : const Color(0xFF2563EB),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      selectedDocumentName!,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.primaryText),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -185,6 +307,8 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
                               endDate: endDate,
                               leaveType: leaveType,
                               reason: reasonController.text.trim(),
+                              documentUrl: selectedDocumentUrl,
+                              attachmentName: selectedDocumentName,
                             ),
                           );
                     }
@@ -563,6 +687,29 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
                 color: AppColors.secondaryText,
               ),
             ),
+            if ((leave.documentUrl != null && leave.documentUrl!.isNotEmpty) ||
+                (leave.attachmentName != null && leave.attachmentName!.isNotEmpty)) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.attach_file, size: 13, color: Color(0xFF1D4ED8)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      leave.attachmentName != null && leave.attachmentName!.isNotEmpty
+                          ? 'Doc: ${leave.attachmentName}'
+                          : 'Supporting Document Attached',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: remarksController,
@@ -714,6 +861,38 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
               color: AppColors.primaryText,
             ),
           ),
+          if ((leave.documentUrl != null && leave.documentUrl!.isNotEmpty) ||
+              (leave.attachmentName != null && leave.attachmentName!.isNotEmpty)) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.attach_file, size: 12, color: Color(0xFF1D4ED8)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      leave.attachmentName != null && leave.attachmentName!.isNotEmpty
+                          ? 'Doc: ${leave.attachmentName}'
+                          : 'Supporting Document Attached',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if ((leave.remarks != null && leave.remarks!.isNotEmpty) ||
               (leave.rejectionReason != null &&
                   leave.rejectionReason!.isNotEmpty)) ...[
@@ -854,6 +1033,38 @@ class _TeacherLeaveViewState extends State<TeacherLeaveView> {
               color: AppColors.primaryText,
             ),
           ),
+          if ((leave.documentUrl != null && leave.documentUrl!.isNotEmpty) ||
+              (leave.attachmentName != null && leave.attachmentName!.isNotEmpty)) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.attach_file, size: 12, color: Color(0xFF1D4ED8)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      leave.attachmentName != null && leave.attachmentName!.isNotEmpty
+                          ? 'Doc: ${leave.attachmentName}'
+                          : 'Supporting Document Attached',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (leave.recommendationNote != null &&
               leave.recommendationNote!.isNotEmpty) ...[
             const SizedBox(height: 8),

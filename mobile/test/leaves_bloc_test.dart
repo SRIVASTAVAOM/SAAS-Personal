@@ -23,6 +23,8 @@ class MockLeavesRepository implements LeavesRepository {
     required String endDate,
     required String leaveType,
     required String reason,
+    String? documentUrl,
+    String? attachmentName,
   }) async {
     if (shouldThrow) throw Exception('Leave failed');
     final leave = StaffLeaveModel(
@@ -32,6 +34,8 @@ class MockLeavesRepository implements LeavesRepository {
       endDate: endDate,
       leaveType: leaveType,
       reason: reason,
+      documentUrl: documentUrl,
+      attachmentName: attachmentName,
       status: 'PENDING',
     );
     mockStaffLeaves.add(leave);
@@ -76,6 +80,8 @@ class MockLeavesRepository implements LeavesRepository {
     required String startDate,
     required String endDate,
     required String reason,
+    String? documentUrl,
+    String? attachmentName,
   }) async {
     if (shouldThrow) throw Exception('Student apply failed');
     final leave = StudentLeaveModel(
@@ -84,6 +90,8 @@ class MockLeavesRepository implements LeavesRepository {
       startDate: startDate,
       endDate: endDate,
       reason: reason,
+      documentUrl: documentUrl,
+      attachmentName: attachmentName,
       status: 'PENDING',
     );
     mockStudentLeaves.add(leave);

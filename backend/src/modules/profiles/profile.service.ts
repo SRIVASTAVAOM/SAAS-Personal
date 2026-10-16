@@ -15,6 +15,7 @@ export class ProfileService {
       emergency_phone?: string;
       blood_group?: string;
       medical_notes?: string;
+      document_url?: string | null;
     }
   ) {
     if (!user.profileId) throw new Error('PROFILE_NOT_FOUND');
@@ -51,6 +52,7 @@ export class ProfileService {
       blood_group?: string | null;
       emergency_phone?: string | null;
       medical_notes?: string | null;
+      document_url?: string | null;
     }
   ) {
     if (!user.profileId) throw new Error('PROFILE_NOT_FOUND');

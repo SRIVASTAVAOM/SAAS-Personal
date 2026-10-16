@@ -42,6 +42,7 @@ import '../repository/student_features_repository.dart';
 import 'views/school_contact_view.dart';
 import 'views/student_birthdays_view.dart';
 import 'views/student_complaints_view.dart';
+import 'views/student_dashboard_view.dart';
 import 'views/student_feedback_view.dart';
 import 'views/student_fees_view.dart';
 import 'views/student_notices_view.dart';
@@ -93,6 +94,18 @@ class _StudentShellState extends State<StudentShell> {
     } catch (_) {
       if (mounted) setState(() => _loadingSubjects = false);
     }
+  }
+
+  void _navigateToTab(int tabIndex, {int? academicSubTab, int? servicesSubTab}) {
+    setState(() {
+      _selectedIndex = tabIndex;
+      if (academicSubTab != null) {
+        _academicSubTab = academicSubTab;
+      }
+      if (servicesSubTab != null) {
+        _servicesSubTab = servicesSubTab;
+      }
+    });
   }
 
   @override
@@ -162,7 +175,7 @@ class _StudentShellState extends State<StudentShell> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.user.displayName),
+              Text(_selectedIndex == 0 ? 'Student Dashboard' : widget.user.displayName),
               BlocBuilder<ProfileBloc, ProfileState>(
                 builder: (context, state) {
                   String subtitle = 'Student Portal';
@@ -207,6 +220,11 @@ class _StudentShellState extends State<StudentShell> {
                 setState(() => _selectedIndex = idx),
             destinations: const [
               NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.fact_check_outlined),
                 selectedIcon: Icon(Icons.fact_check),
                 label: 'Attendance',
@@ -236,12 +254,17 @@ class _StudentShellState extends State<StudentShell> {
   Widget _buildCurrentTab() {
     switch (_selectedIndex) {
       case 0:
-        return const StudentAttendanceHistoryView();
+        return StudentDashboardView(
+          user: widget.user,
+          onNavigateToTab: _navigateToTab,
+        );
       case 1:
-        return _buildAcademicsTab();
+        return const StudentAttendanceHistoryView();
       case 2:
-        return const StudentFeesView();
+        return _buildAcademicsTab();
       case 3:
+        return const StudentFeesView();
+      case 4:
       default:
         return _buildServicesTab();
     }

@@ -25,12 +25,17 @@ class ProfileRepository {
     String? emergencyPhone,
     String? bloodGroup,
     String? medicalNotes,
+    String? documentUrl,
   }) async {
     try {
       final payload = <String, dynamic>{};
       if (emergencyPhone != null) payload['emergency_phone'] = emergencyPhone;
       if (bloodGroup != null) payload['blood_group'] = bloodGroup;
       if (medicalNotes != null) payload['medical_notes'] = medicalNotes;
+      if (documentUrl != null && documentUrl.isNotEmpty) {
+        payload['document_url'] = documentUrl;
+        payload['documentUrl'] = documentUrl;
+      }
 
       final response = await dioClient.dio
           .patch(ApiEndpoints.studentProfile, data: payload);
@@ -49,6 +54,7 @@ class ProfileRepository {
     String? bloodGroup,
     String? emergencyContactPhone,
     String? medicalNotes,
+    String? documentUrl,
   }) async {
     try {
       final payload = <String, dynamic>{};
@@ -59,6 +65,10 @@ class ProfileRepository {
         payload['emergency_phone'] = emergencyContactPhone;
       }
       if (medicalNotes != null) payload['medical_notes'] = medicalNotes;
+      if (documentUrl != null && documentUrl.isNotEmpty) {
+        payload['document_url'] = documentUrl;
+        payload['documentUrl'] = documentUrl;
+      }
 
       await dioClient.patch(
         ApiEndpoints.updateStudentByTeacher(studentId),

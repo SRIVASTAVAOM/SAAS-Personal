@@ -26,6 +26,7 @@ class MockProfileRepository implements ProfileRepository {
     String? emergencyPhone,
     String? bloodGroup,
     String? medicalNotes,
+    String? documentUrl,
   }) async {
     if (shouldThrow) throw Exception('Failed to update student profile');
     return StudentProfileModel(
@@ -39,6 +40,7 @@ class MockProfileRepository implements ProfileRepository {
       emergencyPhone: emergencyPhone ?? studentProfile!.emergencyPhone,
       bloodGroup: bloodGroup ?? studentProfile!.bloodGroup,
       medicalNotes: medicalNotes ?? studentProfile!.medicalNotes,
+      documentUrl: documentUrl ?? studentProfile!.documentUrl,
     );
   }
 
@@ -49,6 +51,7 @@ class MockProfileRepository implements ProfileRepository {
     String? bloodGroup,
     String? emergencyContactPhone,
     String? medicalNotes,
+    String? documentUrl,
   }) async {
     if (shouldThrow) throw Exception('Failed to update student details');
   }

@@ -17,12 +17,15 @@ class StudentProfileModel extends Equatable {
   final String? emergencyPhone;
   final String? bloodGroup;
   final String? medicalNotes;
+  final String? documentUrl;
   final String? className;
   final String? sectionName;
   final String? schoolName;
   final String? schoolPhone;
   final String? schoolEmail;
   final String? schoolAddress;
+  final Map<String, dynamic>? menuConfig;
+  final Map<String, dynamic>? brandingConfig;
 
   const StudentProfileModel({
     required this.id,
@@ -41,12 +44,15 @@ class StudentProfileModel extends Equatable {
     this.emergencyPhone,
     this.bloodGroup,
     this.medicalNotes,
+    this.documentUrl,
     this.className,
     this.sectionName,
     this.schoolName,
     this.schoolPhone,
     this.schoolEmail,
     this.schoolAddress,
+    this.menuConfig,
+    this.brandingConfig,
   });
 
   String get fullName => '$firstName $lastName'.trim();
@@ -69,12 +75,15 @@ class StudentProfileModel extends Equatable {
       emergencyPhone: json['emergency_phone'] as String?,
       bloodGroup: json['blood_group'] as String?,
       medicalNotes: json['medical_notes'] as String?,
+      documentUrl: json['document_url'] as String? ?? json['documentUrl'] as String?,
       className: json['class_name'] as String?,
       sectionName: json['section_name'] as String?,
       schoolName: json['school_name'] as String?,
       schoolPhone: json['school_phone'] as String?,
       schoolEmail: json['school_email'] as String?,
       schoolAddress: json['school_address'] as String?,
+      menuConfig: json['menu_config'] as Map<String, dynamic>?,
+      brandingConfig: json['branding_config'] as Map<String, dynamic>?,
     );
   }
 
@@ -96,12 +105,15 @@ class StudentProfileModel extends Equatable {
         emergencyPhone,
         bloodGroup,
         medicalNotes,
+        documentUrl,
         className,
         sectionName,
         schoolName,
         schoolPhone,
         schoolEmail,
         schoolAddress,
+        menuConfig,
+        brandingConfig,
       ];
 }
 

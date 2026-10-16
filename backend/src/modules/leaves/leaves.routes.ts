@@ -44,7 +44,7 @@ router.patch(
 router.patch(
   '/staff/:id/decide',
   authenticateToken,
-  requireRole(['MANAGEMENT']),
+  requireRole(['MANAGEMENT', 'COORDINATOR']),
   LeavesController.sanctionStaffLeave
 );
 
@@ -64,16 +64,23 @@ router.get(
 );
 
 router.get(
+  '/student/pending-approvals',
+  authenticateToken,
+  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
+  LeavesController.getPendingStudentLeaves
+);
+
+router.get(
   '/student/class-requests',
   authenticateToken,
-  requireRole(['TEACHER']),
+  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
   LeavesController.getClassStudentLeaves
 );
 
 router.patch(
   '/student/:id/status',
   authenticateToken,
-  requireRole(['TEACHER']),
+  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
   LeavesController.updateStudentLeaveStatus
 );
 

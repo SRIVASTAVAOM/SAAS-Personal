@@ -5,9 +5,19 @@ import { ProfileService } from './profile.service';
 
 const studentUpdateSchema = z.object({
   emergency_phone: z.string().min(5).max(20).optional(),
+  emergencyPhone: z.string().min(5).max(20).optional(),
   blood_group: z.string().max(10).optional(),
+  bloodGroup: z.string().max(10).optional(),
   medical_notes: z.string().max(500).optional(),
-});
+  medicalNotes: z.string().max(500).optional(),
+  document_url: z.string().nullable().optional(),
+  documentUrl: z.string().nullable().optional(),
+}).transform((data) => ({
+  emergency_phone: data.emergency_phone !== undefined ? data.emergency_phone : data.emergencyPhone,
+  blood_group: data.blood_group !== undefined ? data.blood_group : data.bloodGroup,
+  medical_notes: data.medical_notes !== undefined ? data.medical_notes : data.medicalNotes,
+  document_url: data.document_url !== undefined ? data.document_url : data.documentUrl,
+}));
 
 const staffUpdateSchema = z.object({
   emergency_phone: z.string().min(5).max(20).optional(),
@@ -26,6 +36,8 @@ const teacherUpdateStudentSchema = z.object({
   emergencyPhone: z.string().min(5).max(20).optional().nullable(),
   medical_notes: z.string().max(500).optional().nullable(),
   medicalNotes: z.string().max(500).optional().nullable(),
+  document_url: z.string().nullable().optional(),
+  documentUrl: z.string().nullable().optional(),
 }).transform((data) => ({
   roll_number: data.roll_number !== undefined ? data.roll_number : data.rollNumber,
   blood_group: data.blood_group !== undefined ? data.blood_group : data.bloodGroup,
@@ -33,6 +45,7 @@ const teacherUpdateStudentSchema = z.object({
     ? data.emergency_contact_phone
     : (data.emergency_phone !== undefined ? data.emergency_phone : data.emergencyPhone),
   medical_notes: data.medical_notes !== undefined ? data.medical_notes : data.medicalNotes,
+  document_url: data.document_url !== undefined ? data.document_url : data.documentUrl,
 }));
 
 export class ProfileController {

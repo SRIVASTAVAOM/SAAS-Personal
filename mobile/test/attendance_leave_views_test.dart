@@ -51,8 +51,25 @@ class StubLeavesRepository implements LeavesRepository {
       DioClient(storageService: SecureStorageService());
 
   @override
-  Future<StaffLeaveModel> applyStaffLeave({required String startDate, required String endDate, required String leaveType, required String reason}) async =>
-      StaffLeaveModel(id: '1', staffId: '1', startDate: startDate, endDate: endDate, leaveType: leaveType, reason: reason, status: 'PENDING');
+  Future<StaffLeaveModel> applyStaffLeave({
+    required String startDate,
+    required String endDate,
+    required String leaveType,
+    required String reason,
+    String? documentUrl,
+    String? attachmentName,
+  }) async =>
+      StaffLeaveModel(
+        id: '1',
+        staffId: '1',
+        startDate: startDate,
+        endDate: endDate,
+        leaveType: leaveType,
+        reason: reason,
+        documentUrl: documentUrl,
+        attachmentName: attachmentName,
+        status: 'PENDING',
+      );
   @override
   Future<List<StaffLeaveModel>> getStaffMyLeaves() async => [];
   @override
@@ -64,8 +81,14 @@ class StubLeavesRepository implements LeavesRepository {
   @override
   Future<void> decideStaffLeave(String l, {required String decision, String? note, String? rejectionReason}) async {}
   @override
-  Future<StudentLeaveModel> applyStudentLeave({required String startDate, required String endDate, required String reason}) async =>
-      StudentLeaveModel(id: '1', studentId: '1', startDate: startDate, endDate: endDate, reason: reason, status: 'PENDING');
+  Future<StudentLeaveModel> applyStudentLeave({
+    required String startDate,
+    required String endDate,
+    required String reason,
+    String? documentUrl,
+    String? attachmentName,
+  }) async =>
+      StudentLeaveModel(id: '1', studentId: '1', startDate: startDate, endDate: endDate, reason: reason, documentUrl: documentUrl, attachmentName: attachmentName, status: 'PENDING');
   @override
   Future<List<StudentLeaveModel>> getStudentMyLeaves() async => [];
   @override

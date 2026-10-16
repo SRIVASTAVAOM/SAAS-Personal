@@ -19,6 +19,8 @@ export interface StaffLeaveRecord {
   management_comment: string | null;
   sanctioned_by_identifier: string | null;
   sanctioned_at: string | null;
+  document_url?: string | null;
+  attachment_name?: string | null;
   created_at: string;
 }
 
@@ -37,8 +39,11 @@ export interface StudentLeaveRecord {
   end_date: string;
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  document_url?: string | null;
+  attachment_name?: string | null;
   remarks?: string | null;
   reviewed_by_staff_id?: string | null;
+  reviewed_by_user_id?: string | null;
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
   created_at: string;
@@ -54,12 +59,14 @@ export class LeavesRepository {
     leaveType: 'SICK' | 'CASUAL' | 'EARNED',
     startDate: string,
     endDate: string,
-    reason: string
+    reason: string,
+    documentUrl?: string | null,
+    attachmentName?: string | null
   ): Promise<StaffLeaveRecord> {
     const query = `
       INSERT INTO staff_leaves (
-        school_id, staff_id, leave_type, start_date, end_date, reason, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')
+        school_id, staff_id, leave_type, start_date, end_date, reason, status, document_url, attachment_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8)
       RETURNING *;
     `;
     const { rows } = await pool.query(query, [
@@ -69,6 +76,8 @@ export class LeavesRepository {
       startDate,
       endDate,
       reason,
+      documentUrl || null,
+      attachmentName || null,
     ]);
     return rows[0];
   }
@@ -233,12 +242,14 @@ export class LeavesRepository {
     sectionId: string,
     startDate: string,
     endDate: string,
-    reason: string
+    reason: string,
+    documentUrl?: string | null,
+    attachmentName?: string | null
   ): Promise<StudentLeaveRecord> {
     const query = `
       INSERT INTO student_leaves (
-        school_id, student_id, class_id, section_id, start_date, end_date, reason, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
+        school_id, student_id, class_id, section_id, start_date, end_date, reason, status, document_url, attachment_name
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', $8, $9)
       RETURNING *;
     `;
     const { rows } = await pool.query(query, [
@@ -249,6 +260,8 @@ export class LeavesRepository {
       startDate,
       endDate,
       reason,
+      documentUrl || null,
+      attachmentName || null,
     ]);
     return rows[0];
   }
@@ -265,12 +278,17 @@ export class LeavesRepository {
         CONCAT(stp.first_name, ' ', stp.last_name) AS student_name,
         c.name AS class_name,
         s.name AS section_name,
-        CONCAT(stf.first_name, ' ', stf.last_name) AS reviewed_by_name
+        COALESCE(
+          CONCAT(stf.first_name, ' ', stf.last_name),
+          CONCAT(u.identifier, ' (Management)'),
+          'Management'
+        ) AS reviewed_by_name
       FROM student_leaves sl
       JOIN student_profiles stp ON sl.student_id = stp.id
       JOIN classes c ON sl.class_id = c.id
       JOIN sections s ON sl.section_id = s.id
       LEFT JOIN staff_profiles stf ON sl.reviewed_by_staff_id = stf.id
+      LEFT JOIN users u ON sl.reviewed_by_user_id = u.id
       WHERE sl.student_id = $1
       ORDER BY sl.created_at DESC;
     `;
@@ -281,7 +299,13 @@ export class LeavesRepository {
   /**
    * Get student leaves for a specific class & section (for Class Teacher).
    */
-  static async getClassStudentLeaves(classId: string, sectionId: string): Promise<StudentLeaveRecord[]> {
+  static async getClassStudentLeaves(classId: string, sectionId: string, status?: string): Promise<StudentLeaveRecord[]> {
+    const params: any[] = [classId, sectionId];
+    let filter = '';
+    if (status) {
+      params.push(status);
+      filter = 'AND sl.status = $3';
+    }
     const query = `
       SELECT 
         sl.*,
@@ -290,16 +314,57 @@ export class LeavesRepository {
         CONCAT(stp.first_name, ' ', stp.last_name) AS student_name,
         c.name AS class_name,
         s.name AS section_name,
-        CONCAT(stf.first_name, ' ', stf.last_name) AS reviewed_by_name
+        COALESCE(
+          CONCAT(stf.first_name, ' ', stf.last_name),
+          CONCAT(u.identifier, ' (Management)'),
+          'Management'
+        ) AS reviewed_by_name
       FROM student_leaves sl
       JOIN student_profiles stp ON sl.student_id = stp.id
       JOIN classes c ON sl.class_id = c.id
       JOIN sections s ON sl.section_id = s.id
       LEFT JOIN staff_profiles stf ON sl.reviewed_by_staff_id = stf.id
-      WHERE sl.class_id = $1 AND sl.section_id = $2
+      LEFT JOIN users u ON sl.reviewed_by_user_id = u.id
+      WHERE sl.class_id = $1 AND sl.section_id = $2 ${filter}
       ORDER BY sl.created_at DESC;
     `;
-    const { rows } = await pool.query(query, [classId, sectionId]);
+    const { rows } = await pool.query(query, params);
+    return rows;
+  }
+
+  /**
+   * Get all student leaves across school (for Admin / Management queue).
+   */
+  static async getAllSchoolStudentLeaves(schoolId: string, status?: string): Promise<StudentLeaveRecord[]> {
+    const params: any[] = [schoolId];
+    let filter = '';
+    if (status) {
+      params.push(status);
+      filter = 'AND sl.status = $2';
+    }
+    const query = `
+      SELECT 
+        sl.*,
+        stp.admission_number,
+        stp.roll_number,
+        CONCAT(stp.first_name, ' ', stp.last_name) AS student_name,
+        c.name AS class_name,
+        s.name AS section_name,
+        COALESCE(
+          CONCAT(stf.first_name, ' ', stf.last_name),
+          CONCAT(u.identifier, ' (Management)'),
+          'Management'
+        ) AS reviewed_by_name
+      FROM student_leaves sl
+      JOIN student_profiles stp ON sl.student_id = stp.id
+      JOIN classes c ON sl.class_id = c.id
+      JOIN sections s ON sl.section_id = s.id
+      LEFT JOIN staff_profiles stf ON sl.reviewed_by_staff_id = stf.id
+      LEFT JOIN users u ON sl.reviewed_by_user_id = u.id
+      WHERE sl.school_id = $1 ${filter}
+      ORDER BY sl.created_at DESC;
+    `;
+    const { rows } = await pool.query(query, params);
     return rows;
   }
 
@@ -315,12 +380,17 @@ export class LeavesRepository {
         CONCAT(stp.first_name, ' ', stp.last_name) AS student_name,
         c.name AS class_name,
         s.name AS section_name,
-        CONCAT(stf.first_name, ' ', stf.last_name) AS reviewed_by_name
+        COALESCE(
+          CONCAT(stf.first_name, ' ', stf.last_name),
+          CONCAT(u.identifier, ' (Management)'),
+          'Management'
+        ) AS reviewed_by_name
       FROM student_leaves sl
       JOIN student_profiles stp ON sl.student_id = stp.id
       JOIN classes c ON sl.class_id = c.id
       JOIN sections s ON sl.section_id = s.id
       LEFT JOIN staff_profiles stf ON sl.reviewed_by_staff_id = stf.id
+      LEFT JOIN users u ON sl.reviewed_by_user_id = u.id
       WHERE sl.id = $1;
     `;
     const { rows } = await pool.query(query, [id]);
@@ -328,12 +398,12 @@ export class LeavesRepository {
   }
 
   /**
-   * Update student leave status (for Class Teacher).
+   * Update student leave status (supported for both Class Teacher and Admin / Management).
    */
   static async updateStudentLeaveStatus(
     id: string,
     status: 'APPROVED' | 'REJECTED',
-    staffId: string,
+    reviewer: { staffId?: string | null; userId?: string | null },
     remarks?: string | null
   ): Promise<StudentLeaveRecord | null> {
     const query = `
@@ -342,12 +412,19 @@ export class LeavesRepository {
         status = $2,
         remarks = $3,
         reviewed_by_staff_id = $4,
+        reviewed_by_user_id = $5,
         reviewed_at = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
       RETURNING *;
     `;
-    await pool.query(query, [id, status, remarks || null, staffId]);
+    await pool.query(query, [
+      id,
+      status,
+      remarks || null,
+      reviewer.staffId || null,
+      reviewer.userId || null,
+    ]);
     return await this.getStudentLeaveById(id);
   }
 

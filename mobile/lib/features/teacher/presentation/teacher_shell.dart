@@ -40,6 +40,7 @@ import '../../schedule/presentation/teacher_timetable_view.dart';
 import '../../schedule/presentation/teacher_substitutions_view.dart';
 import '../../schedule/presentation/teacher_online_classes_view.dart';
 import '../../schedule/repository/schedule_repository.dart';
+import 'views/teacher_dashboard_view.dart';
 
 class TeacherShell extends StatefulWidget {
   final UserModel user;
@@ -54,6 +55,7 @@ class _TeacherShellState extends State<TeacherShell> {
   int _selectedIndex = 0;
   int _attendanceSubTab = 0; // 0: Mark Class, 1: My Own Attendance
   int _classesSubTab = 0; // 0: Roster, 1: Homework, 2: Materials, 3: Syllabus, 4: Exams, 5: Update Student Details
+  int _leavesInitialTab = 0; // 0: My Leaves, 1: Student Leave Requests
   int _rosterSegment = 0; // 0: Homeroom (Class Teacher), 1: All Taught Students / By Subject-Class
   String? _selectedClassSectionFilter; // e.g. '${classId}-${sectionId}' for All Taught view
 
@@ -61,6 +63,15 @@ class _TeacherShellState extends State<TeacherShell> {
   TeacherAllocationItem? _selectedAllocation;
   bool _isLoadingAllocations = true;
   AcademicsBloc? _academicsBloc;
+
+  void _navigateToTab(int tabIndex, {int? attendanceSubTab, int? classesSubTab, int? leavesSubTab}) {
+    setState(() {
+      _selectedIndex = tabIndex;
+      if (attendanceSubTab != null) _attendanceSubTab = attendanceSubTab;
+      if (classesSubTab != null) _classesSubTab = classesSubTab;
+      if (leavesSubTab != null) _leavesInitialTab = leavesSubTab;
+    });
+  }
 
   @override
   void initState() {
@@ -264,6 +275,11 @@ class _TeacherShellState extends State<TeacherShell> {
                 setState(() => _selectedIndex = idx),
             destinations: const [
               NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.check_circle_outline),
                 selectedIcon: Icon(Icons.check_circle),
                 label: 'Attendance',
@@ -293,12 +309,18 @@ class _TeacherShellState extends State<TeacherShell> {
   Widget _buildCurrentTab() {
     switch (_selectedIndex) {
       case 0:
-        return _buildAttendanceTab();
+        return TeacherDashboardView(
+          user: widget.user,
+          allocations: _allocations,
+          onNavigateToTab: _navigateToTab,
+        );
       case 1:
-        return _buildClassesTab();
+        return _buildAttendanceTab();
       case 2:
-        return const TeacherLeaveView();
+        return _buildClassesTab();
       case 3:
+        return TeacherLeaveView(initialTab: _leavesInitialTab);
+      case 4:
       default:
         return const TeacherProfileView();
     }

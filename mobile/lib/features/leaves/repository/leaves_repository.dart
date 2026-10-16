@@ -15,6 +15,8 @@ class LeavesRepository {
     required String endDate,
     required String leaveType,
     required String reason,
+    String? documentUrl,
+    String? attachmentName,
   }) async {
     try {
       final response = await dioClient.dio.post(
@@ -27,6 +29,14 @@ class LeavesRepository {
           'leaveType': leaveType,
           'leave_type': leaveType,
           'reason': reason,
+          if (documentUrl != null && documentUrl.isNotEmpty) ...{
+            'documentUrl': documentUrl,
+            'document_url': documentUrl,
+          },
+          if (attachmentName != null && attachmentName.isNotEmpty) ...{
+            'attachmentName': attachmentName,
+            'attachment_name': attachmentName,
+          },
         },
       );
       return StaffLeaveModel.fromJson(response.data['data'] as Map<String, dynamic>);
@@ -128,17 +138,28 @@ class LeavesRepository {
     required String startDate,
     required String endDate,
     required String reason,
+    String? documentUrl,
+    String? attachmentName,
   }) async {
     try {
+      final payload = <String, dynamic>{
+        'startDate': startDate,
+        'start_date': startDate,
+        'endDate': endDate,
+        'end_date': endDate,
+        'reason': reason,
+      };
+      if (documentUrl != null && documentUrl.isNotEmpty) {
+        payload['documentUrl'] = documentUrl;
+        payload['document_url'] = documentUrl;
+      }
+      if (attachmentName != null && attachmentName.isNotEmpty) {
+        payload['attachmentName'] = attachmentName;
+        payload['attachment_name'] = attachmentName;
+      }
       final response = await dioClient.dio.post(
         ApiEndpoints.studentLeaves,
-        data: {
-          'startDate': startDate,
-          'start_date': startDate,
-          'endDate': endDate,
-          'end_date': endDate,
-          'reason': reason,
-        },
+        data: payload,
       );
       return StudentLeaveModel.fromJson(response.data['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -163,18 +184,26 @@ class LeavesRepository {
     }
   }
 
-  /// Get student leave applications for class teacher's homeroom
+  /// Get student leave applications for class teacher's homeroom or pending approvals
   Future<List<StudentLeaveModel>> getClassStudentLeaves() async {
     try {
-      final response = await dioClient.dio.get(ApiEndpoints.studentClassLeaves);
+      final response = await dioClient.dio.get(ApiEndpoints.studentPendingApprovals);
       final data = response.data['data'] as List<dynamic>;
       return data
           .map((item) => StudentLeaveModel.fromJson(item as Map<String, dynamic>))
           .toList();
-    } on DioException catch (e) {
-      final message = e.response?.data?['error']?.toString() ??
-          'Failed to load class student leave requests';
-      throw Exception(message);
+    } on DioException catch (_) {
+      try {
+        final fallbackResponse = await dioClient.dio.get(ApiEndpoints.studentClassLeaves);
+        final fallbackData = fallbackResponse.data['data'] as List<dynamic>;
+        return fallbackData
+            .map((item) => StudentLeaveModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } on DioException catch (e2) {
+        final message = e2.response?.data?['error']?.toString() ??
+            'Failed to load class student leave requests';
+        throw Exception(message);
+      }
     }
   }
 

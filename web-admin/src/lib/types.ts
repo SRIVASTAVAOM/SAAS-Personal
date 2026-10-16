@@ -47,6 +47,7 @@ export interface PendingLeaveSummary {
   end_date: string;
   reason: string;
   status: string;
+  document_url?: string | null;
   created_at: string;
 }
 

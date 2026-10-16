@@ -44,6 +44,8 @@ class LeavesBloc extends Bloc<LeavesEvent, LeavesState> {
         endDate: event.endDate,
         leaveType: event.leaveType,
         reason: event.reason,
+        documentUrl: event.documentUrl,
+        attachmentName: event.attachmentName,
       );
       emit(const LeaveActionSuccess('Leave application submitted successfully.'));
       final leaves = await repository.getStaffMyLeaves();
@@ -138,6 +140,8 @@ class LeavesBloc extends Bloc<LeavesEvent, LeavesState> {
         startDate: event.startDate,
         endDate: event.endDate,
         reason: event.reason,
+        documentUrl: event.documentUrl,
+        attachmentName: event.attachmentName,
       );
       emit(const LeaveActionSuccess('Student leave submitted successfully.'));
       final leaves = await repository.getStudentMyLeaves();

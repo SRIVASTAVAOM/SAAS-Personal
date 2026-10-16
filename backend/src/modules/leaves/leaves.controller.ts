@@ -11,11 +11,17 @@ const createStaffLeaveSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
   reason: z.string().min(3, 'Reason must be at least 3 characters long'),
+  documentUrl: z.string().nullable().optional(),
+  document_url: z.string().nullable().optional(),
+  attachmentName: z.string().nullable().optional(),
+  attachment_name: z.string().nullable().optional(),
 }).transform((data) => ({
   leaveType: (data.leaveType || data.leave_type)!,
   startDate: (data.startDate || data.start_date)!,
   endDate: (data.endDate || data.end_date)!,
   reason: data.reason,
+  documentUrl: data.documentUrl !== undefined ? data.documentUrl : (data.document_url !== undefined ? data.document_url : null),
+  attachmentName: data.attachmentName !== undefined ? data.attachmentName : (data.attachment_name !== undefined ? data.attachment_name : null),
 })).refine((d) => !!d.leaveType && !!d.startDate && !!d.endDate, {
   message: 'leaveType, startDate, and endDate are required',
 });
@@ -45,10 +51,16 @@ const createStudentLeaveSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
   reason: z.string().min(3, 'Reason must be at least 3 characters long'),
+  documentUrl: z.string().nullable().optional(),
+  document_url: z.string().nullable().optional(),
+  attachmentName: z.string().nullable().optional(),
+  attachment_name: z.string().nullable().optional(),
 }).transform((data) => ({
   startDate: (data.startDate || data.start_date)!,
   endDate: (data.endDate || data.end_date)!,
   reason: data.reason,
+  documentUrl: data.documentUrl !== undefined ? data.documentUrl : (data.document_url !== undefined ? data.document_url : null),
+  attachmentName: data.attachmentName !== undefined ? data.attachmentName : (data.attachment_name !== undefined ? data.attachment_name : null),
 })).refine((d) => !!d.startDate && !!d.endDate, {
   message: 'startDate and endDate are required',
 });
@@ -73,7 +85,9 @@ export class LeavesController {
         parsed.leaveType,
         parsed.startDate,
         parsed.endDate,
-        parsed.reason
+        parsed.reason,
+        parsed.documentUrl,
+        parsed.attachmentName
       );
       res.status(201).json({ success: true, data: leave });
     } catch (err: any) {
@@ -210,7 +224,9 @@ export class LeavesController {
         req.user!,
         parsed.startDate,
         parsed.endDate,
-        parsed.reason
+        parsed.reason,
+        parsed.documentUrl,
+        parsed.attachmentName
       );
       res.status(201).json({ success: true, data: leave });
     } catch (err: any) {
@@ -235,9 +251,24 @@ export class LeavesController {
     }
   }
 
+  static async getPendingStudentLeaves(req: AuthenticatedRequest, res: Response): Promise<void> {
+    try {
+      const { classId, sectionId } = req.query as { classId?: string; sectionId?: string };
+      const leaves = await LeavesService.getPendingStudentLeaves(req.user!, classId, sectionId);
+      res.status(200).json({ success: true, data: leaves });
+    } catch (err: any) {
+      if (err.message === 'NOT_CLASS_TEACHER') {
+        res.status(403).json({ success: false, error: 'Forbidden: You are not assigned as a Class Teacher.' });
+        return;
+      }
+      res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
+  }
+
   static async getClassStudentLeaves(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const leaves = await LeavesService.getClassStudentLeaves(req.user!);
+      const { classId, sectionId } = req.query as { classId?: string; sectionId?: string };
+      const leaves = await LeavesService.getClassStudentLeaves(req.user!, classId, sectionId);
       res.status(200).json({ success: true, data: leaves });
     } catch (err: any) {
       if (err.message === 'NOT_CLASS_TEACHER') {

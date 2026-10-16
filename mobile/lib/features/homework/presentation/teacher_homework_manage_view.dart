@@ -6,6 +6,7 @@ import '../../academics/bloc/academics_state.dart';
 import '../../academics/models/subject_model.dart';
 import '../bloc/homework_bloc.dart';
 import '../models/homework_model.dart';
+import '../../../core/widgets/document_picker_bottom_sheet.dart';
 
 class TeacherHomeworkManageView extends StatefulWidget {
   final String? classId;
@@ -209,6 +210,7 @@ class _TeacherHomeworkManageViewState extends State<TeacherHomeworkManageView> {
   }
 
   void _showCreateHomeworkDialog(BuildContext context) {
+    final academicsBloc = context.read<AcademicsBloc>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -220,13 +222,16 @@ class _TeacherHomeworkManageViewState extends State<TeacherHomeworkManageView> {
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
           ),
-          child: _CreateHomeworkSheet(
-            classId: widget.classId,
-            sectionId: widget.sectionId,
-            onSubmitted: (event) {
-              context.read<HomeworkBloc>().add(event);
-              Navigator.pop(bottomSheetContext);
-            },
+          child: BlocProvider.value(
+            value: academicsBloc,
+            child: _CreateHomeworkSheet(
+              classId: widget.classId,
+              sectionId: widget.sectionId,
+              onSubmitted: (event) {
+                context.read<HomeworkBloc>().add(event);
+                Navigator.pop(bottomSheetContext);
+              },
+            ),
           ),
         );
       },
@@ -276,6 +281,8 @@ class _EditHomeworkSheetState extends State<_EditHomeworkSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descController;
   late DateTime _dueDate;
+  String? _attachedDocumentName;
+  String? _attachedDocumentKey;
 
   @override
   void initState() {
@@ -283,6 +290,8 @@ class _EditHomeworkSheetState extends State<_EditHomeworkSheet> {
     _titleController = TextEditingController(text: widget.hw.title);
     _descController = TextEditingController(text: widget.hw.description);
     _dueDate = DateTime.tryParse(widget.hw.dueDate) ?? DateTime.now().add(const Duration(days: 2));
+    _attachedDocumentName = widget.hw.attachmentName;
+    _attachedDocumentKey = widget.hw.s3AttachmentKey;
   }
 
   @override
@@ -356,6 +365,122 @@ class _EditHomeworkSheetState extends State<_EditHomeworkSheet> {
                   child: const Text('Change Date'),
                 ),
               ),
+              const SizedBox(height: 12),
+              // Attachment Section with Camera & Gallery / Device options
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.attach_file, size: 15, color: Colors.black54),
+                            SizedBox(width: 4),
+                            Text(
+                              'Assignment Document / Photo',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if (_attachedDocumentName != null)
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _attachedDocumentName = null;
+                                _attachedDocumentKey = null;
+                              });
+                            },
+                            child: const Text(
+                              'Remove',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.red,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_attachedDocumentName == null) ...[
+                      OutlinedButton.icon(
+                        key: const Key('edit_hw_attach_btn'),
+                        onPressed: () async {
+                          final doc = await DocumentPickerBottomSheet.show(
+                            context,
+                            title: 'Attach Assignment Document',
+                            subtitle:
+                                'Choose from device storage or take a photo with camera',
+                            categoryPrefix: 'homework_doc',
+                          );
+                          if (doc != null) {
+                            setState(() {
+                              _attachedDocumentName = doc.name;
+                              _attachedDocumentKey = doc.url;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.upload_file, size: 14),
+                        label: const Text('Attach File / Photo (Camera & Gallery)',
+                            style: TextStyle(fontSize: 11)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey.shade300),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        ),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(
+                            _attachedDocumentName!.toLowerCase().endsWith('.pdf')
+                                ? Icons.picture_as_pdf
+                                : Icons.camera_alt_outlined,
+                            size: 16,
+                            color: _attachedDocumentName!.toLowerCase().endsWith('.pdf')
+                                ? const Color(0xFFB91C1C)
+                                : const Color(0xFF2563EB),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _attachedDocumentName!,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final doc = await DocumentPickerBottomSheet.show(
+                                context,
+                                title: 'Attach Assignment Document',
+                                subtitle:
+                                    'Choose from device storage or take a photo with camera',
+                                categoryPrefix: 'homework_doc',
+                              );
+                              if (doc != null) {
+                                setState(() {
+                                  _attachedDocumentName = doc.name;
+                                  _attachedDocumentKey = doc.url;
+                                });
+                              }
+                            },
+                            child: const Text('Change', style: TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 key: const Key('update_homework_btn'),
@@ -367,6 +492,8 @@ class _EditHomeworkSheetState extends State<_EditHomeworkSheet> {
                         title: _titleController.text.trim(),
                         description: _descController.text.trim(),
                         dueDate: _dueDate.toLocal().toString().split(' ')[0],
+                        s3AttachmentKey: _attachedDocumentKey,
+                        attachmentName: _attachedDocumentName,
                       ),
                     );
                   }
@@ -407,6 +534,8 @@ class _CreateHomeworkSheetState extends State<_CreateHomeworkSheet> {
   final _descController = TextEditingController();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 2));
   String? _selectedSubjectId;
+  String? _attachedDocumentName;
+  String? _attachedDocumentKey;
 
   @override
   void dispose() {
@@ -502,6 +631,104 @@ class _CreateHomeworkSheetState extends State<_CreateHomeworkSheet> {
                       child: const Text('Change Date'),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  // Attachment Section with Camera & Gallery / Device options
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.attach_file, size: 15, color: Colors.black54),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Assignment Document / Photo (Optional)',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                            if (_attachedDocumentName != null)
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _attachedDocumentName = null;
+                                    _attachedDocumentKey = null;
+                                  });
+                                },
+                                child: const Text(
+                                  'Remove',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (_attachedDocumentName == null) ...[
+                          OutlinedButton.icon(
+                            key: const Key('create_hw_attach_btn'),
+                            onPressed: () async {
+                              final doc = await DocumentPickerBottomSheet.show(
+                                context,
+                                title: 'Attach Assignment Document',
+                                subtitle:
+                                    'Choose from device storage or take a photo with camera',
+                                categoryPrefix: 'homework_doc',
+                              );
+                              if (doc != null) {
+                                setState(() {
+                                  _attachedDocumentName = doc.name;
+                                  _attachedDocumentKey = doc.url;
+                                });
+                              }
+                            },
+                            icon: const Icon(Icons.upload_file, size: 14),
+                            label: const Text('Attach File / Photo (Camera & Gallery)',
+                                style: TextStyle(fontSize: 11)),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey.shade300),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                          ),
+                        ] else ...[
+                          Row(
+                            children: [
+                              Icon(
+                                _attachedDocumentName!.toLowerCase().endsWith('.pdf')
+                                    ? Icons.picture_as_pdf
+                                    : Icons.camera_alt_outlined,
+                                size: 16,
+                                color: _attachedDocumentName!.toLowerCase().endsWith('.pdf')
+                                    ? const Color(0xFFB91C1C)
+                                    : const Color(0xFF2563EB),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _attachedDocumentName!,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     key: const Key('submit_homework_btn'),
@@ -525,6 +752,8 @@ class _CreateHomeworkSheetState extends State<_CreateHomeworkSheet> {
                             title: _titleController.text.trim(),
                             description: _descController.text.trim(),
                             dueDate: _dueDate.toLocal().toString().split(' ')[0],
+                            s3AttachmentKey: _attachedDocumentKey,
+                            attachmentName: _attachedDocumentName,
                           ),
                         );
                       }

@@ -15,6 +15,8 @@ class StaffLeaveModel {
   final String? decisionNote;
   final String? decidedByName;
   final String? decidedAt;
+  final String? documentUrl;
+  final String? attachmentName;
   final String? createdAt;
 
   const StaffLeaveModel({
@@ -34,6 +36,8 @@ class StaffLeaveModel {
     this.decisionNote,
     this.decidedByName,
     this.decidedAt,
+    this.documentUrl,
+    this.attachmentName,
     this.createdAt,
   });
 
@@ -55,6 +59,8 @@ class StaffLeaveModel {
       decisionNote: json['decision_note'] as String?,
       decidedByName: json['decided_by_name'] as String?,
       decidedAt: json['decided_at'] as String?,
+      documentUrl: json['document_url'] as String?,
+      attachmentName: json['attachment_name'] as String? ?? json['attachmentName'] as String?,
       createdAt: json['created_at'] as String?,
     );
   }

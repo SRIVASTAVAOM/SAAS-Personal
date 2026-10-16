@@ -13,7 +13,9 @@ export class LeavesService {
     leaveType: 'SICK' | 'CASUAL' | 'EARNED',
     startDate: string,
     endDate: string,
-    reason: string
+    reason: string,
+    documentUrl?: string | null,
+    attachmentName?: string | null
   ) {
     if (!user.profileId) {
       throw new Error('PROFILE_NOT_FOUND');
@@ -33,7 +35,9 @@ export class LeavesService {
       leaveType,
       startDate,
       endDate,
-      reason.trim()
+      reason.trim(),
+      documentUrl,
+      attachmentName
     );
   }
 
@@ -123,7 +127,9 @@ export class LeavesService {
     user: TokenPayload,
     startDate: string,
     endDate: string,
-    reason: string
+    reason: string,
+    documentUrl?: string | null,
+    attachmentName?: string | null
   ) {
     if (!user.profileId || !user.classId || !user.sectionId) {
       throw new Error('STUDENT_ENROLLMENT_NOT_FOUND');
@@ -144,7 +150,9 @@ export class LeavesService {
       user.sectionId,
       startDate,
       endDate,
-      reason.trim()
+      reason.trim(),
+      documentUrl || null,
+      attachmentName || null
     );
   }
 
@@ -155,7 +163,40 @@ export class LeavesService {
     return await LeavesRepository.getStudentLeavesByStudentId(user.profileId);
   }
 
-  static async getClassStudentLeaves(user: TokenPayload) {
+  static async getPendingStudentLeaves(user: TokenPayload, classId?: string, sectionId?: string) {
+    const isManagementOrAdmin = user.roles.some((r) =>
+      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+    );
+
+    if (isManagementOrAdmin) {
+      if (classId && sectionId) {
+        return await LeavesRepository.getClassStudentLeaves(classId, sectionId, 'PENDING');
+      }
+      return await LeavesRepository.getAllSchoolStudentLeaves(user.schoolId, 'PENDING');
+    }
+
+    if (!user.profileId) {
+      throw new Error('PROFILE_NOT_FOUND');
+    }
+    const homeroom = await LeavesRepository.getTeacherHomeroom(user.profileId);
+    if (!homeroom) {
+      throw new Error('NOT_CLASS_TEACHER');
+    }
+    return await LeavesRepository.getClassStudentLeaves(homeroom.class_id, homeroom.section_id, 'PENDING');
+  }
+
+  static async getClassStudentLeaves(user: TokenPayload, classId?: string, sectionId?: string) {
+    const isManagementOrAdmin = user.roles.some((r) =>
+      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+    );
+
+    if (isManagementOrAdmin) {
+      if (classId && sectionId) {
+        return await LeavesRepository.getClassStudentLeaves(classId, sectionId);
+      }
+      return await LeavesRepository.getAllSchoolStudentLeaves(user.schoolId);
+    }
+
     if (!user.profileId) {
       throw new Error('PROFILE_NOT_FOUND');
     }
@@ -172,6 +213,33 @@ export class LeavesService {
     status: 'APPROVED' | 'REJECTED',
     remarks?: string | null
   ) {
+    const leave = await LeavesRepository.getStudentLeaveById(leaveId);
+    if (!leave) {
+      throw new Error('LEAVE_NOT_FOUND');
+    }
+
+    if (leave.school_id !== user.schoolId) {
+      throw new Error('FORBIDDEN_SCOPE');
+    }
+
+    // Lock final states (APPROVED/REJECTED) from further edits
+    if (leave.status === 'APPROVED' || leave.status === 'REJECTED') {
+      throw new Error('INVALID_STATE_TRANSITION');
+    }
+
+    const isManagementOrAdmin = user.roles.some((r) =>
+      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+    );
+
+    if (isManagementOrAdmin) {
+      return await LeavesRepository.updateStudentLeaveStatus(
+        leaveId,
+        status,
+        { userId: user.userId, staffId: user.profileId || null },
+        remarks
+      );
+    }
+
     if (!user.profileId) {
       throw new Error('PROFILE_NOT_FOUND');
     }
@@ -181,25 +249,15 @@ export class LeavesService {
       throw new Error('NOT_CLASS_TEACHER');
     }
 
-    const leave = await LeavesRepository.getStudentLeaveById(leaveId);
-    if (!leave) {
-      throw new Error('LEAVE_NOT_FOUND');
-    }
-
     // Class Teacher must be in the same school and assigned to the same class & section
-    if (leave.school_id !== user.schoolId || leave.class_id !== homeroom.class_id || leave.section_id !== homeroom.section_id) {
+    if (leave.class_id !== homeroom.class_id || leave.section_id !== homeroom.section_id) {
       throw new Error('FORBIDDEN_SCOPE');
-    }
-
-    // Lock final states (APPROVED/REJECTED) from further edits
-    if (leave.status === 'APPROVED' || leave.status === 'REJECTED') {
-      throw new Error('INVALID_STATE_TRANSITION');
     }
 
     return await LeavesRepository.updateStudentLeaveStatus(
       leaveId,
       status,
-      user.profileId,
+      { staffId: user.profileId, userId: user.userId },
       remarks
     );
   }

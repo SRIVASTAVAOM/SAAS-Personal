@@ -26,6 +26,7 @@ export interface PendingLeaveSummary {
   end_date: string;
   reason: string;
   status: string;
+  document_url?: string | null;
   created_at: string;
 }
 
@@ -293,6 +294,7 @@ export class AdminRepository {
          TO_CHAR(sl.end_date, 'YYYY-MM-DD') AS end_date,
          sl.reason,
          sl.status,
+         sl.document_url,
          sl.created_at::text
        FROM staff_leaves sl
        JOIN staff_profiles sp ON sl.staff_id = sp.id
@@ -313,6 +315,7 @@ export class AdminRepository {
          TO_CHAR(stl.end_date, 'YYYY-MM-DD') AS end_date,
          stl.reason,
          stl.status,
+         stl.document_url,
          stl.created_at::text
        FROM student_leaves stl
        JOIN student_profiles stp ON stl.student_id = stp.id

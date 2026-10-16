@@ -4,6 +4,7 @@ import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
 import '../bloc/materials_bloc.dart';
 import '../models/academic_material_model.dart';
+import '../../../core/widgets/document_picker_bottom_sheet.dart';
 
 class AcademicMaterialsView extends StatefulWidget {
   final String classId;
@@ -304,6 +305,7 @@ class _UploadMaterialDialogState extends State<_UploadMaterialDialog> {
   final _descController = TextEditingController();
   final _fileNameController = TextEditingController(text: 'Chapter_Summary_Guide.pdf');
   String _selectedContentType = 'application/pdf';
+  String? _pickedDocumentSource;
 
   @override
   void dispose() {
@@ -335,6 +337,91 @@ class _UploadMaterialDialogState extends State<_UploadMaterialDialog> {
                 controller: _descController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              // Camera / Gallery / Device Picker Container
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.attach_file, size: 15, color: Colors.black54),
+                            SizedBox(width: 4),
+                            Text(
+                              'Choose / Capture Document',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if (_pickedDocumentSource != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Text(
+                              _pickedDocumentSource!,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1D4ED8),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const Key('material_pick_file_btn'),
+                      onPressed: () async {
+                        final doc = await DocumentPickerBottomSheet.show(
+                          context,
+                          title: 'Upload Syllabus / Study Material',
+                          subtitle:
+                              'Choose from device storage or take a photo with camera',
+                          categoryPrefix: 'study_material',
+                        );
+                        if (doc != null) {
+                          setState(() {
+                            _fileNameController.text = doc.name;
+                            _pickedDocumentSource = doc.source == DocumentUploadSource.camera
+                                ? 'From Camera'
+                                : 'From Gallery/Device';
+                            if (doc.name.toLowerCase().endsWith('.pdf')) {
+                              _selectedContentType = 'application/pdf';
+                            } else if (doc.name.toLowerCase().endsWith('.png')) {
+                              _selectedContentType = 'image/png';
+                            } else {
+                              _selectedContentType = 'image/jpeg';
+                            }
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.add_a_photo_outlined, size: 14),
+                      label: const Text(
+                        'Device / Camera se File Chunein',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(

@@ -17,6 +17,7 @@ export class ProfileRepository {
         stp.emergency_phone,
         stp.blood_group,
         stp.medical_notes,
+        stp.document_url,
         c.id AS class_id,
         c.name AS class_name,
         s.id AS section_id,
@@ -24,7 +25,9 @@ export class ProfileRepository {
         sch.name AS school_name,
         sch.contact_phone AS school_phone,
         sch.contact_email AS school_email,
-        sch.address AS school_address
+        sch.address AS school_address,
+        sch.menu_config,
+        sch.branding_config
       FROM student_profiles stp
       LEFT JOIN classes c ON stp.current_class_id = c.id
       LEFT JOIN sections s ON stp.current_section_id = s.id
@@ -42,6 +45,7 @@ export class ProfileRepository {
       emergency_phone?: string;
       blood_group?: string;
       medical_notes?: string;
+      document_url?: string | null;
     }
   ) {
     const fields: string[] = [];
@@ -60,6 +64,10 @@ export class ProfileRepository {
       fields.push(`medical_notes = $${idx++}`);
       values.push(updates.medical_notes);
     }
+    if (updates.document_url !== undefined) {
+      fields.push(`document_url = $${idx++}`);
+      values.push(updates.document_url);
+    }
 
     if (fields.length === 0) return null;
 
@@ -68,7 +76,7 @@ export class ProfileRepository {
       UPDATE student_profiles
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${idx}
-      RETURNING id, emergency_phone, blood_group, medical_notes;
+      RETURNING id, emergency_phone, blood_group, medical_notes, document_url;
     `;
     const { rows } = await pool.query(query, values);
     return rows[0] || null;
@@ -89,6 +97,8 @@ export class ProfileRepository {
         sp.phone,
         sp.blood_group,
         sch.name AS school_name,
+        sch.menu_config,
+        sch.branding_config,
         COALESCE(
           json_agg(
             DISTINCT jsonb_build_object(
@@ -105,7 +115,7 @@ export class ProfileRepository {
       JOIN schools sch ON u.school_id = sch.id
       LEFT JOIN staff_assignments sa ON sp.id = sa.staff_id
       WHERE sp.id = $1
-      GROUP BY sp.id, sch.name;
+      GROUP BY sp.id, sch.name, sch.menu_config, sch.branding_config;
     `;
     const { rows } = await pool.query(query, [profileId]);
     return rows[0] || null;
@@ -182,6 +192,7 @@ export class ProfileRepository {
       blood_group?: string | null;
       emergency_phone?: string | null;
       medical_notes?: string | null;
+      document_url?: string | null;
     }
   ) {
     const fields: string[] = [];
@@ -204,6 +215,10 @@ export class ProfileRepository {
       fields.push(`medical_notes = $${idx++}`);
       values.push(updates.medical_notes);
     }
+    if (updates.document_url !== undefined) {
+      fields.push(`document_url = $${idx++}`);
+      values.push(updates.document_url);
+    }
 
     if (fields.length === 0) {
       return await this.getStudentProfile(studentId);
@@ -214,7 +229,7 @@ export class ProfileRepository {
       UPDATE student_profiles
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${idx}
-      RETURNING id, admission_number, roll_number, first_name, last_name, emergency_phone, blood_group, medical_notes;
+      RETURNING id, admission_number, roll_number, first_name, last_name, emergency_phone, blood_group, medical_notes, document_url;
     `;
     const { rows } = await pool.query(query, values);
     return rows[0] || null;

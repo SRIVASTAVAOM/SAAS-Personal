@@ -11,12 +11,16 @@ class ApplyStaffLeaveEvent extends LeavesEvent {
   final String endDate;
   final String leaveType;
   final String reason;
+  final String? documentUrl;
+  final String? attachmentName;
 
   const ApplyStaffLeaveEvent({
     required this.startDate,
     required this.endDate,
     required this.leaveType,
     required this.reason,
+    this.documentUrl,
+    this.attachmentName,
   });
 }
 
@@ -60,11 +64,15 @@ class ApplyStudentLeaveEvent extends LeavesEvent {
   final String startDate;
   final String endDate;
   final String reason;
+  final String? documentUrl;
+  final String? attachmentName;
 
   const ApplyStudentLeaveEvent({
     required this.startDate,
     required this.endDate,
     required this.reason,
+    this.documentUrl,
+    this.attachmentName,
   });
 }
 

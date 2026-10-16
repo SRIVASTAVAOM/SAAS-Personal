@@ -39,6 +39,11 @@ class StaffProfileModel extends Equatable {
   final String? emergencyPhone;
   final String? bloodGroup;
   final List<StaffAllocationItem> allocations;
+  final String? schoolName;
+  final String? designation;
+  final Map<String, dynamic>? menuConfig;
+  final Map<String, dynamic>? brandingConfig;
+  final List<dynamic>? assignments;
 
   const StaffProfileModel({
     required this.id,
@@ -53,9 +58,23 @@ class StaffProfileModel extends Equatable {
     this.emergencyPhone,
     this.bloodGroup,
     required this.allocations,
+    this.schoolName,
+    this.designation,
+    this.menuConfig,
+    this.brandingConfig,
+    this.assignments,
   });
 
   String get fullName => '$firstName $lastName'.trim();
+
+  bool get isClassTeacher {
+    if (assignments != null) {
+      final hasClassTeacher = assignments!.any((a) =>
+          a is Map && (a['assignment_type'] == 'CLASS_TEACHER' || a['assignmentType'] == 'CLASS_TEACHER'));
+      if (hasClassTeacher) return true;
+    }
+    return false;
+  }
 
   factory StaffProfileModel.fromJson(Map<String, dynamic> json) {
     return StaffProfileModel(
@@ -74,6 +93,11 @@ class StaffProfileModel extends Equatable {
               ?.map((e) => StaffAllocationItem.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      schoolName: json['school_name'] as String?,
+      designation: json['designation'] as String? ?? json['qualification'] as String?,
+      menuConfig: json['menu_config'] as Map<String, dynamic>?,
+      brandingConfig: json['branding_config'] as Map<String, dynamic>?,
+      assignments: json['assignments'] as List<dynamic>?,
     );
   }
 
@@ -91,5 +115,10 @@ class StaffProfileModel extends Equatable {
         emergencyPhone,
         bloodGroup,
         allocations,
+        schoolName,
+        designation,
+        menuConfig,
+        brandingConfig,
+        assignments,
       ];
 }

@@ -158,4 +158,29 @@ export const api = {
       return request<ExamItem[]>('/exams');
     },
   },
+
+  // Leave Management (Dual-visibility Approvals)
+  leaves: {
+    updateStudentLeaveStatus: async (
+      id: string,
+      status: 'APPROVED' | 'REJECTED',
+      remarks?: string
+    ): Promise<any> => {
+      return request(`/leaves/student/${encodeURIComponent(id)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, remarks }),
+      });
+    },
+
+    decideStaffLeave: async (
+      id: string,
+      decision: 'APPROVED' | 'REJECTED',
+      comment?: string
+    ): Promise<any> => {
+      return request(`/leaves/staff/${encodeURIComponent(id)}/decide`, {
+        method: 'PATCH',
+        body: JSON.stringify({ decision, comment }),
+      });
+    },
+  },
 };
