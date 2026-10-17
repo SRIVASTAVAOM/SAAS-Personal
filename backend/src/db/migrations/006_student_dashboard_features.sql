@@ -81,13 +81,26 @@ CREATE INDEX IF NOT EXISTS idx_feedback_student ON school_feedback(student_id);
 -- Seed realistic sample records for student1
 DO $$
 DECLARE
-    v_school_id UUID := '65c2e388-65e7-4441-9f63-2ed046bfefd0';
-    v_student_id UUID := '0a7689ba-2288-43ec-b451-006592be6be3';
-    v_class_id UUID := '2dfb941e-8bc6-448f-b00e-fc48dd052e11';
-    v_ay_id UUID := 'af6d0f49-741a-44c9-9986-92fb43379bf7';
+    v_school_id UUID;
+    v_student_id UUID;
+    v_class_id UUID;
+    v_ay_id UUID;
     v_fee_id_1 UUID;
     v_fee_id_2 UUID;
 BEGIN
+    SELECT id INTO v_school_id FROM schools LIMIT 1;
+    IF v_school_id IS NULL THEN
+        -- Clean DB: DDL migration runs before seed.ts. Skip sample data insertion.
+        RETURN;
+    END IF;
+
+    SELECT id INTO v_student_id FROM student_profiles LIMIT 1;
+    SELECT id INTO v_class_id FROM classes WHERE school_id = v_school_id LIMIT 1;
+    SELECT id INTO v_ay_id FROM academic_years WHERE school_id = v_school_id LIMIT 1;
+
+    IF v_student_id IS NULL OR v_class_id IS NULL OR v_ay_id IS NULL THEN
+        RETURN;
+    END IF;
     -- Seed Notices
     IF NOT EXISTS (SELECT 1 FROM notices WHERE title = 'Annual Sports Meet 2026 Schedule') THEN
         INSERT INTO notices (school_id, title, content, target_role, priority, published_at)

@@ -552,6 +552,70 @@ export async function runSeeds(): Promise<void> {
       );
     }
 
+    // 23. Seed Sample Notices
+    await client.query(`
+      INSERT INTO notices (school_id, title, content, target_role, priority, published_at)
+      SELECT $1, 'Annual Sports Meet 2026 Schedule', 'The Annual Inter-House Athletics and Sports Meet will take place from November 15 to November 17, 2026. All participants must report to the sports ground by 8:00 AM.', 'ALL', 'INFO', CURRENT_TIMESTAMP - INTERVAL '2 days'
+      WHERE NOT EXISTS (SELECT 1 FROM notices WHERE school_id = $1 AND title = 'Annual Sports Meet 2026 Schedule');
+    `, [schoolId]);
+
+    await client.query(`
+      INSERT INTO notices (school_id, title, content, target_role, target_class_id, priority, published_at)
+      SELECT $1, 'Grade 10 Science Exhibition & Project Submission', 'All Class 10 students are required to submit their Science exhibition synopsis and working model blueprint to their subject teachers by next Monday.', 'STUDENT', $2, 'URGENT', CURRENT_TIMESTAMP - INTERVAL '1 day'
+      WHERE NOT EXISTS (SELECT 1 FROM notices WHERE school_id = $1 AND title = 'Grade 10 Science Exhibition & Project Submission');
+    `, [schoolId, classId]);
+
+    // 24. Seed Student Fees for Student 1
+    if (std1Res.rows.length > 0) {
+      const s1Id = std1Res.rows[0].id;
+      const feeRes = await client.query(`
+        INSERT INTO student_fees (school_id, student_id, academic_year_id, fee_title, due_date, amount, amount_paid, status)
+        SELECT $1, $2, $3, 'Quarter 1 Tuition & Laboratory Fee', '2026-04-15', 15000.00, 15000.00, 'PAID'
+        WHERE NOT EXISTS (SELECT 1 FROM student_fees WHERE student_id = $2 AND fee_title = 'Quarter 1 Tuition & Laboratory Fee')
+        RETURNING id;
+      `, [schoolId, s1Id, academicYearId]);
+
+      if (feeRes.rows.length > 0) {
+        await client.query(`
+          INSERT INTO fee_receipts (school_id, student_fee_id, student_id, receipt_number, payment_date, amount_paid, payment_mode, transaction_reference, remarks)
+          VALUES ($1, $2, $3, 'REC-2026-00412', '2026-04-10', 15000.00, 'BANK_TRANSFER', 'HDFC-TXN-882194', 'Paid in full for Quarter 1')
+          ON CONFLICT (receipt_number) DO NOTHING;
+        `, [schoolId, feeRes.rows[0].id, s1Id]);
+      }
+
+      await client.query(`
+        INSERT INTO student_fees (school_id, student_id, academic_year_id, fee_title, due_date, amount, amount_paid, status)
+        SELECT $1, $2, $3, 'Quarter 2 Tuition Fee', '2026-07-15', 12500.00, 0.00, 'PENDING'
+        WHERE NOT EXISTS (SELECT 1 FROM student_fees WHERE student_id = $2 AND fee_title = 'Quarter 2 Tuition Fee');
+      `, [schoolId, s1Id, academicYearId]);
+    }
+
+    // 25. Seed Timetable Slots for Teacher 1
+    if (teacherStaff.rows.length > 0 && mathSubjectId && sciSubjectId) {
+      const tId = teacherStaff.rows[0].id;
+      const slots = [
+        { day: 1, period: 1, start: '08:30', end: '09:15', sub: mathSubjectId, room: 'Room 101' },
+        { day: 1, period: 3, start: '10:15', end: '11:00', sub: sciSubjectId, room: 'Lab-2' },
+        { day: 2, period: 2, start: '09:15', end: '10:00', sub: mathSubjectId, room: 'Room 101' },
+        { day: 2, period: 4, start: '11:00', end: '11:45', sub: sciSubjectId, room: 'Lab-2' },
+        { day: 3, period: 1, start: '08:30', end: '09:15', sub: mathSubjectId, room: 'Room 101' },
+        { day: 3, period: 2, start: '09:15', end: '10:00', sub: sciSubjectId, room: 'Lab-2' },
+        { day: 4, period: 2, start: '09:15', end: '10:00', sub: sciSubjectId, room: 'Lab-2' },
+        { day: 4, period: 5, start: '12:30', end: '13:15', sub: mathSubjectId, room: 'Room 101' },
+      ];
+
+      for (const slot of slots) {
+        await client.query(`
+          INSERT INTO timetable_slots (school_id, academic_year_id, class_id, section_id, day_of_week, period_number, start_time, end_time, subject_id, teacher_id, room_number)
+          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+          WHERE NOT EXISTS (
+            SELECT 1 FROM timetable_slots
+            WHERE teacher_id = $10 AND day_of_week = $5 AND period_number = $6
+          );
+        `, [schoolId, academicYearId, classId, sectionId, slot.day, slot.period, slot.start, slot.end, slot.sub, tId, slot.room]);
+      }
+    }
+
     await client.query('COMMIT');
     console.log('[Seed]: Database seeding completed successfully.');
   } catch (error) {

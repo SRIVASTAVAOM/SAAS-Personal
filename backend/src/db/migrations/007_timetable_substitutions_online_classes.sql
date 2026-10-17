@@ -63,9 +63,9 @@ CREATE INDEX IF NOT EXISTS idx_online_classes_class_sec ON online_class_sessions
 -- Seed realistic records for Apex International School
 DO $$
 DECLARE
-    v_school_id UUID := '65c2e388-65e7-4441-9f63-2ed046bfefd0';
-    v_ay_id UUID := 'af6d0f49-741a-44c9-9986-92fb43379bf7';
-    v_class_id UUID := '2dfb941e-8bc6-448f-b00e-fc48dd052e11'; -- Grade 10
+    v_school_id UUID;
+    v_ay_id UUID;
+    v_class_id UUID;
     v_section_id UUID;
     v_teacher_staff_id UUID;
     v_coord_staff_id UUID;
@@ -75,6 +75,22 @@ DECLARE
     v_slot_1 UUID;
     v_slot_2 UUID;
 BEGIN
+    SELECT id INTO v_school_id FROM schools LIMIT 1;
+    IF v_school_id IS NULL THEN
+        -- Clean DB: DDL migration runs before seed.ts. Skip sample data insertion.
+        RETURN;
+    END IF;
+
+    SELECT id INTO v_ay_id FROM academic_years WHERE school_id = v_school_id LIMIT 1;
+    SELECT id INTO v_class_id FROM classes WHERE school_id = v_school_id AND name = 'Grade 10' LIMIT 1;
+    IF v_class_id IS NULL THEN
+        SELECT id INTO v_class_id FROM classes WHERE school_id = v_school_id LIMIT 1;
+    END IF;
+
+    IF v_ay_id IS NULL OR v_class_id IS NULL THEN
+        RETURN;
+    END IF;
+
     -- Resolve Section A for Grade 10
     SELECT id INTO v_section_id FROM sections WHERE class_id = v_class_id AND name = 'Section A' LIMIT 1;
 
