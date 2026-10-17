@@ -5,10 +5,12 @@
   "main": "dist/app.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('src/db/migrations', 'dist/src/db/migrations', {recursive: true, force: true});\"",
+    "start": "node dist/src/server.js",
     "migrate": "ts-node src/db/migrate.ts",
+    "migrate:prod": "node dist/src/db/migrate.js",
     "seed": "ts-node src/db/seed.ts",
+    "seed:prod": "node dist/src/db/seed.js",
     "test": "jest --runInBand --detectOpenHandles"
   },
   "dependencies": {

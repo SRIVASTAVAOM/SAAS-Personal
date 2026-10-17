@@ -135,17 +135,29 @@ export async function runSeeds(): Promise<void> {
 
         // Add scoped assignment for Coordinator & Teacher
         if (u.role === 'COORDINATOR') {
-          await client.query(
-            `INSERT INTO staff_assignments (staff_id, wing_id, assignment_type)
-             VALUES ($1, $2, $3);`,
-            [staffId, seniorWingId, 'COORDINATOR']
+          const assignCheck = await client.query(
+            `SELECT id FROM staff_assignments WHERE staff_id = $1 AND assignment_type = 'COORDINATOR';`,
+            [staffId]
           );
+          if (assignCheck.rows.length === 0) {
+            await client.query(
+              `INSERT INTO staff_assignments (staff_id, wing_id, assignment_type)
+               VALUES ($1, $2, $3);`,
+              [staffId, seniorWingId, 'COORDINATOR']
+            );
+          }
         } else if (u.role === 'TEACHER') {
-          await client.query(
-            `INSERT INTO staff_assignments (staff_id, wing_id, class_id, section_id, assignment_type)
-             VALUES ($1, $2, $3, $4, $5);`,
-            [staffId, seniorWingId, classId, sectionId, 'CLASS_TEACHER']
+          const assignCheck = await client.query(
+            `SELECT id FROM staff_assignments WHERE staff_id = $1 AND assignment_type = 'CLASS_TEACHER';`,
+            [staffId]
           );
+          if (assignCheck.rows.length === 0) {
+            await client.query(
+              `INSERT INTO staff_assignments (staff_id, wing_id, class_id, section_id, assignment_type)
+               VALUES ($1, $2, $3, $4, $5);`,
+              [staffId, seniorWingId, classId, sectionId, 'CLASS_TEACHER']
+            );
+          }
         }
       }
     }
@@ -356,33 +368,47 @@ export async function runSeeds(): Promise<void> {
     let hw1Id: string | null = null;
     if (teacherStaff.rows.length > 0 && mathSubjectId) {
       const tId = teacherStaff.rows[0].id;
-      const hwRes = await client.query(
-        `INSERT INTO homework_assignments 
-          (school_id, class_id, section_id, subject_id, assigned_by_staff_id, 
-           title, description, assigned_date, due_date, s3_attachment_key, attachment_name)
-         VALUES 
-           ($1, $2, $3, $4, $5, 
-            'Exercise 4.2 Quadratic Formula Practice', 
-            'Solve problems 1 to 10 from NCERT textbook Chapter 4. Show complete step-by-step discriminant working.',
-            CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '2 days',
-            'schools/APEX01/homework/math_hw_ch4.pdf', 'Quadratic_Formula_Worksheet.pdf')
-         RETURNING id;`,
-        [schoolId, classId, sectionId, mathSubjectId, tId]
+      const existingHw1 = await client.query(
+        `SELECT id FROM homework_assignments WHERE school_id = $1 AND class_id = $2 AND title = $3;`,
+        [schoolId, classId, 'Exercise 4.2 Quadratic Formula Practice']
       );
-      hw1Id = hwRes.rows[0].id;
-
-      if (sciSubjectId) {
-        await client.query(
+      if (existingHw1.rows.length > 0) {
+        hw1Id = existingHw1.rows[0].id;
+      } else {
+        const hwRes = await client.query(
           `INSERT INTO homework_assignments 
             (school_id, class_id, section_id, subject_id, assigned_by_staff_id, 
-             title, description, assigned_date, due_date)
+             title, description, assigned_date, due_date, s3_attachment_key, attachment_name)
            VALUES 
              ($1, $2, $3, $4, $5, 
-              'Chemical Reactions Lab Observations', 
-              'Write balanced chemical equations for displacement and double displacement reactions observed in today lab.',
-              CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days');`,
-          [schoolId, classId, sectionId, sciSubjectId, tId]
+              'Exercise 4.2 Quadratic Formula Practice', 
+              'Solve problems 1 to 10 from NCERT textbook Chapter 4. Show complete step-by-step discriminant working.',
+              CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '2 days',
+              'schools/APEX01/homework/math_hw_ch4.pdf', 'Quadratic_Formula_Worksheet.pdf')
+           RETURNING id;`,
+          [schoolId, classId, sectionId, mathSubjectId, tId]
         );
+        hw1Id = hwRes.rows[0].id;
+      }
+
+      if (sciSubjectId) {
+        const existingHw2 = await client.query(
+          `SELECT id FROM homework_assignments WHERE school_id = $1 AND class_id = $2 AND title = $3;`,
+          [schoolId, classId, 'Chemical Reactions Lab Observations']
+        );
+        if (existingHw2.rows.length === 0) {
+          await client.query(
+            `INSERT INTO homework_assignments 
+              (school_id, class_id, section_id, subject_id, assigned_by_staff_id, 
+               title, description, assigned_date, due_date)
+             VALUES 
+               ($1, $2, $3, $4, $5, 
+                'Chemical Reactions Lab Observations', 
+                'Write balanced chemical equations for displacement and double displacement reactions observed in today lab.',
+                CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days');`,
+            [schoolId, classId, sectionId, sciSubjectId, tId]
+          );
+        }
       }
     }
 
@@ -400,29 +426,44 @@ export async function runSeeds(): Promise<void> {
     // 18. Seed Verified Academic Material (Grade 10 Mathematics Revision Notes)
     if (teacherStaff.rows.length > 0 && mathSubjectId) {
       const tId = teacherStaff.rows[0].id;
-      await client.query(
-        `INSERT INTO academic_materials 
-          (school_id, class_id, section_id, subject_id, uploaded_by_staff_id,
-           title, description, s3_file_key, file_name, file_size_bytes, content_type, is_verified)
-         VALUES 
-           ($1, $2, $3, $4, $5,
-            'Chapter 1-4 Comprehensive Formula Sheet',
-            'Quick reference revision handbook containing all key algebra and quadratic formula derivations.',
-            'schools/APEX01/materials/math_grade10_formulas.pdf',
-            'Math_Formula_Handbook_Grade10.pdf',
-            2457600, 'application/pdf', true);`,
-        [schoolId, classId, sectionId, mathSubjectId, tId]
+      const existingMat = await client.query(
+        `SELECT id FROM academic_materials WHERE school_id = $1 AND class_id = $2 AND title = $3;`,
+        [schoolId, classId, 'Chapter 1-4 Comprehensive Formula Sheet']
       );
+      if (existingMat.rows.length === 0) {
+        await client.query(
+          `INSERT INTO academic_materials 
+            (school_id, class_id, section_id, subject_id, uploaded_by_staff_id,
+             title, description, s3_file_key, file_name, file_size_bytes, content_type, is_verified)
+           VALUES 
+             ($1, $2, $3, $4, $5,
+              'Chapter 1-4 Comprehensive Formula Sheet',
+              'Quick reference revision handbook containing all key algebra and quadratic formula derivations.',
+              'schools/APEX01/materials/math_grade10_formulas.pdf',
+              'Math_Formula_Handbook_Grade10.pdf',
+              2457600, 'application/pdf', true);`,
+          [schoolId, classId, sectionId, mathSubjectId, tId]
+        );
+      }
     }
 
     // 19. Seed Examination (Mid-Term Examination 2026)
-    const examRes = await client.query(
-      `INSERT INTO exams (school_id, academic_year_id, wing_id, name, description, start_date, end_date, is_published)
-       VALUES ($1, $2, $3, 'Mid-Term Examination 2026', 'First term comprehensive assessment for Senior Wing.', '2026-11-01', '2026-11-15', true)
-       RETURNING id;`,
-      [schoolId, yearRes.rows[0].id, seniorWingId]
+    let examId: string;
+    const existingExam = await client.query(
+      `SELECT id FROM exams WHERE school_id = $1 AND academic_year_id = $2 AND name = $3;`,
+      [schoolId, yearRes.rows[0].id, 'Mid-Term Examination 2026']
     );
-    const examId = examRes.rows[0].id;
+    if (existingExam.rows.length > 0) {
+      examId = existingExam.rows[0].id;
+    } else {
+      const examRes = await client.query(
+        `INSERT INTO exams (school_id, academic_year_id, wing_id, name, description, start_date, end_date, is_published)
+         VALUES ($1, $2, $3, 'Mid-Term Examination 2026', 'First term comprehensive assessment for Senior Wing.', '2026-11-01', '2026-11-15', true)
+         RETURNING id;`,
+        [schoolId, yearRes.rows[0].id, seniorWingId]
+      );
+      examId = examRes.rows[0].id;
+    }
 
     // 20. Seed Exam Datesheets for Mathematics & Science in Grade 10
     let mathDatesheetId: string | null = null;

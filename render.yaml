@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: school-erp-backend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build && npm run migrate:prod && npm run seed:prod
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: school-erp-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_S3_BUCKET_NAME
+        value: school-erp-production-storage
+
+databases:
+  - name: school-erp-db
+    databaseName: school_erp_db
+    user: school_admin
+    plan: free
+    region: oregon
