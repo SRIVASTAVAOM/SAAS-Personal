@@ -1,11 +1,11 @@
 {
-    "name": "mobile",
-    "short_name": "mobile",
+    "name": "School ERP",
+    "short_name": "School ERP",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "School ERP Mobile Suite for Students, Teachers & Staff",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
