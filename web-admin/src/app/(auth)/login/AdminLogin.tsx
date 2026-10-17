@@ -84,10 +84,10 @@ export default function AdminLogin() {
         <div className="admin-login-card">
           <div className="admin-login-illustration" aria-hidden="true">
             <Image
-              src="/admin-login-illustration.png"
+              src="/admin-login-illustration.webp"
               alt=""
-              width={585}
-              height={571}
+              width={1048}
+              height={1008}
               className="admin-login-illustration-img"
               priority
             />
