@@ -21,4 +21,4 @@ COPY --from=builder /app/dist ./dist
 COPY src/db/migrations ./src/db/migrations
 
 EXPOSE 5001
-CMD ["node", "dist/src/server.js"]
+CMD ["sh", "-c", "node dist/src/db/migrate.js && node dist/src/db/seed.js && node dist/src/server.js"]

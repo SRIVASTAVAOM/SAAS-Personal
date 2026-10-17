@@ -53,8 +53,8 @@ You have two convenient options on Render:
 4. Render will automatically read `render.yaml` and configure:
    - **Database**: `school-erp-db` (PostgreSQL)
    - **Web Service**: `school-erp-backend`
-   - **Build Command**: `npm install && npm run build && npm run migrate:prod && npm run seed:prod`
-   - **Start Command**: `npm start`
+   - **Build Command**: `npm install --include=dev && npm run build`
+   - **Start Command**: `npm run migrate:prod && npm run seed:prod && npm start`
    - **Health Check**: `/health`
 5. Click **Apply**.
 6. Render will provision the PostgreSQL instance, run migrations (001–008), seed default users, and launch the API server.
@@ -75,8 +75,8 @@ If you prefer setting it up step-by-step:
    - Settings:
      - **Root Directory**: `backend`
      - **Runtime**: `Node`
-     - **Build Command**: `npm install && npm run build && npm run migrate:prod && npm run seed:prod`
-     - **Start Command**: `npm start`
+     - **Build Command**: `npm install --include=dev && npm run build`
+     - **Start Command**: `npm run migrate:prod && npm run seed:prod && npm start`
      - **Instance Type**: `Free`
    - **Environment Variables**:
      - `NODE_ENV`: `production`

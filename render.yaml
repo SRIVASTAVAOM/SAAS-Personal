@@ -5,10 +5,12 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build && npm run migrate:prod && npm run seed:prod
-    startCommand: npm start
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run migrate:prod && npm run seed:prod && npm start
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: 22
       - key: NODE_ENV
         value: production
       - key: PORT
