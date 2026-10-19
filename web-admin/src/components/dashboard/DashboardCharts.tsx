@@ -14,7 +14,7 @@ export const CHART_COLORS = {
 type TooltipRow = { label: string; value: string; color?: string };
 type TooltipState = { x: number; y: number; width: number; title: string; rows: TooltipRow[] };
 
-function useChartTooltip() {
+export function useChartTooltip() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<TooltipState | null>(null);
 
@@ -28,7 +28,7 @@ function useChartTooltip() {
   return { containerRef, tip, show, hide };
 }
 
-function ChartTooltip({ tip }: { tip: TooltipState | null }) {
+export function ChartTooltip({ tip }: { tip: TooltipState | null }) {
   if (!tip) return null;
   const flip = tip.x > tip.width - 200;
   return (
@@ -51,7 +51,7 @@ function ChartTooltip({ tip }: { tip: TooltipState | null }) {
 }
 
 /** Round a positive number up to a 1/2/5 x 10^n step so the axis reads cleanly. */
-function niceMax(value: number) {
+export function niceMax(value: number) {
   if (value <= 0) return 10;
   const exp = Math.pow(10, Math.floor(Math.log10(value)));
   const f = value / exp;
@@ -201,10 +201,12 @@ export function DonutChart({
   slices,
   centerValue,
   centerLabel,
+  unitLabel = "Students",
 }: {
   slices: DonutSlice[];
   centerValue: string;
   centerLabel: string;
+  unitLabel?: string;
 }) {
   const { containerRef, tip, show, hide } = useChartTooltip();
   const total = slices.reduce((acc, s) => acc + s.value, 0);
@@ -234,7 +236,7 @@ export function DonutChart({
                 strokeDashoffset={-offset}
                 transform="rotate(-90 100 100)"
                 onMouseMove={(e) =>
-                  show(e, s.label, [{ label: 'Students', value: `${s.value} (${pct}%)`, color: s.color }])
+                  show(e, s.label, [{ label: unitLabel, value: `${s.value} (${pct}%)`, color: s.color }])
                 }
                 onMouseLeave={hide}
                 style={{ cursor: 'default' }}

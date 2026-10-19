@@ -18,6 +18,9 @@ import {
   Sun,
   MessageSquare,
   FolderOpen,
+  Layers,
+  Activity,
+  PieChart,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
@@ -26,6 +29,8 @@ import {
   UploadCategory,
   RecentUploadItem,
 } from '@/lib/types';
+import { DonutChart, DonutSlice } from '@/components/dashboard/DashboardCharts';
+import { ColumnChart, ColumnItem } from '@/components/uploads/UploadCharts';
 
 const UPLOAD_CATEGORIES: UploadCategory[] = [
   'Syllabus',
@@ -44,6 +49,70 @@ const CATEGORY_ICON: Record<UploadCategory, React.ComponentType<{ className?: st
   'Holiday HW': Sun,
   'Daily HW Message': MessageSquare,
 };
+
+// Category colours shared by the donut, the bar chart, and the legend.
+const CATEGORY_COLOR: Record<UploadCategory, string> = {
+  Syllabus: '#7560E8',
+  Assignment: '#EC4899',
+  'Practice Sheet': '#3B82F6',
+  Datesheet: '#22C55E',
+  'Holiday HW': '#F59E0B',
+  'Daily HW Message': '#A78BFA',
+};
+
+const CATEGORY_SHORT: Record<UploadCategory, string> = {
+  Syllabus: 'Syllabus',
+  Assignment: 'Assignment',
+  'Practice Sheet': 'Practice',
+  Datesheet: 'Datesheet',
+  'Holiday HW': 'Holiday HW',
+  'Daily HW Message': 'Daily HW',
+};
+
+function formatShortDate(iso: string) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function formatLongDate(iso: string) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function ResourceKpiCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  from,
+  to,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: React.ComponentType<{ className?: string }>;
+  from: string;
+  to: string;
+}) {
+  return (
+    <div
+      className="rounded-xl p-5 text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+      style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-white/85">{label}</span>
+        <span className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4" />
+        </span>
+      </div>
+      <div className="mt-3 text-3xl font-bold tabular-nums">{value}</div>
+      <div className="mt-1 text-xs text-white/85">{detail}</div>
+    </div>
+  );
+}
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -237,6 +306,48 @@ export default function UnifiedUploadsPage() {
     return true;
   });
 
+  // Metrics from the repository list. Each record has one category, so the three
+  // KPI groups below add up to the total without double-counting.
+  const categoryCounts = UPLOAD_CATEGORIES.map((cat) => ({
+    cat,
+    value: uploads.filter((u) => u.type === cat).length,
+  }));
+  const countOf = (cat: UploadCategory) => categoryCounts.find((c) => c.cat === cat)?.value ?? 0;
+  const totalResources = uploads.length;
+  const assignmentCount = countOf('Assignment');
+  const syllabusDocCount = countOf('Syllabus') + countOf('Datesheet');
+  const homeworkPracticeCount = countOf('Practice Sheet') + countOf('Holiday HW') + countOf('Daily HW Message');
+  const shareOfTotal = (n: number) =>
+    totalResources > 0 ? `${Math.round((n / totalResources) * 100)}% of all resources` : 'No resources yet';
+
+  const donutSlices: DonutSlice[] = categoryCounts
+    .filter((c) => c.value > 0)
+    .map((c) => ({ label: c.cat, value: c.value, color: CATEGORY_COLOR[c.cat] }));
+
+  const categoryItems: ColumnItem[] = categoryCounts.map((c) => ({
+    label: CATEGORY_SHORT[c.cat],
+    tooltip: c.cat,
+    value: c.value,
+    color: CATEGORY_COLOR[c.cat],
+  }));
+
+  // Upload activity per date. Only records with a valid YYYY-MM-DD date are counted.
+  const activityItems: ColumnItem[] = (() => {
+    const byDate = new Map<string, number>();
+    for (const u of uploads) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(u.created_at)) continue;
+      byDate.set(u.created_at, (byDate.get(u.created_at) ?? 0) + 1);
+    }
+    return Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, value]) => ({
+        label: formatShortDate(date),
+        tooltip: formatLongDate(date),
+        value,
+        color: '#7560E8',
+      }));
+  })();
+
   // Live summary of what the publish button will send
   const curSecLabel = (() => {
     const s = sections.find((x) => x.class_id === selectedClassId && x.section_id === selectedSectionId);
@@ -255,7 +366,7 @@ export default function UnifiedUploadsPage() {
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-slate-900 tracking-tight">Unified Academic & Homework Portal</h2>
           <p className="text-sm text-slate-500">
-            Manage and publish syllabi, assignments, worksheets, homework, and examination resources.
+            Manage, publish, and track academic resources across classes and subjects.
           </p>
         </div>
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shrink-0">
@@ -278,6 +389,91 @@ export default function UnifiedUploadsPage() {
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           )}
           <span>{feedback.message}</span>
+        </div>
+      )}
+
+      {/* Resource KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <ResourceKpiCard
+          label="Total Resources"
+          value={totalResources}
+          detail="Across all categories"
+          icon={Layers}
+          from="#7560E8"
+          to="#9B8CFF"
+        />
+        <ResourceKpiCard
+          label="Assignments"
+          value={assignmentCount}
+          detail={shareOfTotal(assignmentCount)}
+          icon={ClipboardList}
+          from="#EC4899"
+          to="#F472B6"
+        />
+        <ResourceKpiCard
+          label="Syllabus & Documents"
+          value={syllabusDocCount}
+          detail={`Syllabus and datesheets · ${shareOfTotal(syllabusDocCount)}`}
+          icon={BookOpen}
+          from="#3B82F6"
+          to="#60A5FA"
+        />
+        <ResourceKpiCard
+          label="Homework & Practice"
+          value={homeworkPracticeCount}
+          detail={`Practice, holiday, and daily HW · ${shareOfTotal(homeworkPracticeCount)}`}
+          icon={PenLine}
+          from="#22C55E"
+          to="#4ADE80"
+        />
+      </div>
+
+      {/* Charts: distribution (donut) and category overview (bars) */}
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+        <div className="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <PieChart className="w-4 h-4 text-indigo-600" />
+            <span>Resource Upload Distribution</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5 mb-3">Share of resources by category</p>
+          <DonutChart
+            slices={donutSlices}
+            centerValue={String(totalResources)}
+            centerLabel="resources"
+            unitLabel="Resources"
+          />
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 pt-3 border-t border-slate-100">
+            {categoryCounts.map((c) => (
+              <div key={c.cat} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 text-slate-600 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: CATEGORY_COLOR[c.cat] }} />
+                  <span className="truncate">{c.cat}</span>
+                </span>
+                <span className="font-semibold text-slate-900 tabular-nums ml-2">{c.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="xl:col-span-3 bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Layers className="w-4 h-4 text-indigo-600" />
+            <span>Academic Resources Overview</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5 mb-4">Number of resources available in each category</p>
+          <ColumnChart items={categoryItems} />
+        </div>
+      </div>
+
+      {/* Upload activity: only when records carry valid dates */}
+      {activityItems.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Activity className="w-4 h-4 text-indigo-600" />
+            <span>Recent Upload Activity</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5 mb-4">Resources published per upload date</p>
+          <ColumnChart items={activityItems} height={200} />
         </div>
       )}
 
