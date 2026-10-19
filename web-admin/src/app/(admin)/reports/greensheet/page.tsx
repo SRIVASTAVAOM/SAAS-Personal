@@ -19,6 +19,8 @@ import {
   Percent,
   Gauge,
   TrendingDown,
+  Activity,
+  PieChart,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
@@ -26,6 +28,13 @@ import {
   SectionSummary,
   ExamItem,
 } from '@/lib/types';
+import { DonutChart, DonutSlice } from '@/components/dashboard/DashboardCharts';
+import { ColumnChart, ColumnItem } from '@/components/uploads/UploadCharts';
+
+const STUDENT_PASS = '#22C55E';
+const STUDENT_FAIL = '#F43F5E';
+const STUDENT_INCOMPLETE = '#F59E0B';
+const SUBJECT_PALETTE = ['#7560E8', '#3B82F6', '#22C55E', '#F59E0B', '#EC4899', '#A78BFA', '#14B8A6', '#F97316'];
 
 // Accent colours for the summary cards. Literal class names so Tailwind generates them.
 const STAT_TONE = {
@@ -128,6 +137,53 @@ export default function GreensheetPage() {
       window.print();
     }
   };
+
+  // Chart data comes from the loaded greensheet, so it covers the whole class.
+  // The table search does not change the charts.
+  const studentChartItems: ColumnItem[] = (greensheet?.students ?? []).map((st) => {
+    const color =
+      st.result_status === 'PASS' ? STUDENT_PASS : st.result_status === 'FAIL' ? STUDENT_FAIL : STUDENT_INCOMPLETE;
+    return {
+      label: st.roll_number,
+      tooltip: st.student_name,
+      value: st.percentage,
+      valueLabel: `${st.percentage}%`,
+      color,
+      rows: [
+        { label: 'Grand total', value: `${st.total_marks_obtained} / ${st.total_max_marks}` },
+        { label: 'Percentage', value: `${st.percentage}%` },
+        { label: 'Result', value: st.result_status, color },
+      ],
+    };
+  });
+
+  const subjectChartItems: ColumnItem[] = (greensheet?.subjects ?? []).map((sub, i) => {
+    const marks = (greensheet?.students ?? []).flatMap((st) =>
+      st.subject_marks.filter((sm) => sm.subject_id === sub.subject_id)
+    );
+    // Absent students and entries without marks are left out of the average.
+    const counted = marks.filter((sm) => !sm.is_absent && sm.marks_obtained !== null && sub.max_marks > 0);
+    const average = counted.length
+      ? (counted.reduce((acc, sm) => acc + (sm.marks_obtained as number) / sub.max_marks, 0) / counted.length) * 100
+      : 0;
+    return {
+      label: sub.subject_code || sub.subject_name,
+      tooltip: sub.subject_name,
+      value: Math.round(average * 10) / 10,
+      valueLabel: counted.length ? `${average.toFixed(1)}%` : '—',
+      color: SUBJECT_PALETTE[i % SUBJECT_PALETTE.length],
+      rows: [
+        { label: 'Class average', value: counted.length ? `${average.toFixed(1)}%` : 'No marks yet' },
+        { label: 'Students counted', value: `${counted.length}` },
+        { label: 'Max marks', value: `${sub.max_marks}` },
+      ],
+    };
+  });
+
+  const passFailSlices: DonutSlice[] = [
+    { label: 'Passed', value: greensheet?.statistics.total_passed ?? 0, color: STUDENT_PASS },
+    { label: 'Failed', value: greensheet?.statistics.total_failed ?? 0, color: STUDENT_FAIL },
+  ];
 
   const filteredStudents = greensheet?.students.filter((st) => {
     return (
@@ -253,6 +309,83 @@ export default function GreensheetPage() {
             icon={TrendingDown}
             tone="amber"
           />
+        </div>
+      )}
+
+      {/* Performance analytics: screen only, so the printed register stays unchanged */}
+      {greensheet && greensheet.students.length > 0 && (
+        <div className="no-print space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 hover:shadow-md transition-shadow duration-200">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Activity className="w-4 h-4 text-indigo-600" />
+                <span>Student Performance Overview</span>
+              </h3>
+              <p className="text-xs text-slate-500">Percentage per student · green pass, rose fail · hover a bar for details</p>
+            </div>
+            <ColumnChart
+              items={studentChartItems}
+              height={200}
+              fluid={false}
+              minWidth={640}
+              unitLabel="Percentage"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-2xs p-5 hover:shadow-md transition-shadow duration-200">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Activity className="w-4 h-4 text-indigo-600" />
+                <span>Subject-wise Class Performance</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5 mb-4">Average percentage per subject, absent students excluded</p>
+              {subjectChartItems.length > 0 ? (
+                <ColumnChart
+                  items={subjectChartItems}
+                  height={200}
+                  fluid={false}
+                  minWidth={480}
+                  unitLabel="Average"
+                />
+              ) : (
+                <div className="h-40 flex items-center justify-center text-xs text-slate-400">
+                  No subjects in this exam.
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 hover:shadow-md transition-shadow duration-200">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <PieChart className="w-4 h-4 text-indigo-600" />
+                <span>Pass vs Fail</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5 mb-3">Students who appeared</p>
+              <DonutChart
+                slices={passFailSlices}
+                centerValue={String(greensheet.statistics.total_appeared)}
+                centerLabel="appeared"
+                unitLabel="Students"
+              />
+              <div className="mt-4 space-y-2 pt-3 border-t border-slate-100">
+                {passFailSlices.map((s) => {
+                  const appeared = greensheet.statistics.total_appeared;
+                  const pct = appeared > 0 ? Math.round((s.value / appeared) * 100) : 0;
+                  return (
+                    <div key={s.label} className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.color }} />
+                        {s.label}
+                      </span>
+                      <span className="tabular-nums">
+                        <span className="font-semibold text-slate-900">{s.value}</span>
+                        <span className="text-slate-400 ml-1.5">{pct}%</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
