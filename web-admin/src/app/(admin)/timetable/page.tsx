@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useSyncExternalStore } from 'react';
 import {
   CalendarDays,
   Save,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Copy,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
@@ -44,6 +45,13 @@ const PERIOD_DEFAULTS = [
   { p: 8, start: '14:30:00', end: '15:15:00', label: '02:30 - 03:15' },
 ];
 
+const TOTAL_PERIODS = DAYS.length * PERIOD_DEFAULTS.length;
+
+// Subject colours are assigned in legend order. Each colour is a hex value so
+// the card tint can be built with an alpha suffix.
+const SUBJECT_COLORS = ['#635BFF', '#16A34A', '#F59E0B', '#0EA5E9', '#F43F5E', '#8B5CF6', '#14B8A6', '#F97316'];
+const FALLBACK_SUBJECT_COLOR = '#94A3B8';
+
 export default function MasterTimetablePage() {
   const [sections, setSections] = useState<SectionSummary[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -64,6 +72,18 @@ export default function MasterTimetablePage() {
 
   // Multi-slot editor for selected period
   const [cellSlots, setCellSlots] = useState<TimetableSlotEntry[]>([]);
+
+  // Interaction-only state: hovered/focused period and the subject being highlighted.
+  const [hoverCell, setHoverCell] = useState<{ day: number; period: number } | null>(null);
+  const [focusSubject, setFocusSubject] = useState<string | null>(null);
+
+  // Current weekday (0 = Sunday). Server render uses -1 so the static HTML never
+  // shows a stale "Today" marker.
+  const todayDow = useSyncExternalStore(
+    () => () => {},
+    () => new Date().getDay(),
+    () => -1
+  );
 
   // 1. Initial Load: Fetch sections & subjects
   useEffect(() => {
@@ -125,6 +145,41 @@ export default function MasterTimetablePage() {
     }
     return map;
   }, [slots]);
+
+  // Legend data: one entry per subject present in the grid, with its colour and period count.
+  const subjectLegend = useMemo(() => {
+    const counts = new Map<string, { id: string; label: string; count: number }>();
+    for (const slot of slots) {
+      if (!slot.subject_id) continue;
+      const existing = counts.get(slot.subject_id);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(slot.subject_id, {
+          id: slot.subject_id,
+          label: slot.subject_code || slot.subject_name || 'Subject',
+          count: 1,
+        });
+      }
+    }
+    return Array.from(counts.values())
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((item, i) => ({ ...item, color: SUBJECT_COLORS[i % SUBJECT_COLORS.length] }));
+  }, [slots]);
+
+  const colorBySubject = useMemo(
+    () => Object.fromEntries(subjectLegend.map((s) => [s.id, s.color])) as Record<string, string>,
+    [subjectLegend]
+  );
+
+  const assignedPeriods = useMemo(
+    () => new Set(slots.map((s) => `${s.day_of_week}-${s.period_number}`)).size,
+    [slots]
+  );
+
+  const hoveredDay = hoverCell ? DAYS.find((d) => d.id === hoverCell.day) : undefined;
+  const hoveredPeriod = hoverCell ? PERIOD_DEFAULTS.find((p) => p.p === hoverCell.period) : undefined;
+  const hoveredItems = hoverCell ? matrixMap[hoverCell.day]?.[hoverCell.period] || [] : [];
 
   // Open Cell Editor
   const handleOpenEditor = (day: number, period: number) => {
@@ -283,6 +338,90 @@ export default function MasterTimetablePage() {
           </div>
         </div>
 
+        {/* Subject legend (click to highlight one subject), assignment progress */}
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {subjectLegend.length === 0 && (
+              <span className="text-[11px] text-slate-400">No subjects assigned to this section yet</span>
+            )}
+            {subjectLegend.map((s) => {
+              const active = focusSubject === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFocusSubject(active ? null : s.id)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span>{s.label}</span>
+                  <span className={active ? 'text-slate-300' : 'text-slate-400'}>{s.count}</span>
+                </button>
+              );
+            })}
+            {focusSubject !== null && (
+              <button
+                type="button"
+                onClick={() => setFocusSubject(null)}
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+                <span>Clear focus</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-[11px] text-slate-500 whitespace-nowrap">
+              <span className="font-semibold text-slate-900 tabular-nums">{assignedPeriods}</span> of {TOTAL_PERIODS} periods assigned
+            </div>
+            <div className="w-28 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                style={{ width: `${(assignedPeriods / TOTAL_PERIODS) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Hover details: the period under the pointer or keyboard focus */}
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 min-h-[44px] flex items-center text-xs text-slate-600">
+          {hoverCell && hoveredDay && hoveredPeriod ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="font-semibold text-slate-900">
+                {hoveredDay.name} · Period {hoveredPeriod.p}
+              </span>
+              <span className="font-mono text-[11px] text-slate-500">{hoveredPeriod.label}</span>
+              {hoveredItems.length === 0 ? (
+                <span className="text-slate-400">Free period. Click to assign.</span>
+              ) : (
+                hoveredItems.map((slot, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: colorBySubject[slot.subject_id] ?? FALLBACK_SUBJECT_COLOR }}
+                    />
+                    <span className="font-semibold text-slate-900">
+                      {slot.subject_name || slot.subject_code || 'Subject'}
+                    </span>
+                    <span className="text-slate-500">
+                      · {slot.teacher_name || 'Assigned Faculty'}
+                      {slot.room_number ? ` · ${slot.room_number}` : ''}
+                    </span>
+                  </span>
+                ))
+              )}
+            </div>
+          ) : (
+            <span>Hover a period to see its details. Click or press Enter to edit it.</span>
+          )}
+        </div>
+
         {/* Message Banner */}
         {message && (
           <div
@@ -309,11 +448,16 @@ export default function MasterTimetablePage() {
             {/* Header: Periods 1 to 8 */}
             <thead>
               <tr className="bg-slate-900 text-white divide-x divide-slate-800">
-                <th className="px-4 py-3 text-center w-28 uppercase text-[11px] font-bold tracking-wider">
+                <th className="sticky left-0 z-20 bg-slate-900 px-4 py-3 text-center w-28 uppercase text-[11px] font-bold tracking-wider">
                   Day / Period
                 </th>
                 {PERIOD_DEFAULTS.map((p) => (
-                  <th key={p.p} className="px-3 py-2.5 text-center min-w-[130px]">
+                  <th
+                    key={p.p}
+                    className={`px-3 py-2.5 text-center min-w-[130px] transition-colors ${
+                      hoverCell?.period === p.p ? 'bg-indigo-700' : ''
+                    }`}
+                  >
                     <div className="font-bold text-xs text-white">Period {p.p}</div>
                     <div className="text-[10px] text-slate-400 font-mono font-normal">
                       {p.label}
@@ -328,47 +472,87 @@ export default function MasterTimetablePage() {
               {DAYS.map((day) => (
                 <tr key={day.id} className="divide-x divide-slate-100 hover:bg-slate-50/40 transition-colors">
                   {/* Day Header Column */}
-                  <td className="px-4 py-3 bg-slate-50 font-bold text-slate-900 text-center uppercase tracking-wider text-[11px] border-r border-slate-200">
+                  <td
+                    className={`sticky left-0 z-10 px-4 py-3 font-bold text-center uppercase tracking-wider text-[11px] border-r border-slate-200 transition-colors ${
+                      hoverCell?.day === day.id ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-50 text-slate-900'
+                    }`}
+                  >
                     <div>{day.short}</div>
                     <div className="text-[9px] text-slate-400 font-normal">Day {day.id}</div>
+                    {todayDow === day.id && (
+                      <span className="inline-block mt-1 text-[9px] font-bold text-white bg-indigo-600 rounded px-1.5 py-0.5">
+                        Today
+                      </span>
+                    )}
                   </td>
 
                   {/* Period Cells */}
                   {PERIOD_DEFAULTS.map((p) => {
                     const cellList = matrixMap[day.id]?.[p.p] || [];
                     const hasSlots = cellList.length > 0;
+                    const isHovered = hoverCell?.day === day.id && hoverCell?.period === p.p;
+                    const inHoverColumn = hoverCell?.period === p.p;
+                    const dayName = DAYS.find((d) => d.id === day.id)?.name;
 
                     return (
                       <td
                         key={p.p}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${dayName}, period ${p.p}${
+                          hasSlots ? `, ${cellList.length} assignment${cellList.length > 1 ? 's' : ''}` : ', empty'
+                        }`}
                         onClick={() => handleOpenEditor(day.id, p.p)}
-                        className={`p-2 align-top h-24 transition-colors cursor-pointer group relative ${
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleOpenEditor(day.id, p.p);
+                          }
+                        }}
+                        onMouseEnter={() => setHoverCell({ day: day.id, period: p.p })}
+                        onMouseLeave={() => setHoverCell(null)}
+                        onFocus={() => setHoverCell({ day: day.id, period: p.p })}
+                        onBlur={() => setHoverCell(null)}
+                        className={`p-2 align-top h-24 transition-colors cursor-pointer group relative focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
+                          isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''
+                        } ${
                           hasSlots
-                            ? 'bg-white hover:bg-indigo-50/40'
+                            ? inHoverColumn
+                              ? 'bg-indigo-50/40'
+                              : 'bg-white hover:bg-indigo-50/40'
+                            : inHoverColumn
+                            ? 'bg-slate-100/70'
                             : 'bg-slate-50/30 hover:bg-slate-100/60'
                         }`}
                       >
                         {hasSlots ? (
                           <div className="space-y-1.5 h-full flex flex-col justify-between">
-                            {cellList.map((slot, idx) => (
-                              <div
-                                key={idx}
-                                className="p-1.5 rounded bg-indigo-50/80 border border-indigo-200/80 text-[11px]"
-                              >
-                                <div className="font-bold text-indigo-950 truncate flex items-center justify-between">
-                                  <span>{slot.subject_code || slot.subject_name || 'Subject'}</span>
-                                  {slot.room_number && (
-                                    <span className="text-[9px] font-mono text-indigo-600 bg-white px-1 rounded border border-indigo-200">
-                                      {slot.room_number}
-                                    </span>
-                                  )}
+                            {cellList.map((slot, idx) => {
+                              const color = colorBySubject[slot.subject_id] ?? FALLBACK_SUBJECT_COLOR;
+                              const dimmed = focusSubject !== null && slot.subject_id !== focusSubject;
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`p-1.5 rounded border border-slate-200 border-l-4 text-[11px] transition-opacity duration-150 ${
+                                    dimmed ? 'opacity-25' : 'opacity-100'
+                                  }`}
+                                  style={{ borderLeftColor: color, backgroundColor: `${color}14` }}
+                                >
+                                  <div className="font-bold text-slate-900 truncate flex items-center justify-between">
+                                    <span>{slot.subject_code || slot.subject_name || 'Subject'}</span>
+                                    {slot.room_number && (
+                                      <span className="text-[9px] font-mono text-slate-600 bg-white px-1 rounded border border-slate-200">
+                                        {slot.room_number}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-slate-600 truncate mt-0.5 flex items-center gap-1">
+                                    <User className="w-2.5 h-2.5 text-slate-400" />
+                                    <span>{slot.teacher_name || 'Assigned Faculty'}</span>
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-slate-600 truncate mt-0.5 flex items-center gap-1">
-                                  <User className="w-2.5 h-2.5 text-slate-400" />
-                                  <span>{slot.teacher_name || 'Assigned Faculty'}</span>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
 
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-indigo-600 font-semibold flex items-center gap-1 justify-end">
                               <Edit2 className="w-2.5 h-2.5" />
