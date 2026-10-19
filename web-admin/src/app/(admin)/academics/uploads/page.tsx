@@ -467,13 +467,29 @@ export default function UnifiedUploadsPage() {
 
       {/* Upload activity: only when records carry valid dates */}
       {activityItems.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <Activity className="w-4 h-4 text-indigo-600" />
-            <span>Recent Upload Activity</span>
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5 mb-4">Resources published per upload date</p>
-          <ColumnChart items={activityItems} height={200} />
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs px-5 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-5 items-center">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Activity className="w-4 h-4 text-indigo-600" />
+              <span>Recent Upload Activity</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Resources published per upload date</p>
+            <div className="mt-3 flex items-center gap-5">
+              <div>
+                <div className="text-lg font-bold text-slate-900 tabular-nums">
+                  {activityItems.reduce((sum, item) => sum + item.value, 0)}
+                </div>
+                <div className="text-[11px] text-slate-500">resources</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-slate-900 tabular-nums">{activityItems.length}</div>
+                <div className="text-[11px] text-slate-500">upload {activityItems.length === 1 ? 'date' : 'dates'}</div>
+              </div>
+            </div>
+          </div>
+          <div className="w-full max-w-md md:justify-self-end">
+            <ColumnChart items={activityItems} height={130} />
+          </div>
         </div>
       )}
 
@@ -506,7 +522,7 @@ export default function UnifiedUploadsPage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setUploadType(cat)}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-[11px] font-semibold border transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 cursor-pointer ${
                       selected
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                         : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-700'
@@ -531,7 +547,7 @@ export default function UnifiedUploadsPage() {
                   setSelectedClassId(c);
                   setSelectedSectionId(s);
                 }}
-                className="w-full py-1.5 px-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 outline-none"
+                className="w-full py-1.5 px-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow"
               >
                 {sections.map((s) => (
                   <option key={`${s.class_id}_${s.section_id}`} value={`${s.class_id}_${s.section_id}`}>
@@ -546,7 +562,7 @@ export default function UnifiedUploadsPage() {
               <select
                 value={selectedSubjectId}
                 onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-full py-1.5 px-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 outline-none"
+                className="w-full py-1.5 px-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow"
               >
                 <option value="">General / All Subjects</option>
                 {subjects.map((sub) => (
@@ -567,7 +583,7 @@ export default function UnifiedUploadsPage() {
               placeholder="e.g. Chapter 6 Triangles & Coordinate Geometry"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full py-1.5 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 outline-none"
+              className="w-full py-1.5 px-2.5 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow"
             />
           </div>
 
@@ -581,7 +597,7 @@ export default function UnifiedUploadsPage() {
               placeholder="Submission instructions, questions, or exam guidelines..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 outline-none resize-none"
+              className="w-full p-2 text-xs rounded-md border border-slate-300 bg-white text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow resize-none"
             />
           </div>
 
@@ -647,7 +663,7 @@ export default function UnifiedUploadsPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
               <UploadCloud className="w-4 h-4" />
               <span>{submitting ? 'Broadcasting Resource...' : 'Publish to Students & Faculty'}</span>
@@ -657,7 +673,7 @@ export default function UnifiedUploadsPage() {
 
         {/* Right: recent uploads repository */}
         <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">
                 Recent Academic Uploads ({filteredUploads.length})
@@ -673,14 +689,14 @@ export default function UnifiedUploadsPage() {
                   placeholder="Search repository..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 focus:border-indigo-500 outline-none w-36 sm:w-44 text-slate-800"
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow w-36 sm:w-44 text-slate-800"
                 />
               </div>
 
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="py-1.5 px-2 text-xs rounded-md border border-slate-200 text-slate-700 bg-white focus:border-indigo-500 outline-none"
+                className="py-1.5 px-2 text-xs rounded-md border border-slate-200 text-slate-700 bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-shadow"
               >
                 <option value="ALL">All Types</option>
                 {UPLOAD_CATEGORIES.map((c) => (
@@ -696,11 +712,11 @@ export default function UnifiedUploadsPage() {
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-2.5">Resource & Class</th>
-                  <th className="px-3 py-2.5">Category</th>
-                  <th className="px-3 py-2.5">Subject</th>
-                  <th className="px-3 py-2.5">File</th>
-                  <th className="px-4 py-2.5 text-right">Actions</th>
+                  <th className="px-4 py-2">Resource & Class</th>
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2">Subject</th>
+                  <th className="px-3 py-2">File</th>
+                  <th className="px-4 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -716,13 +732,13 @@ export default function UnifiedUploadsPage() {
                     const Icon = CATEGORY_ICON[item.type];
                     return (
                       <tr key={item.id} className="group hover:bg-indigo-50/40 transition-colors">
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-2.5">
                           <div className="font-semibold text-slate-900 leading-snug">{item.title}</div>
                           <div className="text-[10px] text-slate-500 font-medium">
                             {item.class_name} · Sec {item.section_name} · {item.created_at}
                           </div>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-2.5">
                           <button
                             type="button"
                             onClick={() => setFilterType(item.type)}
@@ -733,16 +749,16 @@ export default function UnifiedUploadsPage() {
                             <span>{item.type}</span>
                           </button>
                         </td>
-                        <td className="px-3 py-3 text-slate-700 font-medium text-[11px]">
+                        <td className="px-3 py-2.5 text-slate-700 font-medium text-[11px]">
                           {item.subject_name || 'All Subjects'}
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5 text-slate-600 text-[11px] max-w-[140px]">
                             <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate">{item.file_name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
                           <button
                             onClick={() => alert(`Previewing resource: ${item.title}`)}
                             title="View / Download"
