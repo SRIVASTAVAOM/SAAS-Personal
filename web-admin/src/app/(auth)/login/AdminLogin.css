@@ -5,7 +5,7 @@
  */
 
 .admin-login {
-  --admin-login-page-bg: #f4f6fc;
+  --admin-login-page-bg: #efedff;
   --admin-login-surface: #ffffff;
   --admin-login-input-bg: #f7f8fd;
   --admin-login-text: #172554;
@@ -21,7 +21,7 @@
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--admin-login-page-bg);
+  background: linear-gradient(180deg, #efedff 0%, #e8edfb 100%);
   color: var(--admin-login-text);
   font-family: inherit;
   overflow-x: hidden;
