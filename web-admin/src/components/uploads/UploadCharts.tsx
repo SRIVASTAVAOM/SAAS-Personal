@@ -57,7 +57,8 @@ export function ColumnChart({
   const barW = Math.min(44, slot * 0.56);
   const yBase = padT + plotH;
   const yFor = (v: number) => yBase - (v / max) * plotH;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f));
+  // Rounding can repeat a value on small scales (e.g. 1, 1), so keep each tick once.
+  const ticks = Array.from(new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f))));
 
   const svgClass = fluid ? 'w-full h-auto min-w-[360px]' : 'block mx-auto h-auto';
   const svgStyle = fluid ? undefined : { width: W };

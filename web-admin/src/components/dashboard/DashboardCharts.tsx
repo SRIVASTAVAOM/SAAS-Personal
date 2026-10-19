@@ -90,7 +90,8 @@ export function AttendanceBarChart({ sections }: { sections: SectionSummary[] })
   const barW = Math.min(34, slot * 0.6);
   const yBase = padT + plotH;
   const yFor = (v: number) => yBase - (v / yMax) * plotH;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(yMax * f));
+  // Rounding can repeat a value on small scales (e.g. 1, 1), so keep each tick once.
+  const ticks = Array.from(new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(yMax * f))));
 
   return (
     <div ref={containerRef} className="relative">
