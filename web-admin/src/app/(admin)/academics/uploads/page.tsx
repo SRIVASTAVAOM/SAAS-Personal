@@ -246,7 +246,24 @@ export default function UnifiedUploadsPage() {
   const fileTooLarge = !!selectedFile && selectedFile.size > MAX_FILE_BYTES;
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[calc(100vh-9rem)] min-h-0">
+    <div className="flex flex-col gap-5">
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+          <FolderOpen className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold text-slate-900 tracking-tight">Unified Academic & Homework Portal</h2>
+          <p className="text-sm text-slate-500">
+            Manage and publish syllabi, assignments, worksheets, homework, and examination resources.
+          </p>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shrink-0">
+          <span className="tabular-nums text-slate-900">{uploads.length}</span>
+          <span className="text-slate-500">{uploads.length === 1 ? 'resource' : 'resources'}</span>
+        </span>
+      </div>
+
       {feedback && (
         <div
           className={`p-3 rounded-lg text-xs flex items-center gap-2 border ${
@@ -264,11 +281,11 @@ export default function UnifiedUploadsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:flex-1 lg:min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left: publish form */}
         <form
           onSubmit={handleFormSubmit}
-          className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col gap-3.5 lg:min-h-0 lg:overflow-y-auto"
+          className="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-2xs flex flex-col gap-4"
         >
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
@@ -443,7 +460,7 @@ export default function UnifiedUploadsPage() {
         </form>
 
         {/* Right: recent uploads repository */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col min-h-0">
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">
@@ -479,9 +496,9 @@ export default function UnifiedUploadsPage() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-auto">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-700">
-              <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-2.5">Resource & Class</th>
                   <th className="px-3 py-2.5">Category</th>
@@ -514,7 +531,7 @@ export default function UnifiedUploadsPage() {
                             type="button"
                             onClick={() => setFilterType(item.type)}
                             title={`Show only ${item.type}`}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 hover:bg-indigo-100 transition-colors cursor-pointer"
                           >
                             {Icon && <Icon className="w-3 h-3" />}
                             <span>{item.type}</span>
