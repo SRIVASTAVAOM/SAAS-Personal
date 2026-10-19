@@ -13,6 +13,7 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('school_erp_token') : null;
@@ -44,10 +45,10 @@ export default function AdminLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans antialiased text-slate-900">
-      <Sidebar />
+      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <Topbar onMenuClick={() => setNavOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>

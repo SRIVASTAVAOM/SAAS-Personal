@@ -198,11 +198,11 @@ export default function UnifiedUploadsPage() {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <div className="pb-2 border-b border-slate-200">
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+      <div className="pb-2">
+        <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
           Unified Academic & Homework Upload Portal
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-sm text-slate-500">
           Upload and broadcast syllabi, worksheets, homework assignments, and examination datesheets across grade sections.
         </p>
       </div>
@@ -227,7 +227,7 @@ export default function UnifiedUploadsPage() {
       {/* Main Grid: Split Form & Repository */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Upload Form (5 cols) */}
-        <div className="lg:col-span-5 bg-white p-5 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="mb-4 pb-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <UploadCloud className="w-4 h-4 text-indigo-600" />
@@ -341,7 +341,7 @@ export default function UnifiedUploadsPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Attachment File (PDF, DOCX, Images)
               </label>
-              <div className="border border-dashed border-slate-300 hover:border-indigo-500 rounded p-3 text-center transition-colors bg-slate-50/50">
+              <div className="border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-lg p-4 text-center transition-colors bg-slate-50/50">
                 <input
                   type="file"
                   id="fileUpload"
@@ -376,7 +376,7 @@ export default function UnifiedUploadsPage() {
         </div>
 
         {/* Right Column: Recent Uploads Repository (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">

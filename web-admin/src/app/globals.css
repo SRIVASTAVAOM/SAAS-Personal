@@ -1,8 +1,48 @@
 @import "tailwindcss";
 
+/*
+ * Admin design tokens (reference theme).
+ * The existing admin screens use Tailwind's slate / indigo utilities, so the
+ * palette is re-mapped here. Class names stay the same and the theme changes
+ * in one place.
+ *   page background  #F3F6FC  (slate-50)
+ *   primary text     #17233D  (slate-900)
+ *   secondary text   #718096  (slate-500)
+ *   card border      #E2E8F0  (slate-200)
+ *   accent           #635BFF  (indigo-600)
+ */
+@theme {
+  --color-slate-50: #f3f6fc;
+  --color-slate-100: #edf1f8;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #a0aec0;
+  --color-slate-500: #718096;
+  --color-slate-600: #4a5568;
+  --color-slate-700: #2d3748;
+  --color-slate-800: #1e2a44;
+  --color-slate-900: #17233d;
+  --color-slate-950: #0f1830;
+
+  --color-indigo-50: #f4f3ff;
+  --color-indigo-100: #e9e7ff;
+  --color-indigo-200: #d5d1ff;
+  --color-indigo-300: #b5aeff;
+  --color-indigo-400: #8e84ff;
+  --color-indigo-500: #7a70ff;
+  --color-indigo-600: #635bff;
+  --color-indigo-700: #5148e6;
+  --color-indigo-800: #4139b8;
+  --color-indigo-900: #352f8f;
+  --color-indigo-950: #211d5c;
+
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f3f6fc;
+  --foreground: #17233d;
 }
 
 body {
@@ -18,7 +58,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #edf1f8;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;

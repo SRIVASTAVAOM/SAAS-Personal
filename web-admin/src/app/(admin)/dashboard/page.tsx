@@ -100,19 +100,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Top Banner & Refresh */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+          <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
             Institutional Command Center
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-500">
             Daily real-time attendance compliance, homework submissions, and operational KPIs.
           </p>
         </div>
         <button
           onClick={fetchSummary}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs self-start sm:self-auto cursor-pointer disabled:opacity-60"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh Data</span>
@@ -129,10 +129,10 @@ export default function DashboardPage() {
       {/* 1. TOP KPI CARDS (OEM Dealership Standard) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Students */}
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Total Enrolled</span>
-            <div className="w-7 h-7 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <GraduationCap className="w-4 h-4" />
             </div>
           </div>
@@ -145,10 +145,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Total Staff */}
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Total Faculty</span>
-            <div className="w-7 h-7 rounded bg-slate-100 text-slate-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
               <Users className="w-4 h-4" />
             </div>
           </div>
@@ -161,10 +161,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Present Today */}
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Present Today</span>
-            <div className="w-7 h-7 rounded bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <UserCheck className="w-4 h-4" />
             </div>
           </div>
@@ -180,10 +180,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Fee Collected */}
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium uppercase tracking-wider">Fee Realized (M-T-D)</span>
-            <div className="w-7 h-7 rounded bg-amber-50 text-amber-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <IndianRupee className="w-4 h-4" />
             </div>
           </div>
@@ -198,8 +198,8 @@ export default function DashboardPage() {
 
       {/* 2. QUICK COUNTERS (Absent Staff, Absent Students, Pending Leaves, Birthdays) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white p-3 rounded border border-slate-200 flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
             <UserX className="w-4 h-4" />
           </div>
           <div>
@@ -210,8 +210,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded border border-slate-200 flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <UserX className="w-4 h-4" />
           </div>
           <div>
@@ -222,8 +222,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded border border-slate-200 flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
             <Clock className="w-4 h-4" />
           </div>
           <div>
@@ -234,8 +234,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded border border-slate-200 flex items-center gap-3">
-          <div className="w-9 h-9 rounded bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
             <Cake className="w-4 h-4" />
           </div>
           <div>
@@ -248,36 +248,36 @@ export default function DashboardPage() {
       </div>
 
       {/* 3. SECTION STATUS GRID & TABBED PANELS */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-200 bg-white">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-slate-100">
             <button
               onClick={() => setActiveTab('SECTIONS')}
-              className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'SECTIONS'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Live Section Grid ({data?.sections?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('LEAVES')}
-              className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'LEAVES'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Pending Leaves ({data?.pending_leaves?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('BIRTHDAYS')}
-              className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 activeTab === 'BIRTHDAYS'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Today's Birthdays ({data?.today_birthdays?.length || 0})
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                 No sections matched the current filter criteria.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredSections.map((sec) => {
                   const isAttGreen = sec.attendance_status === 'GREEN';
                   const isHwGreen = sec.homework_status === 'GREEN';

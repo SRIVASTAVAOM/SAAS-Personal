@@ -226,7 +226,7 @@ export default function MasterTimetablePage() {
   return (
     <div className="space-y-6">
       {/* Header & Controls */}
-      <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-2xs">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export default function MasterTimetablePage() {
       </div>
 
       {/* Grid Container */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             {/* Header: Periods 1 to 8 */}

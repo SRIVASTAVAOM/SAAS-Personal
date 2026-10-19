@@ -114,7 +114,7 @@ export default function GreensheetPage() {
       </div>
 
       {/* Screen Control Panel */}
-      <div className="no-print bg-white p-5 rounded-lg border border-slate-200 shadow-2xs">
+      <div className="no-print bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -189,49 +189,49 @@ export default function GreensheetPage() {
       {/* Summary Statistics Banner (OEM Standard) */}
       {greensheet?.statistics && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Enrolled</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums">
               {greensheet.statistics.total_enrolled}
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Appeared</div>
             <div className="text-lg font-bold text-slate-800 tabular-nums">
               {greensheet.statistics.total_appeared}
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Passed</div>
             <div className="text-lg font-bold text-emerald-700 tabular-nums">
               {greensheet.statistics.total_passed}
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-rose-500 tracking-wider">Failed</div>
             <div className="text-lg font-bold text-rose-600 tabular-nums">
               {greensheet.statistics.total_failed}
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Pass Rate</div>
             <div className="text-lg font-bold text-indigo-700 tabular-nums">
               {greensheet.statistics.pass_percentage}%
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Class Avg</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums">
               {greensheet.statistics.class_average_percentage}%
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Highest %</div>
             <div className="text-lg font-bold text-emerald-700 tabular-nums">
               {greensheet.statistics.highest_percentage}%
             </div>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200 shadow-2xs">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
             <div className="text-[10px] uppercase font-bold text-amber-600 tracking-wider">Lowest %</div>
             <div className="text-lg font-bold text-slate-700 tabular-nums">
               {greensheet.statistics.lowest_percentage}%
@@ -241,7 +241,7 @@ export default function GreensheetPage() {
       )}
 
       {/* Tabulation Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden print-container">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden print-container">
         {/* Search header (no-print) */}
         <div className="no-print p-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="text-xs font-semibold text-slate-700">
