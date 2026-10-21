@@ -4,18 +4,29 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String _defaultProdUrl =
+      'https://school-erp-backend-du5v.onrender.com/api/v1';
 
   /// Resolves API base URL based on target platform and compile-time environment.
-  /// - Web / iOS Simulator / macOS desktop: http://localhost:5001/api/v1
+  /// - Web (production / Vercel): https://school-erp-backend-du5v.onrender.com/api/v1
+  /// - Web (debug localhost): http://localhost:5001/api/v1
   /// - Android Emulator: http://10.0.2.2:5001/api/v1
-  /// - Physical device / Staging: Configurable via --dart-define=API_BASE_URL=...
+  /// - Release builds: https://school-erp-backend-du5v.onrender.com/api/v1
+  /// - Configurable via --dart-define=API_BASE_URL=...
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
 
     if (kIsWeb) {
-      return 'http://localhost:5001/api/v1';
+      if (kDebugMode) {
+        return 'http://localhost:5001/api/v1';
+      }
+      return _defaultProdUrl;
+    }
+
+    if (kReleaseMode) {
+      return _defaultProdUrl;
     }
 
     switch (defaultTargetPlatform) {
