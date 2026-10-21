@@ -2,6 +2,10 @@ import { AcademicsRepository, ClassmateBirthdayItem, StudentRosterItem, SubjectR
 import { TokenPayload } from '../../types/auth.types';
 
 export class AcademicsService {
+  static async getClassesAndSections(schoolId: string): Promise<any[]> {
+    return await AcademicsRepository.getClassesAndSections(schoolId);
+  }
+
   static async getSubjects(schoolId: string): Promise<SubjectRecord[]> {
     return await AcademicsRepository.getSubjectsBySchool(schoolId);
   }

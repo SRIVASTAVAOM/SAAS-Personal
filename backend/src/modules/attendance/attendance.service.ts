@@ -1,3 +1,4 @@
+import { pool } from '../../config/db.config';
 import { TokenPayload } from '../../types/auth.types';
 import { AcademicsRepository } from '../academics/academics.repository';
 import { AttendanceRepository, StudentAttendanceItem } from './attendance.repository';
@@ -20,20 +21,29 @@ export class AttendanceService {
       throw new Error('INVALID_DATE');
     }
 
-    if (!user.profileId) {
-      throw new Error('PROFILE_NOT_FOUND');
+    let markerStaffId: string = user.profileId || '';
+    if (!markerStaffId) {
+      const staffRes = await pool.query(
+        `SELECT sp.id FROM staff_profiles sp JOIN users u ON sp.user_id = u.id WHERE u.school_id = $1 AND sp.is_active = TRUE ORDER BY sp.created_at ASC LIMIT 1;`,
+        [user.schoolId]
+      );
+      if (staffRes.rows.length > 0) {
+        markerStaffId = staffRes.rows[0].id;
+      } else {
+        throw new Error('PROFILE_NOT_FOUND');
+      }
     }
 
     // Role & Resource Scope Check for Teacher
     if (user.roles.includes('TEACHER') && !user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
       let isHomeroom = user.classId === classId && user.sectionId === sectionId;
-      if (!isHomeroom) {
+      if (!isHomeroom && user.profileId) {
         const homeroom = await AcademicsRepository.getTeacherHomeroom(user.profileId);
         if (homeroom && homeroom.class_id === classId && homeroom.section_id === sectionId) {
           isHomeroom = true;
         }
       }
-      const allocations = await AcademicsRepository.getTeacherAllocations(user.profileId);
+      const allocations = user.profileId ? await AcademicsRepository.getTeacherAllocations(user.profileId) : [];
       const isAllocated = allocations.some(
         (a: any) => a.class_id === classId && a.section_id === sectionId
       );
@@ -54,7 +64,7 @@ export class AttendanceService {
       user.schoolId,
       classId,
       sectionId,
-      user.profileId,
+      markerStaffId,
       attendanceDate,
       records
     );

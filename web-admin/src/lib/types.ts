@@ -204,3 +204,30 @@ export interface RecentUploadItem {
   created_at: string;
   status: 'Active' | 'Archived';
 }
+
+export interface SectionItem {
+  id: string;
+  name: string;
+}
+
+export interface ClassItem {
+  id: string;
+  name: string;
+  class_id: string;
+  class_name: string;
+  sections: SectionItem[];
+}
+
+export interface AdminNoticeItem {
+  id: string;
+  title: string;
+  content: string;
+  target_role: string;
+  priority: 'INFO' | 'NORMAL' | 'URGENT';
+  target_class_id?: string | null;
+  target_section_id?: string | null;
+  class_name?: string | null;
+  section_name?: string | null;
+  published_at: string;
+  created_at: string;
+}

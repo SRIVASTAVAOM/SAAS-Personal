@@ -42,6 +42,32 @@ export interface ClassmateBirthdayItem {
 }
 
 export class AcademicsRepository {
+  static async getClassesAndSections(schoolId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        c.id,
+        c.id AS class_id,
+        c.name,
+        c.name AS class_name,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', s.id,
+              'name', s.name
+            ) ORDER BY s.name ASC
+          ) FILTER (WHERE s.id IS NOT NULL),
+          '[]'::json
+        ) AS sections
+      FROM classes c
+      LEFT JOIN sections s ON s.class_id = c.id
+      WHERE c.school_id = $1
+      GROUP BY c.id, c.name
+      ORDER BY c.name ASC;
+    `;
+    const { rows } = await pool.query(query, [schoolId]);
+    return rows;
+  }
+
   static async getSubjectsBySchool(schoolId: string): Promise<SubjectRecord[]> {
     const query = `
       SELECT id, name, code

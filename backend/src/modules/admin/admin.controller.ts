@@ -168,4 +168,212 @@ export class AdminController {
       });
     }
   }
+
+  /**
+   * GET /api/v1/admin/staff/teachers
+   */
+  static async getTeachers(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const teachers = await AdminService.getTeachers(user);
+      res.status(200).json({ success: true, data: teachers });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/timetable/teacher/:teacherId
+   */
+  static async getTeacherTimetable(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { teacherId } = req.params;
+      const timetable = await AdminService.getTeacherTimetable(user, teacherId);
+      res.status(200).json({ success: true, data: timetable });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/timetable/substitutions
+   */
+  static async getSubstitutions(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const date = req.query.date as string | undefined;
+      const substitutions = await AdminService.getSubstitutions(user, date);
+      res.status(200).json({ success: true, data: substitutions });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/v1/admin/timetable/substitutions
+   */
+  static async assignSubstitution(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const sub = await AdminService.assignSubstitution(user, req.body);
+      res.status(201).json({
+        success: true,
+        message: 'Substitution assigned successfully and synced with teacher app',
+        data: sub,
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 400).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/v1/admin/timetable/substitutions/:id
+   */
+  static async deleteSubstitution(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const deleted = await AdminService.deleteSubstitution(user, id);
+      if (!deleted) {
+        res.status(404).json({ success: false, error: 'Substitution not found' });
+        return;
+      }
+      res.status(200).json({ success: true, message: 'Substitution cancelled successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/students
+   */
+  static async getStudentsList(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const classId = (req.query.class_id || req.query.classId) as string | undefined;
+      const sectionId = (req.query.section_id || req.query.sectionId) as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const students = await AdminService.getStudentsList(user, { classId, sectionId, search });
+      res.status(200).json({ success: true, data: students });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/students/:id
+   */
+  static async getStudentDetails(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const student = await AdminService.getStudentDetails(user, id);
+      res.status(200).json({ success: true, data: student });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/staff
+   */
+  static async getAllStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const search = req.query.search as string | undefined;
+      const staff = await AdminService.getAllStaff(user, search);
+      res.status(200).json({ success: true, data: staff });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/v1/admin/staff
+   */
+  static async createStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const created = await AdminService.createStaff(user, req.body);
+      res.status(201).json({ success: true, message: 'Staff created successfully', data: created });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * PATCH /api/v1/admin/staff/:id
+   */
+  static async updateStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const updated = await AdminService.updateStaff(user, id, req.body);
+      res.status(200).json({ success: true, message: 'Staff updated successfully', data: updated });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/v1/admin/staff/:id
+   */
+  static async deleteStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      await AdminService.deleteStaff(user, id);
+      res.status(200).json({ success: true, message: 'Staff member deactivated successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/homework
+   */
+  static async getAdminHomework(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const classId = (req.query.class_id || req.query.classId) as string | undefined;
+      const sectionId = (req.query.section_id || req.query.sectionId) as string | undefined;
+      const subjectId = (req.query.subject_id || req.query.subjectId) as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const homework = await AdminService.getAdminHomework(user, { classId, sectionId, subjectId, search });
+      res.status(200).json({ success: true, data: homework });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/v1/admin/feedback
+   */
+  static async getAdminFeedback(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const data = await AdminService.getAdminFeedback(user);
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * PATCH /api/v1/admin/complaints/:id
+   */
+  static async updateComplaintStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const updated = await AdminService.updateComplaintStatus(user, id, req.body);
+      res.status(200).json({ success: true, message: 'Grievance updated successfully', data: updated });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
 }
+

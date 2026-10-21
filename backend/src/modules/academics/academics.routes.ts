@@ -8,6 +8,7 @@ const router = Router();
 // Base middleware: All academic endpoints require valid JWT authentication
 router.use(authenticateToken);
 
+router.get('/classes', AcademicsController.getClassesAndSections);
 router.get('/subjects', AcademicsController.getSubjects);
 router.get('/class-roster/:classId/:sectionId', AcademicsController.getClassRoster);
 router.get('/my-roster', requireRole(['TEACHER']), AcademicsController.getMyRoster);

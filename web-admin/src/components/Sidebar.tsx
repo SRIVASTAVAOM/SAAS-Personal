@@ -11,31 +11,122 @@ import {
   LogOut,
   ShieldCheck,
   Building2,
+  Users,
+  UserCheck,
+  BookOpen,
+  UserCog,
+  ClipboardCheck,
+  Receipt,
+  Megaphone,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { clearSession, getCurrentUser } from '@/lib/api';
 
-const navItems = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: any;
+  badge?: string;
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
   {
-    name: 'Command Center',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-    badge: 'Live',
+    title: 'Core ERP',
+    items: [
+      {
+        name: 'Command Center',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+        badge: 'Live',
+      },
+    ],
   },
   {
-    name: 'Master Timetable',
-    href: '/timetable',
-    icon: CalendarDays,
-    badge: 'Accretion+',
+    title: 'Students & Academics',
+    items: [
+      {
+        name: '1. Student List',
+        href: '/students',
+        icon: Users,
+      },
+      {
+        name: '3. View Timetable',
+        href: '/timetable',
+        icon: CalendarDays,
+        badge: 'Sync',
+      },
+      {
+        name: '4. Report Cards',
+        href: '/reports/greensheet',
+        icon: FileSpreadsheet,
+      },
+      {
+        name: '5. Student Attendance',
+        href: '/attendance/students',
+        icon: UserCheck,
+      },
+      {
+        name: '11. View Homework',
+        href: '/homework',
+        icon: BookOpen,
+      },
+      {
+        name: 'Unified Uploads',
+        href: '/academics/uploads',
+        icon: UploadCloud,
+      },
+    ],
   },
   {
-    name: 'Unified Uploads',
-    href: '/academics/uploads',
-    icon: UploadCloud,
+    title: 'Staff Management',
+    items: [
+      {
+        name: '8. Staff List',
+        href: '/staff',
+        icon: UserCog,
+      },
+      {
+        name: '6. Staff Attendance',
+        href: '/attendance/staff',
+        icon: ClipboardCheck,
+      },
+    ],
   },
   {
-    name: 'Greensheet Marksheets',
-    href: '/reports/greensheet',
-    icon: FileSpreadsheet,
+    title: 'Finance & Accounts',
+    items: [
+      {
+        name: '2. Fees Section',
+        href: '/fees',
+        icon: Receipt,
+      },
+    ],
+  },
+  {
+    title: 'Communication & Alerts',
+    items: [
+      {
+        name: '9. Add Notice',
+        href: '/notices',
+        icon: Megaphone,
+      },
+      {
+        name: '10. Push Notifications',
+        href: '/notifications',
+        icon: Bell,
+      },
+      {
+        name: '7. View Feedback',
+        href: '/feedback',
+        icon: MessageSquare,
+      },
+    ],
   },
 ];
 
@@ -94,50 +185,53 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 py-5 px-3 overflow-y-auto">
-          <div className="px-3 pb-2 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-            Administration
-          </div>
+        <nav className="flex-1 py-4 px-3 overflow-y-auto space-y-5">
+          {navSections.map((section) => (
+            <div key={section.title} className="space-y-1">
+              <div className="px-3 pb-1.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                {section.title}
+              </div>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                  const Icon = item.icon;
 
-          <div className="space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-              const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onClose}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex items-center justify-between px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-indigo-600" />
-                  )}
-                  <div className="flex items-center gap-2.5">
-                    <Icon
-                      className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
-                    />
-                    <span>{item.name}</span>
-                  </div>
-                  {item.badge && (
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                        isActive ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-500'
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`relative flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                      {isActive && (
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r bg-indigo-600" />
+                      )}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}
+                        />
+                        <span className="truncate">{item.name}</span>
+                      </div>
+                      {item.badge && (
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${
+                            isActive ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* User Footer Profile */}

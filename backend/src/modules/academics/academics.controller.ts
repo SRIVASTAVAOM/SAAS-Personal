@@ -3,6 +3,15 @@ import { AuthenticatedRequest } from '../../types/auth.types';
 import { AcademicsService } from './academics.service';
 
 export class AcademicsController {
+  static async getClassesAndSections(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const classes = await AcademicsService.getClassesAndSections(req.user!.schoolId);
+      res.status(200).json({ success: true, data: classes });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getSubjects(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const subjects = await AcademicsService.getSubjects(req.user!.schoolId);

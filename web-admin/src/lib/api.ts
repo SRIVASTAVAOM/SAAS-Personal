@@ -6,6 +6,8 @@ import {
   TimetableGridResponse,
   TimetableSlotEntry,
   ExamItem,
+  ClassItem,
+  AdminNoticeItem,
 } from './types';
 
 const API_BASE_URL =
@@ -144,6 +146,112 @@ export const api = {
         `/admin/reports/greensheet?class_id=${encodeURIComponent(classId)}&section_id=${encodeURIComponent(sectionId)}${examQuery}`
       );
     },
+
+    getTeachers: async (): Promise<any[]> => {
+      return request<any[]>('/admin/staff/teachers');
+    },
+
+    getTeacherTimetable: async (teacherId: string): Promise<any[]> => {
+      return request<any[]>(`/admin/timetable/teacher/${encodeURIComponent(teacherId)}`);
+    },
+
+    getSubstitutions: async (date?: string): Promise<any[]> => {
+      const query = date ? `?date=${encodeURIComponent(date)}` : '';
+      return request<any[]>(`/admin/timetable/substitutions${query}`);
+    },
+
+    assignSubstitution: async (payload: {
+      timetable_slot_id: string;
+      substitution_date: string;
+      original_teacher_id: string;
+      substitute_teacher_id: string;
+      remarks?: string;
+    }): Promise<any> => {
+      return request('/admin/timetable/substitutions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deleteSubstitution: async (id: string): Promise<any> => {
+      return request(`/admin/timetable/substitutions/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    },
+
+    getStudents: async (filters?: {
+      class_id?: string;
+      section_id?: string;
+      search?: string;
+    }): Promise<any[]> => {
+      const params = new URLSearchParams();
+      if (filters?.class_id) params.set('class_id', filters.class_id);
+      if (filters?.section_id) params.set('section_id', filters.section_id);
+      if (filters?.search) params.set('search', filters.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return request<any[]>(`/admin/students${qs}`);
+    },
+
+    getStudentDetails: async (id: string): Promise<any> => {
+      return request<any>(`/admin/students/${encodeURIComponent(id)}`);
+    },
+
+    // Staff Directory & Management
+    getAllStaff: async (search?: string): Promise<any[]> => {
+      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+      return request<any[]>(`/admin/staff${qs}`);
+    },
+
+    createStaff: async (payload: any): Promise<any> => {
+      return request('/admin/staff', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    updateStaff: async (id: string, payload: any): Promise<any> => {
+      return request(`/admin/staff/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deleteStaff: async (id: string): Promise<any> => {
+      return request(`/admin/staff/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    },
+
+    // Homework Inspection
+    getHomework: async (filters?: {
+      class_id?: string;
+      section_id?: string;
+      subject_id?: string;
+      search?: string;
+    }): Promise<any[]> => {
+      const params = new URLSearchParams();
+      if (filters?.class_id) params.set('class_id', filters.class_id);
+      if (filters?.section_id) params.set('section_id', filters.section_id);
+      if (filters?.subject_id) params.set('subject_id', filters.subject_id);
+      if (filters?.search) params.set('search', filters.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return request<any[]>(`/admin/homework${qs}`);
+    },
+
+    // Feedback & Complaints
+    getFeedback: async (): Promise<{ feedback: any[]; complaints: any[] }> => {
+      return request<{ feedback: any[]; complaints: any[] }>('/admin/feedback');
+    },
+
+    updateComplaintStatus: async (
+      id: string,
+      payload: { status: string; resolution_notes?: string }
+    ): Promise<any> => {
+      return request(`/admin/complaints/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
   },
 
   // Academics & Exams Lookups
@@ -151,11 +259,41 @@ export const api = {
     getSubjects: async (): Promise<SubjectItem[]> => {
       return request<SubjectItem[]>('/academics/subjects');
     },
+    getClasses: async (): Promise<ClassItem[]> => {
+      return request<ClassItem[]>('/academics/classes');
+    },
   },
 
   exams: {
     list: async (): Promise<ExamItem[]> => {
       return request<ExamItem[]>('/exams');
+    },
+  },
+
+  // Notices Management (Live sync with Student and Teacher Apps)
+  notices: {
+    list: async (): Promise<AdminNoticeItem[]> => {
+      return request<AdminNoticeItem[]>('/notices');
+    },
+    create: async (data: {
+      title: string;
+      content: string;
+      target_role?: string;
+      target_class_id?: string | null;
+      target_section_id?: string | null;
+      target_student_id?: string | null;
+      priority?: 'INFO' | 'NORMAL' | 'URGENT';
+      channel?: 'IN_APP' | 'PUSH' | 'SMS' | 'EMAIL';
+    }): Promise<AdminNoticeItem> => {
+      return request<AdminNoticeItem>('/notices', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    delete: async (id: string): Promise<any> => {
+      return request(`/notices/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
     },
   },
 
@@ -180,6 +318,110 @@ export const api = {
       return request(`/leaves/staff/${encodeURIComponent(id)}/decide`, {
         method: 'PATCH',
         body: JSON.stringify({ decision, comment }),
+      });
+    },
+  },
+
+  // Fee Management & Collections (Live sync with Student Receipts)
+  fees: {
+    getOverview: async (filters?: {
+      class_id?: string;
+      section_id?: string;
+      status?: string;
+      search?: string;
+    }): Promise<{
+      kpis: {
+        total_receivable: number;
+        total_collected: number;
+        total_pending: number;
+        collection_percentage: number;
+      };
+      records: any[];
+    }> => {
+      const params = new URLSearchParams();
+      if (filters?.class_id) params.set('class_id', filters.class_id);
+      if (filters?.section_id) params.set('section_id', filters.section_id);
+      if (filters?.status) params.set('status', filters.status);
+      if (filters?.search) params.set('search', filters.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return request(`/fees/admin/overview${qs}`);
+    },
+
+    collectFee: async (payload: {
+      student_id: string;
+      student_fee_id?: string;
+      amount_paid: number;
+      payment_mode: 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'DEMAND_DRAFT' | 'ONLINE';
+      transaction_reference?: string;
+      remarks?: string;
+    }): Promise<any> => {
+      return request('/fees/admin/collect', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    getReceipts: async (search?: string): Promise<any[]> => {
+      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+      return request<any[]>(`/fees/admin/receipts${qs}`);
+    },
+
+    assignFeeHead: async (payload: {
+      class_id?: string;
+      fee_title: string;
+      amount: number;
+      due_date: string;
+    }): Promise<any> => {
+      return request('/fees/admin/assign', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
+  // Attendance Management (Students & Staff)
+  attendance: {
+    getClassStudentAttendance: async (
+      classId: string,
+      sectionId: string,
+      date: string
+    ): Promise<any[]> => {
+      return request<any[]>(
+        `/attendance/student/class/${encodeURIComponent(classId)}/${encodeURIComponent(sectionId)}?date=${encodeURIComponent(date)}`
+      );
+    },
+
+    markStudentAttendance: async (payload: {
+      class_id: string;
+      section_id: string;
+      attendance_date: string;
+      records: Array<{ student_id: string; status: 'PRESENT' | 'ABSENT'; remarks?: string | null }>;
+    }): Promise<any> => {
+      return request('/attendance/student', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    getAllStaffAttendance: async (date: string): Promise<any[]> => {
+      return request<any[]>(
+        `/attendance/staff/management-overview?date=${encodeURIComponent(date)}`
+      );
+    },
+
+    markStaffAttendance: async (payload: {
+      attendance_date: string;
+      records: Array<{
+        staffId: string;
+        status: 'PRESENT' | 'ABSENT';
+        inTime?: string | null;
+        outTime?: string | null;
+        remarks?: string | null;
+      }>;
+    }): Promise<any> => {
+      return request('/attendance/staff', {
+        method: 'POST',
+        body: JSON.stringify(payload),
       });
     },
   },

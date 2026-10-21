@@ -24,6 +24,8 @@ import {
   SubjectItem,
   SectionSummary,
 } from '@/lib/types';
+import { TeacherWiseTimetable } from '@/components/timetable/TeacherWiseTimetable';
+import { SubstitutionsManager } from '@/components/timetable/SubstitutionsManager';
 
 const DAYS = [
   { id: 1, name: 'Monday', short: 'Mon' },
@@ -63,6 +65,7 @@ export default function MasterTimetablePage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'class' | 'teacher' | 'substitutions'>('class');
 
   // Cell Editor Modal State
   const [editingCell, setEditingCell] = useState<{
@@ -280,8 +283,49 @@ export default function MasterTimetablePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Controls */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
+      {/* Top Level Nav Tabs */}
+      <div className="flex border-b border-slate-200 gap-6">
+        <button
+          onClick={() => setActiveTab('class')}
+          className={`pb-3 text-xs font-bold transition-colors cursor-pointer border-b-2 -mb-[2px] ${
+            activeTab === 'class'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Class Master Timetable
+        </button>
+        <button
+          onClick={() => setActiveTab('teacher')}
+          className={`pb-3 text-xs font-bold transition-colors cursor-pointer border-b-2 -mb-[2px] ${
+            activeTab === 'teacher'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Teacher-wise Timetable
+        </button>
+        <button
+          onClick={() => setActiveTab('substitutions')}
+          className={`pb-3 text-xs font-bold transition-colors cursor-pointer border-b-2 -mb-[2px] flex items-center gap-1.5 ${
+            activeTab === 'substitutions'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <span>Daily Substitutions</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        </button>
+      </div>
+
+      {activeTab === 'teacher' ? (
+        <TeacherWiseTimetable />
+      ) : activeTab === 'substitutions' ? (
+        <SubstitutionsManager sections={sections} />
+      ) : (
+        <>
+          {/* Header & Controls */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -729,6 +773,8 @@ export default function MasterTimetablePage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

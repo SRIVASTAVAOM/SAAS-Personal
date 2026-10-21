@@ -19,4 +19,31 @@ router.post('/timetable/grid', AdminController.saveTimetableGrid);
 // Master Tabulation Marksheet (Greensheet)
 router.get('/reports/greensheet', AdminController.getGreensheet);
 
+// Staff Teachers Lookup for Allocations / Substitutions
+router.get('/staff/teachers', AdminController.getTeachers);
+router.get('/timetable/teacher/:teacherId', AdminController.getTeacherTimetable);
+
+// Timetable Teacher Substitutions (Live sync with Teacher App)
+router.get('/timetable/substitutions', AdminController.getSubstitutions);
+router.post('/timetable/substitutions', AdminController.assignSubstitution);
+router.delete('/timetable/substitutions/:id', AdminController.deleteSubstitution);
+
+// Student Directory & Profile Endpoints
+router.get('/students', AdminController.getStudentsList);
+router.get('/students/:id', AdminController.getStudentDetails);
+
+// Staff Directory & Management Endpoints (CRUD)
+router.get('/staff', AdminController.getAllStaff);
+router.post('/staff', AdminController.createStaff);
+router.patch('/staff/:id', AdminController.updateStaff);
+router.delete('/staff/:id', AdminController.deleteStaff);
+
+// View Homework (All assignments across classes with teacher names)
+router.get('/homework', AdminController.getAdminHomework);
+
+// View Feedback & Student Grievances
+router.get('/feedback', AdminController.getAdminFeedback);
+router.patch('/complaints/:id', AdminController.updateComplaintStatus);
+
 export default router;
+
