@@ -8,6 +8,9 @@ import {
   ExamItem,
   ClassItem,
   AdminNoticeItem,
+  SuperAdminMetrics,
+  SchoolRecord,
+  OnboardSchoolPayload,
 } from './types';
 
 const API_BASE_URL =
@@ -421,6 +424,47 @@ export const api = {
     }): Promise<any> => {
       return request('/attendance/staff', {
         method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  },
+
+  // Level 1: Super Admin (Platform Owner)
+  superAdmin: {
+    getMetrics: async (): Promise<SuperAdminMetrics> => {
+      return request<SuperAdminMetrics>('/super-admin/metrics');
+    },
+
+    getSchools: async (filters?: { search?: string; status?: string; plan?: string }): Promise<SchoolRecord[]> => {
+      const params = new URLSearchParams();
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.plan) params.append('plan', filters.plan);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+      return request<SchoolRecord[]>(`/super-admin/schools${queryStr}`);
+    },
+
+    getSchoolById: async (schoolId: string): Promise<any> => {
+      return request(`/super-admin/schools/${encodeURIComponent(schoolId)}`);
+    },
+
+    onboardSchool: async (payload: OnboardSchoolPayload): Promise<{ school: SchoolRecord; adminCredentials: any }> => {
+      return request('/super-admin/schools', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    updateSchoolStatus: async (schoolId: string, status: 'ACTIVE' | 'SUSPENDED'): Promise<any> => {
+      return request(`/super-admin/schools/${encodeURIComponent(schoolId)}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+
+    updateSchoolPlan: async (schoolId: string, payload: { plan: string; maxStudents?: number; subscriptionExpiresAt?: string }): Promise<any> => {
+      return request(`/super-admin/schools/${encodeURIComponent(schoolId)}/plan`, {
+        method: 'PATCH',
         body: JSON.stringify(payload),
       });
     },

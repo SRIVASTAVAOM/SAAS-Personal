@@ -20,6 +20,7 @@ import {
   Megaphone,
   Bell,
   MessageSquare,
+  Globe,
 } from 'lucide-react';
 import { clearSession, getCurrentUser } from '@/lib/api';
 
@@ -151,6 +152,27 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   };
 
   const roleName = user?.roles?.[0] || 'ADMIN';
+  const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
+
+  const sectionsToRender = React.useMemo(() => {
+    if (isSuperAdmin) {
+      return [
+        {
+          title: 'Platform Master (Level 1)',
+          items: [
+            {
+              name: 'Super Admin Engine',
+              href: '/super-admin',
+              icon: Globe,
+              badge: 'L1',
+            },
+          ],
+        },
+        ...navSections,
+      ];
+    }
+    return navSections;
+  }, [isSuperAdmin]);
 
   return (
     <>
@@ -176,17 +198,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div>
             <div className="font-semibold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
               ERP PORTAL
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                Web Admin
+              <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
+                isSuperAdmin 
+                  ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
+              }`}>
+                {isSuperAdmin ? 'Super Admin' : 'Web Admin'}
               </span>
             </div>
-            <div className="text-[11px] text-slate-500 font-medium">Accretion+ Core Suite</div>
+            <div className="text-[11px] text-slate-500 font-medium">
+              {isSuperAdmin ? 'Multi-School SaaS Hub' : 'Accretion+ Core Suite'}
+            </div>
           </div>
         </div>
 
         {/* Main Navigation */}
         <nav className="flex-1 py-4 px-3 overflow-y-auto space-y-5">
-          {navSections.map((section) => (
+          {sectionsToRender.map((section) => (
             <div key={section.title} className="space-y-1">
               <div className="px-3 pb-1.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                 {section.title}

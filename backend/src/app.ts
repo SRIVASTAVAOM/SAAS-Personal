@@ -16,6 +16,7 @@ import feeRoutes from './modules/fees/fee.routes';
 import supportRoutes from './modules/support/support.routes';
 import scheduleRoutes from './modules/schedule/schedule.routes';
 import adminRoutes from './modules/admin/admin.routes';
+import superAdminRoutes from './modules/super_admin/super_admin.routes';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/v1/fees', feeRoutes);
 app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/schedule', scheduleRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/super-admin', superAdminRoutes);
 app.use('/api/v1/test-rbac', testRbacRoutes);
 
 

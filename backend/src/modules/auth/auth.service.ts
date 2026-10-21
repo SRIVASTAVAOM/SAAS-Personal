@@ -8,7 +8,7 @@ export interface LoginResult {
   token: string;
   user: {
     id: string;
-    schoolId: string;
+    schoolId: string | null;
     identifier: string;
     email: string | null;
     phone: string | null;
@@ -34,6 +34,10 @@ export class AuthService {
       throw new Error('ACCOUNT_INACTIVE');
     }
 
+    if (user.school_status === 'SUSPENDED' && !user.roles.includes('SUPER_ADMIN')) {
+      throw new Error('SCHOOL_SUSPENDED');
+    }
+
     const isMatch = await bcrypt.compare(rawPassword, user.password_hash);
     if (!isMatch) {
       throw new Error('INVALID_CREDENTIALS');
@@ -41,7 +45,7 @@ export class AuthService {
 
     const payload: TokenPayload = {
       userId: user.id,
-      schoolId: user.school_id,
+      schoolId: user.school_id || '',
       identifier: user.identifier,
       email: user.email,
       roles: user.roles,

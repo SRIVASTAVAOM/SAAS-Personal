@@ -3,7 +3,8 @@ import { UserRole } from '../../types/auth.types';
 
 export interface UserAuthRecord {
   id: string;
-  school_id: string;
+  school_id: string | null;
+  school_status?: string | null;
   identifier: string;
   email: string | null;
   phone: string | null;
@@ -28,6 +29,7 @@ export class AuthRepository {
       SELECT 
         u.id,
         u.school_id,
+        s.status AS school_status,
         u.identifier,
         u.email,
         u.phone,
@@ -44,13 +46,14 @@ export class AuthRepository {
         COALESCE(sa.class_id, stp.current_class_id) AS class_id,
         COALESCE(sa.section_id, stp.current_section_id) AS section_id
       FROM users u
+      LEFT JOIN schools s ON u.school_id = s.id
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
       LEFT JOIN staff_profiles sp ON u.id = sp.user_id
       LEFT JOIN staff_assignments sa ON sp.id = sa.staff_id
       LEFT JOIN student_profiles stp ON u.id = stp.user_id
       WHERE (u.identifier = $1 OR u.email = $1 OR u.phone = $1)
-      GROUP BY u.id, sp.id, stp.id, sa.wing_id, sa.class_id, sa.section_id, stp.current_class_id, stp.current_section_id
+      GROUP BY u.id, s.status, sp.id, stp.id, sa.wing_id, sa.class_id, sa.section_id, stp.current_class_id, stp.current_section_id
       LIMIT 1;
     `;
 
@@ -61,6 +64,7 @@ export class AuthRepository {
     return {
       id: r.id,
       school_id: r.school_id,
+      school_status: r.school_status,
       identifier: r.identifier,
       email: r.email,
       phone: r.phone,
@@ -81,6 +85,7 @@ export class AuthRepository {
       SELECT 
         u.id,
         u.school_id,
+        s.status AS school_status,
         u.identifier,
         u.email,
         u.phone,
@@ -97,13 +102,14 @@ export class AuthRepository {
         COALESCE(sa.class_id, stp.current_class_id) AS class_id,
         COALESCE(sa.section_id, stp.current_section_id) AS section_id
       FROM users u
+      LEFT JOIN schools s ON u.school_id = s.id
       LEFT JOIN user_roles ur ON u.id = ur.user_id
       LEFT JOIN roles r ON ur.role_id = r.id
       LEFT JOIN staff_profiles sp ON u.id = sp.user_id
       LEFT JOIN staff_assignments sa ON sp.id = sa.staff_id
       LEFT JOIN student_profiles stp ON u.id = stp.user_id
       WHERE u.id = $1
-      GROUP BY u.id, sp.id, stp.id, sa.wing_id, sa.class_id, sa.section_id, stp.current_class_id, stp.current_section_id
+      GROUP BY u.id, s.status, sp.id, stp.id, sa.wing_id, sa.class_id, sa.section_id, stp.current_class_id, stp.current_section_id
       LIMIT 1;
     `;
 

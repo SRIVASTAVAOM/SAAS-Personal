@@ -37,19 +37,23 @@ export default function AdminLogin() {
       // Validate that user is administrative
       const userRoles = data.user.roles || [];
       const isAllowed = userRoles.some((r: string) =>
-        ['MANAGEMENT', 'COORDINATOR', 'ACCOUNTANT'].includes(r)
+        ['SUPER_ADMIN', 'MANAGEMENT', 'COORDINATOR', 'ACCOUNTANT'].includes(r)
       );
 
       if (!isAllowed) {
         setError(
-          'Access Restricted: Only Management, Coordinator, and Administrative roles can access the Web Admin Portal.'
+          'Access Restricted: Only Super Admin, Management, Coordinator, and Administrative roles can access the Web Admin Portal.'
         );
         setLoading(false);
         return;
       }
 
       setSession(data.token, data.user);
-      router.push('/dashboard');
+      if (userRoles.includes('SUPER_ADMIN')) {
+        router.push('/super-admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err) {
       setError((err instanceof Error && err.message) || 'Login failed. Please check your credentials.');
       setLoading(false);
@@ -186,6 +190,10 @@ export default function AdminLogin() {
 
             <div className="admin-login-presets">
               <span>Quick test credentials:</span>
+              <button type="button" className="admin-login-link font-semibold text-indigo-600" onClick={() => setPreset('superadmin')}>
+                Super Admin
+              </button>
+              <span aria-hidden="true">·</span>
               <button type="button" className="admin-login-link" onClick={() => setPreset('management1')}>
                 Management
               </button>

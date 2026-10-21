@@ -53,6 +53,14 @@ export class AuthController {
         return;
       }
 
+      if (error.message === 'SCHOOL_SUSPENDED') {
+        res.status(403).json({
+          success: false,
+          error: 'Your school access is currently suspended. Please contact platform administration.',
+        });
+        return;
+      }
+
       next(error);
     }
   }

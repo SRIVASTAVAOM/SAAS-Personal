@@ -1,8 +1,8 @@
-export type UserRole = 'MANAGEMENT' | 'COORDINATOR' | 'ACCOUNTANT' | 'TEACHER' | 'STUDENT';
+export type UserRole = 'SUPER_ADMIN' | 'MANAGEMENT' | 'COORDINATOR' | 'ACCOUNTANT' | 'TEACHER' | 'STUDENT';
 
 export interface UserSession {
   userId: string;
-  schoolId: string;
+  schoolId: string | null;
   identifier: string;
   email: string | null;
   roles: UserRole[];
@@ -230,4 +230,57 @@ export interface AdminNoticeItem {
   section_name?: string | null;
   published_at: string;
   created_at: string;
+}
+
+export interface SuperAdminMetrics {
+  schools: {
+    total_schools: number;
+    active_schools: number;
+    suspended_schools: number;
+  };
+  users: {
+    total_students: number;
+    total_staff: number;
+  };
+  planBreakdown: Array<{ plan: string; count: number }>;
+  recentSchools: Array<{
+    id: string;
+    name: string;
+    code: string;
+    status: string;
+    plan: string;
+    admin_name: string;
+    admin_email: string;
+    created_at: string;
+    student_count: number;
+  }>;
+}
+
+export interface SchoolRecord {
+  id: string;
+  name: string;
+  code: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+  plan: 'FREE' | 'PRO' | 'ENTERPRISE';
+  max_students: number;
+  subscription_expires_at: string;
+  admin_name: string;
+  admin_email: string;
+  admin_phone?: string;
+  address?: string;
+  created_at: string;
+  student_count: number;
+  staff_count: number;
+}
+
+export interface OnboardSchoolPayload {
+  name: string;
+  code: string;
+  plan?: 'FREE' | 'PRO' | 'ENTERPRISE';
+  maxStudents?: number;
+  adminName: string;
+  adminEmail: string;
+  adminPhone?: string;
+  adminPassword?: string;
+  address?: string;
 }
