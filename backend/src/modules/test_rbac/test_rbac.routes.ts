@@ -26,40 +26,20 @@ router.get(
 );
 
 router.get(
-  '/accountant-zone',
+  '/admin-zone',
   authenticateToken,
-  requireRole(['ACCOUNTANT']),
+  requireRole(['ADMIN']),
   (req: AuthenticatedRequest, res: Response) => {
-    res.json({ success: true, message: 'Welcome to Accountant Zone', user: req.user });
+    res.json({ success: true, message: 'Welcome to School Admin Zone', user: req.user });
   }
 );
 
 router.get(
-  '/coordinator-zone',
+  '/super-admin-zone',
   authenticateToken,
-  requireRole(['COORDINATOR']),
+  requireRole(['SUPER_ADMIN']),
   (req: AuthenticatedRequest, res: Response) => {
-    res.json({ success: true, message: 'Welcome to Coordinator Zone', user: req.user });
-  }
-);
-
-router.get(
-  '/management-zone',
-  authenticateToken,
-  requireRole(['MANAGEMENT']),
-  (req: AuthenticatedRequest, res: Response) => {
-    res.json({ success: true, message: 'Welcome to Management Zone', user: req.user });
-  }
-);
-
-// 2. Resource-level scope test routes
-router.get(
-  '/coordinator-wing/:wingId',
-  authenticateToken,
-  requireRole(['COORDINATOR']),
-  enforceWingScope('wingId'),
-  (req: AuthenticatedRequest, res: Response) => {
-    res.json({ success: true, message: `Access granted for Wing: ${req.params.wingId}` });
+    res.json({ success: true, message: 'Welcome to Super Admin Zone', user: req.user });
   }
 );
 

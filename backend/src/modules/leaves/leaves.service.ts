@@ -56,7 +56,7 @@ export class LeavesService {
   }
 
   static async getAllStaffLeavesForManagement(user: TokenPayload) {
-    if (!user.roles.includes('MANAGEMENT')) {
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       throw new Error('FORBIDDEN_ROLE');
     }
     return await LeavesRepository.getAllStaffLeavesForManagement(user.schoolId);
@@ -100,7 +100,7 @@ export class LeavesService {
     decision: 'APPROVED' | 'REJECTED',
     comment: string | null
   ) {
-    if (!user.roles.includes('MANAGEMENT')) {
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       throw new Error('FORBIDDEN_ROLE');
     }
 
@@ -165,7 +165,7 @@ export class LeavesService {
 
   static async getPendingStudentLeaves(user: TokenPayload, classId?: string, sectionId?: string) {
     const isManagementOrAdmin = user.roles.some((r) =>
-      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+      ['ADMIN', 'SUPER_ADMIN'].includes(r)
     );
 
     if (isManagementOrAdmin) {
@@ -187,7 +187,7 @@ export class LeavesService {
 
   static async getClassStudentLeaves(user: TokenPayload, classId?: string, sectionId?: string) {
     const isManagementOrAdmin = user.roles.some((r) =>
-      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+      ['ADMIN', 'SUPER_ADMIN'].includes(r)
     );
 
     if (isManagementOrAdmin) {
@@ -228,7 +228,7 @@ export class LeavesService {
     }
 
     const isManagementOrAdmin = user.roles.some((r) =>
-      ['MANAGEMENT', 'COORDINATOR', 'ADMIN'].includes(r)
+      ['ADMIN', 'SUPER_ADMIN'].includes(r)
     );
 
     if (isManagementOrAdmin) {

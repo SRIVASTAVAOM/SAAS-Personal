@@ -19,7 +19,7 @@ const INFO_SIGN_UP =
 
 export default function AdminLogin() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState('management1');
+  const [identifier, setIdentifier] = useState('admin');
   const [password, setPassword] = useState('Password@123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,12 +37,12 @@ export default function AdminLogin() {
       // Validate that user is administrative
       const userRoles = data.user.roles || [];
       const isAllowed = userRoles.some((r: string) =>
-        ['SUPER_ADMIN', 'MANAGEMENT', 'COORDINATOR', 'ACCOUNTANT'].includes(r)
+        ['SUPER_ADMIN', 'ADMIN'].includes(r)
       );
 
       if (!isAllowed) {
         setError(
-          'Access Restricted: Only Super Admin, Management, Coordinator, and Administrative roles can access the Web Admin Portal.'
+          'Access Restricted: Only Super Admin and School Admin roles can access the Web Admin Portal.'
         );
         setLoading(false);
         return;
@@ -190,16 +190,12 @@ export default function AdminLogin() {
 
             <div className="admin-login-presets">
               <span>Quick test credentials:</span>
-              <button type="button" className="admin-login-link font-semibold text-indigo-600" onClick={() => setPreset('superadmin')}>
-                Super Admin
+              <button type="button" className="admin-login-link font-semibold text-purple-600" onClick={() => setPreset('superadmin')}>
+                Super Admin (L1)
               </button>
               <span aria-hidden="true">·</span>
-              <button type="button" className="admin-login-link" onClick={() => setPreset('management1')}>
-                Management
-              </button>
-              <span aria-hidden="true">·</span>
-              <button type="button" className="admin-login-link" onClick={() => setPreset('coordinator1')}>
-                Coordinator
+              <button type="button" className="admin-login-link font-semibold text-indigo-600" onClick={() => setPreset('admin')}>
+                School Admin (L2)
               </button>
             </div>
           </div>

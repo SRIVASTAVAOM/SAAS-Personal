@@ -9,42 +9,42 @@ const router = Router();
 router.post(
   '/staff',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'ACCOUNTANT']),
+  requireRole(['TEACHER', 'ADMIN']),
   LeavesController.createStaffLeave
 );
 
 router.get(
   '/staff/my-leaves',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'ACCOUNTANT']),
+  requireRole(['TEACHER', 'ADMIN']),
   LeavesController.getStaffMyLeaves
 );
 
 router.get(
   '/staff/wing-leaves',
   authenticateToken,
-  requireRole(['COORDINATOR', 'MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   LeavesController.getStaffWingLeaves
 );
 
 router.get(
   '/staff/management-queue',
   authenticateToken,
-  requireRole(['MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   LeavesController.getAllStaffLeavesForManagement
 );
 
 router.patch(
   '/staff/:id/recommend',
   authenticateToken,
-  requireRole(['COORDINATOR', 'MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   LeavesController.recommendStaffLeave
 );
 
 router.patch(
   '/staff/:id/decide',
   authenticateToken,
-  requireRole(['MANAGEMENT', 'COORDINATOR']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   LeavesController.sanctionStaffLeave
 );
 
@@ -66,21 +66,21 @@ router.get(
 router.get(
   '/student/pending-approvals',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   LeavesController.getPendingStudentLeaves
 );
 
 router.get(
   '/student/class-requests',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   LeavesController.getClassStudentLeaves
 );
 
 router.patch(
   '/student/:id/status',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT', 'ADMIN']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   LeavesController.updateStudentLeaveStatus
 );
 

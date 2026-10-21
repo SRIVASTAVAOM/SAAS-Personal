@@ -1,6 +1,6 @@
 import { Request } from 'express';
 
-export type UserRole = 'STUDENT' | 'TEACHER' | 'ACCOUNTANT' | 'COORDINATOR' | 'MANAGEMENT' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'STUDENT';
 
 export interface TokenPayload {
   userId: string;

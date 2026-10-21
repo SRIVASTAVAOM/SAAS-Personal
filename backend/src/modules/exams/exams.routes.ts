@@ -11,82 +11,82 @@ router.use(authenticateToken);
 // 1. Exam Setup & Listing
 router.post(
   '/',
-  requireRole(['COORDINATOR', 'MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   ExamsController.createExam
 );
 
 router.get(
   '/',
-  requireRole(['COORDINATOR', 'MANAGEMENT', 'TEACHER', 'STUDENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN', 'TEACHER', 'STUDENT']),
   ExamsController.listExams
 );
 
 router.get(
   '/:id',
-  requireRole(['COORDINATOR', 'MANAGEMENT', 'TEACHER', 'STUDENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN', 'TEACHER', 'STUDENT']),
   ExamsController.getExamDetails
 );
 
 router.patch(
   '/:id/publish',
-  requireRole(['COORDINATOR', 'MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   ExamsController.publishExam
 );
 
 // 2. Datesheets (Scheduling)
 router.post(
   '/:id/datesheets',
-  requireRole(['COORDINATOR']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   ExamsController.createDatesheet
 );
 
 router.get(
   '/:id/datesheets',
-  requireRole(['COORDINATOR', 'TEACHER', 'STUDENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN', 'TEACHER', 'STUDENT']),
   ExamsController.getDatesheets
 );
 
 // 3. Marks Entry & Verification
 router.get(
   '/:id/datesheets/:datesheetId/marks-roster',
-  requireRole(['TEACHER', 'COORDINATOR']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ExamsController.getMarksRoster
 );
 
 router.post(
   '/:id/datesheets/:datesheetId/marks',
-  requireRole(['TEACHER', 'COORDINATOR']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ExamsController.saveMarks
 );
 
 router.get(
   '/:id/datesheets/:datesheetId/summary',
-  requireRole(['TEACHER', 'COORDINATOR']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ExamsController.getDatesheetSummary
 );
 
 router.patch(
   '/:id/datesheets/:datesheetId/verify-marks',
-  requireRole(['COORDINATOR']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   ExamsController.verifyMarks
 );
 
 // 4. Report Cards Generation & Approval
 router.post(
   '/:id/classes/:classId/sections/:sectionId/generate-report-cards',
-  requireRole(['TEACHER', 'COORDINATOR']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ExamsController.generateReportCards
 );
 
 router.get(
   '/:id/classes/:classId/sections/:sectionId/report-cards',
-  requireRole(['TEACHER', 'COORDINATOR']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ExamsController.getClassReportCards
 );
 
 router.patch(
   '/:id/classes/:classId/sections/:sectionId/approve-report-cards',
-  requireRole(['COORDINATOR']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   ExamsController.approveReportCards
 );
 

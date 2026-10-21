@@ -17,15 +17,15 @@ router.patch(
 );
 
 
-// Staff profile endpoints (Teacher, Coordinator, Accountant, Management)
+// Staff profile endpoints (Teacher, Admin, Super Admin)
 router.get(
   '/staff',
-  requireRole(['TEACHER', 'COORDINATOR', 'ACCOUNTANT', 'MANAGEMENT']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ProfileController.getStaffProfile
 );
 router.patch(
   '/staff',
-  requireRole(['TEACHER', 'COORDINATOR', 'ACCOUNTANT', 'MANAGEMENT']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   ProfileController.updateStaffProfile
 );
 

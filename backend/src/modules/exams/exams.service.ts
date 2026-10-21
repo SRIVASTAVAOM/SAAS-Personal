@@ -62,12 +62,8 @@ export class ExamsService {
     classId: string,
     sectionId: string
   ): Promise<void> {
-    if (user.roles.includes('COORDINATOR')) {
-      const classRes = await pool.query(`SELECT wing_id FROM classes WHERE id = $1;`, [classId]);
-      if (classRes.rows.length > 0 && classRes.rows[0].wing_id) {
-        await this.verifyCoordinatorWingScope(user.profileId!, classRes.rows[0].wing_id);
-        return;
-      }
+    if (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) {
+      return;
     }
 
     if (user.roles.includes('TEACHER')) {
@@ -81,7 +77,7 @@ export class ExamsService {
 
     throw {
       statusCode: 403,
-      message: 'Only the assigned Class Teacher or Wing Coordinator can perform this action.',
+      message: 'Only the assigned Class Teacher or School Admin can perform this action.',
     };
   }
 
@@ -97,16 +93,12 @@ export class ExamsService {
       endDate: string;
     }
   ): Promise<ExamRecord> {
-    if (!user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
-      throw { statusCode: 403, message: 'Only Coordinators or Management can create examinations.' };
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
+      throw { statusCode: 403, message: 'Only School Admin can create examinations.' };
     }
 
     if (new Date(data.endDate) < new Date(data.startDate)) {
       throw { statusCode: 400, message: 'Exam end date cannot be earlier than start date.' };
-    }
-
-    if (user.roles.includes('COORDINATOR') && data.wingId) {
-      await this.verifyCoordinatorWingScope(user.profileId!, data.wingId);
     }
 
     return await ExamsRepository.createExam({
@@ -148,15 +140,12 @@ export class ExamsService {
 
   // 4. Publish / Unpublish Exam
   static async publishExam(user: TokenPayload, examId: string, isPublished: boolean): Promise<ExamRecord> {
-    if (!user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
-      throw { statusCode: 403, message: 'Only Coordinators or Management can publish examinations.' };
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
+      throw { statusCode: 403, message: 'Only School Admin can publish examinations.' };
     }
     const exam = await ExamsRepository.getExamById(examId, user.schoolId);
     if (!exam) {
       throw { statusCode: 404, message: 'Examination not found.' };
-    }
-    if (user.roles.includes('COORDINATOR') && exam.wing_id) {
-      await this.verifyCoordinatorWingScope(user.profileId!, exam.wing_id);
     }
 
     const updated = await ExamsRepository.setExamPublishStatus(examId, user.schoolId, isPublished);
@@ -182,16 +171,13 @@ export class ExamsService {
       invigilatorStaffId?: string | null;
     }
   ): Promise<ExamDatesheetRecord> {
-    if (!user.roles.includes('COORDINATOR')) {
-      throw { statusCode: 403, message: 'Only Coordinators can schedule exam datesheets.' };
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
+      throw { statusCode: 403, message: 'Only School Admin can schedule exam datesheets.' };
     }
 
     const exam = await ExamsRepository.getExamById(examId, user.schoolId);
     if (!exam) {
       throw { statusCode: 404, message: 'Examination not found.' };
-    }
-    if (exam.wing_id) {
-      await this.verifyCoordinatorWingScope(user.profileId!, exam.wing_id);
     }
 
     // Validate times
@@ -273,13 +259,11 @@ export class ExamsService {
       throw { statusCode: 404, message: 'Exam datesheet not found.' };
     }
 
-    if (user.roles.includes('TEACHER')) {
+    if (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) {
+      // Full access for administrators
+    } else if (user.roles.includes('TEACHER')) {
       // Verify teacher allocation
       await this.verifyTeacherAllocation(user.profileId!, datesheet.class_id, datesheet.subject_id, sectionId);
-    } else if (user.roles.includes('COORDINATOR')) {
-      if (datesheet.wing_id) {
-        await this.verifyCoordinatorWingScope(user.profileId!, datesheet.wing_id);
-      }
     } else {
       throw { statusCode: 403, message: 'Access denied.' };
     }
@@ -290,7 +274,7 @@ export class ExamsService {
     return { datesheet, roster };
   }
 
-  // 8. Save / Submit Marks (Teacher / Coordinator)
+  // 8. Save / Submit Marks (Teacher / Admin)
   static async saveMarks(
     user: TokenPayload,
     datesheetId: string,
@@ -313,12 +297,10 @@ export class ExamsService {
       };
     }
 
-    if (user.roles.includes('TEACHER')) {
+    if (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) {
+      // Full access for administrators
+    } else if (user.roles.includes('TEACHER')) {
       await this.verifyTeacherAllocation(user.profileId!, datesheet.class_id, datesheet.subject_id);
-    } else if (user.roles.includes('COORDINATOR')) {
-      if (datesheet.wing_id) {
-        await this.verifyCoordinatorWingScope(user.profileId!, datesheet.wing_id);
-      }
     } else {
       throw { statusCode: 403, message: 'Access denied.' };
     }
@@ -365,18 +347,15 @@ export class ExamsService {
     return this.saveMarks(user, datesheetId, data);
   }
 
-  // 9. Verify Datesheet Marks (Coordinator)
+  // 9. Verify Datesheet Marks (Admin)
   static async verifyDatesheetMarks(user: TokenPayload, datesheetId: string): Promise<{ verifiedCount: number }> {
-    if (!user.roles.includes('COORDINATOR')) {
-      throw { statusCode: 403, message: 'Only Coordinators can verify exam marks.' };
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
+      throw { statusCode: 403, message: 'Only School Admin can verify exam marks.' };
     }
 
     const datesheet = await ExamsRepository.getDatesheetById(datesheetId);
     if (!datesheet) {
       throw { statusCode: 404, message: 'Exam datesheet not found.' };
-    }
-    if (datesheet.wing_id) {
-      await this.verifyCoordinatorWingScope(user.profileId!, datesheet.wing_id);
     }
 
     const count = await ExamsRepository.verifyDatesheetMarks(datesheetId, user.profileId!);
@@ -392,7 +371,7 @@ export class ExamsService {
     return summary;
   }
 
-  // 11. Generate Class Report Cards (Class Teacher or Coordinator)
+  // 11. Generate Class Report Cards (Class Teacher or Admin)
   static async generateReportCards(
     user: TokenPayload,
     examId: string,
@@ -421,15 +400,15 @@ export class ExamsService {
     return await ExamsRepository.getClassReportCards(examId, classId, sectionId);
   }
 
-  // 13. Approve Report Cards (Coordinator)
+  // 13. Approve Report Cards (Admin)
   static async approveReportCards(
     user: TokenPayload,
     examId: string,
     classId: string,
     sectionId: string
   ): Promise<{ approvedCount: number }> {
-    if (!user.roles.includes('COORDINATOR')) {
-      throw { statusCode: 403, message: 'Only Coordinators can approve report cards.' };
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
+      throw { statusCode: 403, message: 'Only School Admin can approve report cards.' };
     }
 
     const classRes = await pool.query(`SELECT wing_id FROM classes WHERE id = $1;`, [classId]);

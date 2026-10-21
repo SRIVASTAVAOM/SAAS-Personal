@@ -24,7 +24,7 @@ export class AcademicsService {
     }
 
     // 2. Data-Scope check for Teacher: Teacher must teach or be class teacher for this class/section
-    if (user.roles.includes('TEACHER') && !user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
+    if (user.roles.includes('TEACHER') && !user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       const allocations = await AcademicsRepository.getTeacherAllocations(user.profileId!);
       const isAllocated = allocations.some(
         (a: any) => a.class_id === classId && a.section_id === sectionId

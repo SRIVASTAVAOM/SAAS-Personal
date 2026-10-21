@@ -7,7 +7,7 @@ export class CurriculumService {
    * Verifies access to curriculum for a given class and subject.
    */
   static async verifyClassAccess(user: TokenPayload, classId: string, subjectId: string): Promise<void> {
-    if (user.roles.includes('MANAGEMENT')) return;
+    if (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN')) return;
 
     if (user.roles.includes('STUDENT')) {
       const { rows } = await pool.query(
@@ -31,19 +31,6 @@ export class CurriculumService {
       );
       if (rows.length === 0) {
         throw { statusCode: 403, message: 'Teachers can only view/manage curriculum for their allocated classes and subjects.' };
-      }
-      return;
-    }
-
-    if (user.roles.includes('COORDINATOR')) {
-      const { rows } = await pool.query(
-        `SELECT c.id FROM classes c
-         JOIN staff_assignments sa ON sa.wing_id = c.wing_id
-         WHERE sa.staff_id = $1 AND c.id = $2;`,
-        [user.profileId, classId]
-      );
-      if (rows.length === 0) {
-        throw { statusCode: 403, message: 'Coordinators can only access curriculum for classes in their assigned wing.' };
       }
       return;
     }
@@ -72,8 +59,8 @@ export class CurriculumService {
       description?: string;
     }
   ): Promise<CurriculumUnit> {
-    // Only Teachers, Coordinators, and Management can add curriculum units
-    if (!user.roles.some((r) => ['TEACHER', 'COORDINATOR', 'MANAGEMENT'].includes(r))) {
+    // Only Teachers, Admin, and Super Admin can add curriculum units
+    if (!user.roles.some((r) => ['TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(r))) {
       throw { statusCode: 403, message: 'Only authorized academic staff can create curriculum units.' };
     }
 
@@ -111,7 +98,7 @@ export class CurriculumService {
       learningObjectives?: string;
     }
   ): Promise<CurriculumTopic> {
-    if (!user.roles.some((r) => ['TEACHER', 'COORDINATOR', 'MANAGEMENT'].includes(r))) {
+    if (!user.roles.some((r) => ['TEACHER', 'ADMIN', 'SUPER_ADMIN'].includes(r))) {
       throw { statusCode: 403, message: 'Only authorized academic staff can add curriculum topics.' };
     }
 

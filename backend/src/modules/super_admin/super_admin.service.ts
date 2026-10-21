@@ -288,8 +288,8 @@ export class SuperAdminService {
       ]);
       const userId = userRes.rows[0].id;
 
-      // 6. Assign MANAGEMENT role
-      const roleRes = await client.query(`SELECT id FROM roles WHERE name = 'MANAGEMENT' LIMIT 1`);
+      // 6. Assign ADMIN role
+      const roleRes = await client.query(`SELECT id FROM roles WHERE name = 'ADMIN' LIMIT 1`);
       if (roleRes.rows.length > 0) {
         await client.query(`
           INSERT INTO user_roles (user_id, role_id)
@@ -316,7 +316,7 @@ export class SuperAdminService {
           identifier: adminIdentifier,
           email: data.adminEmail.trim(),
           temporaryPassword: rawPassword,
-          role: 'MANAGEMENT',
+          role: 'ADMIN',
         },
       };
     } catch (error) {

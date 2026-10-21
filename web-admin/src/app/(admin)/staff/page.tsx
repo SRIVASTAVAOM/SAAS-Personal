@@ -230,7 +230,7 @@ export default function StaffListPage() {
   // KPIs
   const totalStaff = staffList.length;
   const teachersCount = staffList.filter((s) => s.role === 'TEACHER').length;
-  const coordinatorsCount = staffList.filter((s) => s.role === 'COORDINATOR').length;
+  const adminsCount = staffList.filter((s) => s.role === 'ADMIN').length;
   const activeCount = staffList.filter((s) => s.is_active).length;
 
   return (
@@ -321,8 +321,8 @@ export default function StaffListPage() {
             <Briefcase className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-medium">Coordinators / Mgmt</p>
-            <p className="text-xl font-bold text-purple-700">{coordinatorsCount}</p>
+            <p className="text-xs text-slate-500 font-medium">School Admins</p>
+            <p className="text-xl font-bold text-purple-700">{adminsCount}</p>
           </div>
         </div>
       </div>
@@ -343,7 +343,7 @@ export default function StaffListPage() {
 
         {/* Role Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'TEACHER', 'COORDINATOR', 'ACCOUNTANT', 'MANAGEMENT'].map((role) => (
+          {['ALL', 'TEACHER', 'ADMIN'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}
@@ -573,10 +573,8 @@ export default function StaffListPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="TEACHER">TEACHER (Mobile App Access)</option>
-                    <option value="COORDINATOR">COORDINATOR (Wing Lead)</option>
-                    <option value="ACCOUNTANT">ACCOUNTANT (Fees Lead)</option>
-                    <option value="MANAGEMENT">MANAGEMENT (Full Access)</option>
+                    <option value="TEACHER">TEACHER (Faculty & Mobile App Access)</option>
+                    <option value="ADMIN">ADMIN (School Administrator / Full Access)</option>
                   </select>
                 </div>
 
@@ -797,9 +795,7 @@ export default function StaffListPage() {
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="TEACHER">TEACHER</option>
-                    <option value="COORDINATOR">COORDINATOR</option>
-                    <option value="ACCOUNTANT">ACCOUNTANT</option>
-                    <option value="MANAGEMENT">MANAGEMENT</option>
+                    <option value="ADMIN">ADMIN</option>
                   </select>
                 </div>
 

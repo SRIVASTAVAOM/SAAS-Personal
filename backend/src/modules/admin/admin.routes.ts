@@ -5,9 +5,9 @@ import { AdminController } from './admin.controller';
 
 const router = Router();
 
-// All Admin web portal endpoints require authentication and MANAGEMENT or COORDINATOR role
+// All Admin web portal endpoints require authentication and ADMIN or SUPER_ADMIN role
 router.use(authenticateToken);
-router.use(requireRole(['MANAGEMENT', 'COORDINATOR']));
+router.use(requireRole(['ADMIN', 'SUPER_ADMIN']));
 
 // Web Admin Command Center Dashboard Summary
 router.get('/dashboard/summary', AdminController.getDashboardSummary);

@@ -158,18 +158,7 @@ export class MaterialsService {
       }
     }
 
-    // If coordinator, check wing
-    if (user.roles.includes('COORDINATOR')) {
-      const { rows } = await pool.query(
-        `SELECT c.id FROM classes c
-         JOIN staff_assignments sa ON sa.wing_id = c.wing_id
-         WHERE sa.staff_id = $1 AND c.id = $2;`,
-        [user.profileId, classId]
-      );
-      if (rows.length === 0) {
-        throw { statusCode: 403, message: 'Coordinators can only access materials for classes in their assigned wing.' };
-      }
-    }
+
 
     return await MaterialsRepository.getMaterialsByClassAndSubject(classId, subjectId, sectionId);
   }

@@ -9,14 +9,14 @@ const router = Router();
 router.post(
   '/student',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   AttendanceController.markStudentAttendance
 );
 
 router.get(
   '/student/class/:classId/:sectionId',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'MANAGEMENT']),
+  requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']),
   AttendanceController.getClassAttendance
 );
 
@@ -31,28 +31,28 @@ router.get(
 router.get(
   '/staff/my-history',
   authenticateToken,
-  requireRole(['TEACHER', 'COORDINATOR', 'ACCOUNTANT']),
+  requireRole(['TEACHER', 'ADMIN']),
   AttendanceController.getStaffAttendanceHistory
 );
 
 router.get(
   '/staff/wing/:wingId',
   authenticateToken,
-  requireRole(['COORDINATOR', 'MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   AttendanceController.getWingStaffAttendance
 );
 
 router.get(
   '/staff/management-overview',
   authenticateToken,
-  requireRole(['MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   AttendanceController.getAllStaffAttendance
 );
 
 router.post(
   '/staff',
   authenticateToken,
-  requireRole(['MANAGEMENT']),
+  requireRole(['ADMIN', 'SUPER_ADMIN']),
   AttendanceController.markStaffAttendance
 );
 

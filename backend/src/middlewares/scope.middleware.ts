@@ -13,15 +13,9 @@ export function enforceWingScope(paramName = 'wingId') {
 
     const requestedWingId = req.params[paramName] || req.body[paramName] || req.query[paramName];
 
-    // If user is a Coordinator, they must match their assigned wing
-    if (req.user.roles.includes('COORDINATOR')) {
-      if (!req.user.wingId || req.user.wingId !== requestedWingId) {
-        res.status(403).json({
-          success: false,
-          error: 'Forbidden: Access denied. Coordinator is not assigned to this wing scope',
-        });
-        return;
-      }
+    // School ADMIN and SUPER_ADMIN have full access across wings
+    if (req.user.roles.includes('ADMIN') || req.user.roles.includes('SUPER_ADMIN')) {
+      return next();
     }
 
     next();

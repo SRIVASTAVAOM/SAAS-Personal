@@ -35,7 +35,7 @@ export class AttendanceService {
     }
 
     // Role & Resource Scope Check for Teacher
-    if (user.roles.includes('TEACHER') && !user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
+    if (user.roles.includes('TEACHER') && !user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       let isHomeroom = user.classId === classId && user.sectionId === sectionId;
       if (!isHomeroom && user.profileId) {
         const homeroom = await AcademicsRepository.getTeacherHomeroom(user.profileId);
@@ -81,7 +81,7 @@ export class AttendanceService {
     }
 
     // Scope check for Teacher
-    if (user.roles.includes('TEACHER') && !user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
+    if (user.roles.includes('TEACHER') && !user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       let isHomeroom = user.classId === classId && user.sectionId === sectionId;
       if (!isHomeroom) {
         const homeroom = await AcademicsRepository.getTeacherHomeroom(user.profileId!);
@@ -121,8 +121,8 @@ export class AttendanceService {
       throw new Error('INVALID_DATE');
     }
 
-    // Scope check for Coordinator
-    if (user.roles.includes('COORDINATOR') && !user.roles.includes('MANAGEMENT')) {
+    // School ADMIN and SUPER_ADMIN have full access
+    if (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN')) {
       if (user.wingId !== wingId) {
         throw new Error('FORBIDDEN_SCOPE');
       }
