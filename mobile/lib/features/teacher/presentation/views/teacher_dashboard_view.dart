@@ -130,11 +130,21 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
         : null;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        gradient: AppColors.headerGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.indigo500.withValues(alpha: 0.25),
+          width: 1.0,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F0F172A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -149,7 +159,7 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                     const Icon(
                       Icons.account_balance_outlined,
                       size: 14,
-                      color: AppColors.secondaryText,
+                      color: AppColors.indigo300,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -161,37 +171,37 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: AppColors.secondaryText,
+                          color: AppColors.indigo200,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.border),
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
                       child: const Text(
                         '2026-2027',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryText,
+                          color: Colors.white,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 // Teacher Name
                 Text(
                   teacherName,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryText,
+                    color: Colors.white,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -201,7 +211,7 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                   designation,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: AppColors.secondaryText,
+                    color: AppColors.slate300,
                   ),
                 ),
                 if (isClassTeacher) ...[
@@ -209,9 +219,9 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
+                      color: AppColors.indigo500.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: const Color(0xFFC7D2FE)),
+                      border: Border.all(color: AppColors.indigo400.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       homeroomInfo != null
@@ -220,7 +230,7 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF4338CA),
+                        color: AppColors.indigo100,
                       ),
                     ),
                   ),
@@ -228,23 +238,33 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          // Clean monogram circle avatar with subtle border
+          const SizedBox(width: 14),
+          // Clean monogram circle avatar with indigo gradient
           Container(
-            width: 46,
-            height: 46,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              gradient: AppColors.indigoGradient,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.indigo500.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             alignment: Alignment.center,
             child: Text(
               initials,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primaryText,
+                color: Colors.white,
               ),
             ),
           ),
@@ -289,14 +309,14 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                 Expanded(
                   child: Material(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                     child: InkWell(
                       onTap: () => widget.onNavigateToTab?.call(1, attendanceSubTab: 1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.border),
                         ),
                         child: Column(
@@ -318,10 +338,10 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFECFDF5),
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: const Color(0xFFA7F3D0)),
                                   ),
                                   child: const Text(
@@ -365,14 +385,14 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                 Expanded(
                   child: Material(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                     child: InkWell(
                       onTap: () => widget.onNavigateToTab?.call(3, leavesSubTab: 1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.border),
                         ),
                         child: Column(
@@ -394,12 +414,12 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: pendingLeaves > 0
                                         ? const Color(0xFFFFFBEB)
                                         : const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
                                       color: pendingLeaves > 0
                                           ? const Color(0xFFFDE68A)
@@ -890,18 +910,18 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
 
             return Material(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 onTap: () {
                   try {
                     item.onTap(context);
                   } catch (_) {}
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppColors.border, width: 1.0),
                   ),
                   child: Column(
@@ -910,14 +930,14 @@ class _TeacherDashboardViewState extends State<TeacherDashboardView> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: AppColors.indigo50,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: AppColors.indigo100),
                         ),
                         child: Icon(
                           item.icon,
                           size: 20,
-                          color: const Color(0xFF1E293B),
+                          color: AppColors.primaryAccent,
                         ),
                       ),
                       const SizedBox(height: 8),

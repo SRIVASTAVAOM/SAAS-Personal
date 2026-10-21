@@ -70,8 +70,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   return Container(
                     decoration: BoxDecoration(
                       color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.circular(20.0),
                       border: Border.all(color: AppColors.border, width: 1.0),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x0A0F172A),
+                          blurRadius: 24,
+                          offset: Offset(0, 8),
+                        ),
+                      ],
                     ),
                     padding: const EdgeInsets.all(28.0),
                     child: Form(
@@ -80,6 +87,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Brand Icon Mark
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.indigoGradient,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.indigo500.withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.school_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
                           // Header
                           const Text(
                             'School ERP',
@@ -195,16 +228,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppColors.scaffoldBackground,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.border),
+                              color: AppColors.indigo50,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.indigo100),
                             ),
                             child: const Text(
                               'Test Accounts: student1, teacher1, accountant1, coordinator1, management1\nPassword: Password@123',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.secondaryText,
+                                color: AppColors.indigo900,
                                 height: 1.4,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),

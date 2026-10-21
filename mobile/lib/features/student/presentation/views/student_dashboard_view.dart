@@ -649,11 +649,21 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        gradient: AppColors.headerGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.indigo500.withValues(alpha: 0.25),
+          width: 1.0,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F0F172A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -668,7 +678,7 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                     const Icon(
                       Icons.account_balance_outlined,
                       size: 14,
-                      color: AppColors.secondaryText,
+                      color: AppColors.indigo300,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -680,37 +690,37 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.6,
-                          color: AppColors.secondaryText,
+                          color: AppColors.indigo200,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppColors.border),
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
                       child: const Text(
                         '2026-2027',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryText,
+                          color: Colors.white,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 // Student Name
                 Text(
                   studentName,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryText,
+                    color: Colors.white,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -720,40 +730,58 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                   classSubtitle,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: AppColors.secondaryText,
+                    color: AppColors.slate300,
                   ),
                 ),
                 if (profile?.admissionNumber != null && profile!.admissionNumber.trim().isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    'Adm: ${profile.admissionNumber}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.secondaryText,
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.indigo500.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppColors.indigo400.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      'Adm: ${profile.admissionNumber}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.indigo100,
+                      ),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          // Clean monogram circle avatar with subtle border
+          const SizedBox(width: 14),
+          // Monogram avatar with indigo gradient
           Container(
-            width: 46,
-            height: 46,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              gradient: AppColors.indigoGradient,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.indigo500.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             alignment: Alignment.center,
             child: Text(
               initials,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primaryText,
+                color: Colors.white,
               ),
             ),
           ),
@@ -776,14 +804,14 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
         Expanded(
           child: Material(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
             child: InkWell(
               onTap: () => _navigateToAttendance(context),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
@@ -802,10 +830,10 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                         ),
                         // Green trend badge
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFBBF7D0)),
                           ),
                           child: Row(
@@ -855,14 +883,14 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
         Expanded(
           child: Material(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
             child: InkWell(
               onTap: () => _navigateToHomework(context),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
@@ -881,10 +909,10 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                         ),
                         // Fee status badge
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
                             color: isFeeDue ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isFeeDue ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0),
                             ),
@@ -939,20 +967,20 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 10, 10),
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: const [
-                    Icon(Icons.campaign_outlined, size: 18, color: AppColors.primaryText),
+                    Icon(Icons.campaign_outlined, size: 19, color: AppColors.primaryAccent),
                     SizedBox(width: 8),
                     Text(
                       'Notices & Circulars',
@@ -966,7 +994,7 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                 ),
                 InkWell(
                   onTap: () => _navigateToNotices(context),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: Row(
@@ -977,11 +1005,11 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primaryText,
+                            color: AppColors.primaryAccent,
                           ),
                         ),
                         SizedBox(width: 2),
-                        Icon(Icons.chevron_right, size: 16, color: AppColors.secondaryText),
+                        Icon(Icons.chevron_right, size: 16, color: AppColors.primaryAccent),
                       ],
                     ),
                   ),
@@ -1235,17 +1263,17 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: const [
               Icon(Icons.grid_view_outlined,
-                  size: 16, color: AppColors.primaryText),
+                  size: 16, color: AppColors.primaryAccent),
               SizedBox(width: 8),
               Text(
                 'Quick Links',
@@ -1291,14 +1319,14 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
   }) {
     return Material(
       color: AppColors.scaffoldBackground,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.border),
           ),
           child: Column(
@@ -1306,14 +1334,14 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border),
+                  color: AppColors.indigo50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.indigo100),
                 ),
-                child: Icon(icon, size: 18, color: AppColors.primaryAccent),
+                child: Icon(icon, size: 19, color: AppColors.primaryAccent),
               ),
               const SizedBox(height: 6),
               Text(
