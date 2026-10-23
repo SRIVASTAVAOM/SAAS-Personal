@@ -298,4 +298,155 @@ describe('Web Admin Panel Module Integration Tests (/api/v1/admin)', () => {
       expect(greensheet.statistics).toHaveProperty('pass_percentage');
     });
   });
+
+  describe('Admin Homework Assignment & Edit Endpoints', () => {
+    let createdHwId: string;
+
+    it('POST /api/v1/admin/homework - allows admin to upload/assign homework to any class and section', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/homework')
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          class_id: classId,
+          section_id: sectionId,
+          subject_id: mathSubjectId,
+          title: 'Integration Test Homework',
+          description: 'Solve exercises 5.1 to 5.4 in notebook.',
+          assigned_date: '2026-10-23',
+          due_date: '2026-10-26',
+          attachment_name: 'test_worksheet.pdf',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
+      expect(res.body.data.title).toBe('Integration Test Homework');
+      expect(res.body.data.class_id).toBe(classId);
+      expect(res.body.data.section_id).toBe(sectionId);
+      createdHwId = res.body.data.id;
+    });
+
+    it('PATCH /api/v1/admin/homework/:id - allows admin to edit homework title, description, and deadlines', async () => {
+      expect(createdHwId).toBeDefined();
+      const res = await request(app)
+        .patch(`/api/v1/admin/homework/${createdHwId}`)
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          title: 'Updated Integration Test Homework',
+          description: 'Solve exercises 5.1 to 5.5 and submit online.',
+          due_date: '2026-10-27',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.title).toBe('Updated Integration Test Homework');
+      expect(res.body.data.due_date).toBe('2026-10-27');
+    });
+
+    it('DELETE /api/v1/admin/homework/:id - allows admin to delete homework', async () => {
+      expect(createdHwId).toBeDefined();
+      const res = await request(app)
+        .delete(`/api/v1/admin/homework/${createdHwId}`)
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('deleted successfully');
+    });
+  });
+
+  describe('Staff Credentials and Inactive Lifecycle', () => {
+    let testStaffId: string;
+
+    it('GET /api/v1/admin/staff - returns staff with username and password properties', async () => {
+      const res = await request(app)
+        .get('/api/v1/admin/staff')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
+
+      const staff = res.body.data[0];
+      expect(staff).toHaveProperty('username');
+      expect(staff).toHaveProperty('password');
+      expect(staff).toHaveProperty('is_active');
+    });
+
+    it('POST /api/v1/admin/staff - creates staff with assigned password and username', async () => {
+      const uniqueCode = `EMP-TEST-${Date.now().toString().slice(-4)}`;
+      const uniqueUser = `test_staff_${Date.now().toString().slice(-4)}`;
+
+      const res = await request(app)
+        .post('/api/v1/admin/staff')
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          first_name: 'Anita',
+          last_name: 'Deshmukh',
+          employee_code: uniqueCode,
+          identifier: uniqueUser,
+          email: `${uniqueUser}@school.internal`,
+          password: 'SecretStaff@2026',
+          role: 'TEACHER',
+          department: 'Mathematics',
+          designation: 'Senior Faculty',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
+      testStaffId = res.body.data.id;
+    });
+
+    it('DELETE /api/v1/admin/staff/:id - deactivates staff so they appear in inactive list', async () => {
+      expect(testStaffId).toBeDefined();
+      const delRes = await request(app)
+        .delete(`/api/v1/admin/staff/${testStaffId}`)
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      // Verify that fetching with is_active=false includes the deactivated staff
+      const inactiveRes = await request(app)
+        .get('/api/v1/admin/staff?is_active=false')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(inactiveRes.status).toBe(200);
+      const foundInInactive = inactiveRes.body.data.find((s: any) => s.id === testStaffId);
+      expect(foundInInactive).toBeDefined();
+      expect(foundInInactive.is_active).toBe(false);
+      expect(foundInInactive.password).toBe('SecretStaff@2026');
+
+      // Verify NOT present in active list
+      const activeRes = await request(app)
+        .get('/api/v1/admin/staff?is_active=true')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(activeRes.status).toBe(200);
+      const foundInActive = activeRes.body.data.find((s: any) => s.id === testStaffId);
+      expect(foundInActive).toBeUndefined();
+    });
+
+    it('PATCH /api/v1/admin/staff/:id - reactivates staff and restores them to active list', async () => {
+      expect(testStaffId).toBeDefined();
+      const patchRes = await request(app)
+        .patch(`/api/v1/admin/staff/${testStaffId}`)
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({ is_active: true });
+
+      expect(patchRes.status).toBe(200);
+
+      // Verify staff is now active again
+      const activeRes = await request(app)
+        .get('/api/v1/admin/staff?is_active=true')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(activeRes.status).toBe(200);
+      const foundInActive = activeRes.body.data.find((s: any) => s.id === testStaffId);
+      expect(foundInActive).toBeDefined();
+      expect(foundInActive.is_active).toBe(true);
+    });
+  });
 });

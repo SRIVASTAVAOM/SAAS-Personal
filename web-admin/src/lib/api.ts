@@ -3,6 +3,7 @@ import {
   GreensheetResponse,
   LoginResponse,
   SubjectItem,
+  SubjectMasterItem,
   TimetableGridResponse,
   TimetableSlotEntry,
   ExamItem,
@@ -185,11 +186,19 @@ export const api = {
     getStudents: async (filters?: {
       class_id?: string;
       section_id?: string;
+      class_ids?: string[];
+      section_ids?: string[];
       search?: string;
     }): Promise<any[]> => {
       const params = new URLSearchParams();
       if (filters?.class_id) params.set('class_id', filters.class_id);
       if (filters?.section_id) params.set('section_id', filters.section_id);
+      if (filters?.class_ids && filters.class_ids.length > 0) {
+        params.set('class_ids', filters.class_ids.join(','));
+      }
+      if (filters?.section_ids && filters.section_ids.length > 0) {
+        params.set('section_ids', filters.section_ids.join(','));
+      }
       if (filters?.search) params.set('search', filters.search);
       const qs = params.toString() ? `?${params.toString()}` : '';
       return request<any[]>(`/admin/students${qs}`);
@@ -199,9 +208,19 @@ export const api = {
       return request<any>(`/admin/students/${encodeURIComponent(id)}`);
     },
 
+    updateStudent: async (id: string, payload: any): Promise<any> => {
+      return request<any>(`/admin/students/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
+
     // Staff Directory & Management
-    getAllStaff: async (search?: string): Promise<any[]> => {
-      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    getAllStaff: async (search?: string, isActive?: boolean): Promise<any[]> => {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (isActive !== undefined) params.append('is_active', String(isActive));
+      const qs = params.toString() ? `?${params.toString()}` : '';
       return request<any[]>(`/admin/staff${qs}`);
     },
 
@@ -225,7 +244,7 @@ export const api = {
       });
     },
 
-    // Homework Inspection
+    // Homework Management (View & Assign)
     getHomework: async (filters?: {
       class_id?: string;
       section_id?: string;
@@ -239,6 +258,51 @@ export const api = {
       if (filters?.search) params.set('search', filters.search);
       const qs = params.toString() ? `?${params.toString()}` : '';
       return request<any[]>(`/admin/homework${qs}`);
+    },
+
+    createHomework: async (payload: {
+      class_id: string;
+      section_id: string;
+      subject_id: string;
+      staff_id?: string;
+      title: string;
+      description?: string;
+      assigned_date?: string;
+      due_date: string;
+      attachment_name?: string;
+      s3_attachment_key?: string;
+    }): Promise<any> => {
+      return request('/admin/homework', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    updateHomework: async (
+      id: string,
+      payload: {
+        class_id?: string;
+        section_id?: string;
+        subject_id?: string;
+        staff_id?: string;
+        title?: string;
+        description?: string;
+        assigned_date?: string;
+        due_date?: string;
+        attachment_name?: string;
+        s3_attachment_key?: string;
+      }
+    ): Promise<any> => {
+      return request(`/admin/homework/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deleteHomework: async (id: string): Promise<any> => {
+      return request(`/admin/homework/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
     },
 
     // Feedback & Complaints
@@ -255,12 +319,97 @@ export const api = {
         body: JSON.stringify(payload),
       });
     },
+
+    // Study Materials & Academic Repository (Live sync with Student & Teacher Apps)
+    getMaterials: async (filters?: {
+      class_id?: string;
+      section_id?: string;
+      subject_id?: string;
+      type?: string;
+      search?: string;
+    }): Promise<any[]> => {
+      const params = new URLSearchParams();
+      if (filters?.class_id) params.set('class_id', filters.class_id);
+      if (filters?.section_id) params.set('section_id', filters.section_id);
+      if (filters?.subject_id) params.set('subject_id', filters.subject_id);
+      if (filters?.type && filters.type !== 'ALL') params.set('type', filters.type);
+      if (filters?.search) params.set('search', filters.search);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      return request<any[]>(`/admin/materials${qs}`);
+    },
+
+    createMaterial: async (payload: {
+      class_id: string;
+      section_id?: string;
+      subject_id: string;
+      staff_id?: string;
+      title: string;
+      description?: string;
+      material_type?: string;
+      file_name: string;
+      file_size_bytes?: number;
+      content_type?: string;
+      s3_file_key?: string;
+    }): Promise<any> => {
+      return request('/admin/materials', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    updateMaterial: async (
+      id: string,
+      payload: {
+        class_id?: string;
+        section_id?: string | null;
+        subject_id?: string;
+        title?: string;
+        description?: string;
+        material_type?: string;
+        file_name?: string;
+      }
+    ): Promise<any> => {
+      return request(`/admin/materials/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    deleteMaterial: async (id: string): Promise<any> => {
+      return request(`/admin/materials/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    },
+
+    getMaterialDownloadUrl: async (id: string): Promise<{ downloadUrl: string; fileName: string; isMock: boolean }> => {
+      return request<{ downloadUrl: string; fileName: string; isMock: boolean }>(`/materials/${encodeURIComponent(id)}/download-url`);
+    },
   },
 
   // Academics & Exams Lookups
   academics: {
     getSubjects: async (): Promise<SubjectItem[]> => {
       return request<SubjectItem[]>('/academics/subjects');
+    },
+    getSubjectsMaster: async (): Promise<SubjectMasterItem[]> => {
+      return request<SubjectMasterItem[]>('/academics/subjects/master');
+    },
+    createSubject: async (payload: { name: string; code: string; type?: string; class_ids?: string[] }): Promise<any> => {
+      return request<any>('/academics/subjects', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    updateSubject: async (id: string, payload: { name?: string; code?: string; type?: string; is_active?: boolean; class_ids?: string[] }): Promise<any> => {
+      return request<any>(`/academics/subjects/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+    },
+    deleteSubject: async (id: string): Promise<any> => {
+      return request<any>(`/academics/subjects/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
     },
     getClasses: async (): Promise<ClassItem[]> => {
       return request<ClassItem[]>('/academics/classes');
@@ -364,8 +513,20 @@ export const api = {
       });
     },
 
-    getReceipts: async (search?: string): Promise<any[]> => {
-      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    getReceipts: async (
+      params?: string | { search?: string; date?: string; mode?: string }
+    ): Promise<any[]> => {
+      let qs = '';
+      if (typeof params === 'string') {
+        qs = params ? `?search=${encodeURIComponent(params)}` : '';
+      } else if (params) {
+        const query = new URLSearchParams();
+        if (params.search) query.set('search', params.search);
+        if (params.date) query.set('date', params.date);
+        if (params.mode) query.set('mode', params.mode);
+        const str = query.toString();
+        qs = str ? `?${str}` : '';
+      }
       return request<any[]>(`/fees/admin/receipts${qs}`);
     },
 

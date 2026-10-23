@@ -20,6 +20,15 @@ import {
   Lock,
   Calendar,
   Users,
+  Eye,
+  EyeOff,
+  Copy,
+  RotateCcw,
+  Check,
+  KeyRound,
+  ShieldAlert,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -42,6 +51,8 @@ interface StaffItem {
   is_active: boolean;
   email: string | null;
   identifier: string;
+  username?: string;
+  password?: string;
   role: string;
   wing_name: string | null;
   assignment_type: string | null;
@@ -52,10 +63,16 @@ export default function StaffListPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusTab, setStatusTab] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>('ACTIVE');
+
+  // Password visibility tracking per staff row
+  const [visiblePasswords, setVisiblePasswords] = useState<{ [id: string]: boolean }>({});
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [viewingStaff, setViewingStaff] = useState<StaffItem | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<StaffItem | null>(null);
 
   // Form states
@@ -100,28 +117,56 @@ export default function StaffListPage() {
   // Filtered staff list
   const filteredStaff = useMemo(() => {
     return staffList.filter((s) => {
+      // 1. Status Filter (Active vs Inactive vs All)
+      if (statusTab === 'ACTIVE' && !s.is_active) return false;
+      if (statusTab === 'INACTIVE' && s.is_active) return false;
+
+      // 2. Role Filter
       const matchesRole = roleFilter === 'ALL' || s.role === roleFilter;
-      const q = searchQuery.toLowerCase();
+
+      // 3. Search Filter
+      const q = searchQuery.toLowerCase().trim();
+      const loginUser = (s.username || s.identifier || '').toLowerCase();
       const matchesSearch =
-        !searchQuery.trim() ||
+        !q ||
         s.staff_name.toLowerCase().includes(q) ||
         s.employee_code.toLowerCase().includes(q) ||
+        loginUser.includes(q) ||
         (s.email && s.email.toLowerCase().includes(q)) ||
-        s.identifier.toLowerCase().includes(q) ||
+        (s.phone && s.phone.includes(q)) ||
         (s.department && s.department.toLowerCase().includes(q)) ||
         (s.designation && s.designation.toLowerCase().includes(q));
 
       return matchesRole && matchesSearch;
     });
-  }, [staffList, roleFilter, searchQuery]);
+  }, [staffList, statusTab, roleFilter, searchQuery]);
+
+  // Copy helper
+  const handleCopy = (text: string, key: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => {
+      setCopiedKey(null);
+    }, 2000);
+  };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   // Open Add Modal
   const handleOpenAddModal = () => {
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
     setFormData({
       first_name: '',
       last_name: '',
-      employee_code: `EMP-${Math.floor(100 + Math.random() * 900)}`,
-      identifier: '',
+      employee_code: `EMP-${randomSuffix}`,
+      identifier: `teacher_${randomSuffix}`,
       email: '',
       phone: '',
       password: 'Staff@123',
@@ -145,7 +190,7 @@ export default function StaffListPage() {
       first_name: staff.first_name || '',
       last_name: staff.last_name || '',
       employee_code: staff.employee_code || '',
-      identifier: staff.identifier || '',
+      identifier: staff.username || staff.identifier || '',
       email: staff.email || '',
       phone: staff.phone || '',
       password: '',
@@ -166,7 +211,7 @@ export default function StaffListPage() {
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.first_name || !formData.employee_code || !formData.identifier) {
-      setErrorMessage('Please fill in First Name, Employee Code, and Username (identifier).');
+      setErrorMessage('Please fill in First Name, Employee Code, and Username.');
       return;
     }
 
@@ -203,25 +248,53 @@ export default function StaffListPage() {
     }
   };
 
-  // Toggle active / deactivate staff
-  const handleToggleDeactivate = async (staff: StaffItem) => {
-    const action = staff.is_active ? 'deactivate' : 'reactivate';
-    if (!window.confirm(`Are you sure you want to ${action} ${staff.staff_name}?`)) {
+  // Delete / Deactivate staff (moves to Inactive list)
+  const handleDeleteStaff = async (staff: StaffItem) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete / deactivate "${staff.staff_name}"?\n\nThis staff member will be moved to the Inactive Staff list and their login access will be suspended.`
+      )
+    ) {
       return;
     }
 
     try {
       setSaving(true);
       setErrorMessage(null);
-      if (staff.is_active) {
-        await api.admin.deleteStaff(staff.id);
-      } else {
-        await api.admin.updateStaff(staff.id, { is_active: true });
+      await api.admin.deleteStaff(staff.id);
+      setSuccessMessage(`Staff member "${staff.staff_name}" has been deleted and moved to the Inactive Staff list.`);
+      if (viewingStaff?.id === staff.id) {
+        setViewingStaff(null);
       }
-      setSuccessMessage(`Staff member "${staff.staff_name}" status updated to ${action}d.`);
       fetchStaff();
     } catch (err: any) {
-      setErrorMessage(err.message || `Failed to ${action} staff`);
+      setErrorMessage(err.message || 'Failed to delete staff member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reactivate staff (restores to Active list)
+  const handleReactivateStaff = async (staff: StaffItem) => {
+    if (
+      !window.confirm(
+        `Reactivate "${staff.staff_name}"?\n\nThis will restore their profile to the Active Staff list and re-enable their login.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setErrorMessage(null);
+      await api.admin.updateStaff(staff.id, { is_active: true });
+      setSuccessMessage(`Staff member "${staff.staff_name}" has been reactivated successfully!`);
+      if (viewingStaff?.id === staff.id) {
+        setViewingStaff((prev) => (prev ? { ...prev, is_active: true } : null));
+      }
+      fetchStaff();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to reactivate staff member');
     } finally {
       setSaving(false);
     }
@@ -229,9 +302,10 @@ export default function StaffListPage() {
 
   // KPIs
   const totalStaff = staffList.length;
+  const activeCount = staffList.filter((s) => s.is_active).length;
+  const inactiveCount = staffList.filter((s) => !s.is_active).length;
   const teachersCount = staffList.filter((s) => s.role === 'TEACHER').length;
   const adminsCount = staffList.filter((s) => s.role === 'ADMIN').length;
-  const activeCount = staffList.filter((s) => s.is_active).length;
 
   return (
     <div className="space-y-6">
@@ -241,11 +315,11 @@ export default function StaffListPage() {
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              Menu 8 • Staff Management
+              Staff & Faculty Management
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              Multi-Role Auth Active
+              Live Credentials Sync
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
@@ -253,7 +327,7 @@ export default function StaffListPage() {
             Staff & Faculty Directory
           </h1>
           <p className="text-sm text-slate-300 mt-1 max-w-2xl">
-            Add, update, or remove school faculty, teachers, and coordinators. Newly added staff can immediately log into the Teacher Mobile App and Web Portal.
+            Manage school faculty, teachers, and coordinators. View login usernames and passwords, assign roles, and track active and inactive staff accounts.
           </p>
         </div>
 
@@ -271,44 +345,83 @@ export default function StaffListPage() {
 
       {/* Alerts */}
       {errorMessage && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-3 text-rose-800 text-sm">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-3 text-rose-800 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="text-rose-600 hover:text-rose-800">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
       {successMessage && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-800 text-sm animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="font-medium">{successMessage}</span>
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-emerald-800 text-sm animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-medium">{successMessage}</span>
+          </div>
+          <button onClick={() => setSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-800">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
       {/* KPI Cards Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-            <Users className="w-5 h-5" />
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+        <button
+          onClick={() => setStatusTab('ALL')}
+          className={`p-4 rounded-xl border text-left transition ${
+            statusTab === 'ALL'
+              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-indigo-500'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-slate-400 font-medium">Total Staff</p>
+            <Users className="w-4 h-4 text-indigo-400" />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Total Staff</p>
-            <p className="text-xl font-bold text-slate-800">{totalStaff}</p>
-          </div>
-        </div>
+          <p className="text-2xl font-bold">{totalStaff}</p>
+        </button>
 
-        <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <CheckCircle2 className="w-5 h-5" />
+        <button
+          onClick={() => setStatusTab('ACTIVE')}
+          className={`p-4 rounded-xl border text-left transition ${
+            statusTab === 'ACTIVE'
+              ? 'bg-emerald-700 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400'
+              : 'bg-white text-slate-800 border-emerald-200 hover:border-emerald-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className={`text-xs font-medium ${statusTab === 'ACTIVE' ? 'text-emerald-100' : 'text-emerald-600'}`}>
+              Active Staff
+            </p>
+            <UserCheck className="w-4 h-4 text-emerald-400" />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Active Staff</p>
-            <p className="text-xl font-bold text-emerald-700">{activeCount}</p>
+          <p className="text-2xl font-bold">{activeCount}</p>
+        </button>
+
+        <button
+          onClick={() => setStatusTab('INACTIVE')}
+          className={`p-4 rounded-xl border text-left transition ${
+            statusTab === 'INACTIVE'
+              ? 'bg-rose-700 text-white border-rose-700 shadow-md ring-2 ring-rose-400'
+              : 'bg-white text-slate-800 border-rose-200 hover:border-rose-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className={`text-xs font-medium ${statusTab === 'INACTIVE' ? 'text-rose-100' : 'text-rose-600'}`}>
+              Inactive Staff
+            </p>
+            <UserX className="w-4 h-4 text-rose-400" />
           </div>
-        </div>
+          <p className="text-2xl font-bold">{inactiveCount}</p>
+        </button>
 
         <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-            <GraduationCap className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <GraduationCap className="w-4 h-4" />
           </div>
           <div>
             <p className="text-xs text-slate-500 font-medium">Teachers</p>
@@ -317,50 +430,114 @@ export default function StaffListPage() {
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-purple-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-            <Briefcase className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+            <Briefcase className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-medium">School Admins</p>
+            <p className="text-xs text-slate-500 font-medium">Admins</p>
             <p className="text-xl font-bold text-purple-700">{adminsCount}</p>
           </div>
         </div>
       </div>
 
-      {/* Control Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="relative w-full sm:w-96">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by name, employee code, email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        {/* Role Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          {['ALL', 'TEACHER', 'ADMIN'].map((role) => (
+      {/* Main Table Container */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Navigation Status Tabs */}
+        <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Active / Inactive Tabs */}
+          <div className="flex items-center p-1 bg-slate-200/70 rounded-xl gap-1 w-full sm:w-auto">
             <button
-              key={role}
-              onClick={() => setRoleFilter(role)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                roleFilter === role
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              onClick={() => setStatusTab('ACTIVE')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+                statusTab === 'ACTIVE'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {role === 'ALL' ? 'All Roles' : role}
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Active Staff
+              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[10px]">
+                {activeCount}
+              </span>
             </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Staff Table Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <button
+              onClick={() => setStatusTab('INACTIVE')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+                statusTab === 'INACTIVE'
+                  ? 'bg-white text-rose-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              Inactive Staff
+              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-rose-100 text-rose-800 text-[10px]">
+                {inactiveCount}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStatusTab('ALL')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                statusTab === 'ALL'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All Staff
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-md bg-slate-200 text-slate-700 text-[10px]">
+                {totalStaff}
+              </span>
+            </button>
+          </div>
+
+          {/* Search & Role Filters */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search name, username, emp code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 w-full sm:w-auto">
+              {['ALL', 'TEACHER', 'ADMIN'].map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setRoleFilter(role)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    roleFilter === role
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {role === 'ALL' ? 'All Roles' : role}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Inactive Tab Notice Banner */}
+        {statusTab === 'INACTIVE' && (
+          <div className="bg-amber-50/80 border-b border-amber-200/80 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Inactive Staff List:</strong> Showing accounts that have been deleted or deactivated. Their mobile and web portal login is disabled. You can reactivate them anytime.
+              </span>
+            </div>
+            <span className="font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded text-[11px]">
+              {filteredStaff.length} Inactive Accounts
+            </span>
+          </div>
+        )}
+
+        {/* Table Content */}
         {loading ? (
           <div className="p-16 text-center text-slate-500 flex flex-col items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-3" />
@@ -368,132 +545,498 @@ export default function StaffListPage() {
           </div>
         ) : filteredStaff.length === 0 ? (
           <div className="p-16 text-center text-slate-500">
-            <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-base font-semibold text-slate-700">No staff members found</p>
-            <p className="text-xs text-slate-400 mt-1">Try adjusting your search or role filters.</p>
+            {statusTab === 'INACTIVE' ? (
+              <>
+                <UserCheck className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                <p className="text-base font-semibold text-slate-700">No Inactive Staff</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  All staff members are currently active. Deleting any staff member will show them here.
+                </p>
+              </>
+            ) : (
+              <>
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-base font-semibold text-slate-700">No staff members found</p>
+                <p className="text-xs text-slate-400 mt-1">Try adjusting your search or filters.</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 tracking-wider">
+              <thead className="bg-slate-50 text-[11px] uppercase font-bold text-slate-500 border-b border-slate-200 tracking-wider">
                 <tr>
                   <th className="py-3.5 px-4">Staff Member</th>
-                  <th className="py-3.5 px-4">Employee Code</th>
-                  <th className="py-3.5 px-4">Role & Designation</th>
-                  <th className="py-3.5 px-4">Contact & Login</th>
-                  <th className="py-3.5 px-4">Joining Date</th>
+                  <th className="py-3.5 px-4">Emp Code</th>
+                  <th className="py-3.5 px-4">Role</th>
+                  <th className="py-3.5 px-4 bg-indigo-50/50 text-indigo-900">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-indigo-600" />
+                      Username
+                    </span>
+                  </th>
+                  <th className="py-3.5 px-4 bg-indigo-50/50 text-indigo-900">
+                    <span className="flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                      Password
+                    </span>
+                  </th>
+                  <th className="py-3.5 px-4">Contact</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredStaff.map((staff) => (
-                  <tr
-                    key={staff.id}
-                    className={`hover:bg-slate-50/80 transition-colors ${
-                      !staff.is_active ? 'opacity-60 bg-slate-50/50' : ''
-                    }`}
-                  >
-                    {/* Name & Avatar */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-                          {staff.staff_name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-800 text-sm">{staff.staff_name}</p>
-                          <p className="text-xs text-slate-400">
-                            {staff.qualification || staff.department || 'Faculty'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                {filteredStaff.map((staff) => {
+                  const username = staff.username || staff.identifier;
+                  const password = staff.password || 'Staff@123';
+                  const isPwVisible = !!visiblePasswords[staff.id];
 
-                    {/* Emp Code */}
-                    <td className="py-3.5 px-4 font-mono text-xs text-slate-700 font-semibold">
-                      {staff.employee_code}
-                    </td>
+                  return (
+                    <tr
+                      key={staff.id}
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        !staff.is_active ? 'bg-rose-50/20' : ''
+                      }`}
+                    >
+                      {/* Name & Avatar */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs ${
+                              staff.is_active
+                                ? 'bg-gradient-to-tr from-indigo-600 to-slate-800'
+                                : 'bg-gradient-to-tr from-rose-500 to-slate-600'
+                            }`}
+                          >
+                            {staff.staff_name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">{staff.staff_name}</p>
+                            <p className="text-xs text-slate-400">
+                              {staff.designation || staff.qualification || staff.department || 'Faculty'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
 
-                    {/* Role & Designation */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="inline-block px-2 py-0.5 text-[11px] font-bold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/60 w-fit">
+                      {/* Emp Code */}
+                      <td className="py-3.5 px-4 font-mono text-xs text-slate-700 font-semibold">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                          {staff.employee_code}
+                        </span>
+                      </td>
+
+                      {/* Role */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded-md border ${
+                            staff.role === 'ADMIN'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          }`}
+                        >
                           {staff.role}
                         </span>
-                        <span className="text-xs text-slate-500">{staff.designation || 'Staff'}</span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Contact & Username */}
-                    <td className="py-3.5 px-4">
-                      <div className="text-xs space-y-0.5">
-                        <p className="text-slate-800 font-medium flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="font-mono text-slate-600">@{staff.identifier}</span>
-                        </p>
+                      {/* Username Column */}
+                      <td className="py-3.5 px-4 bg-indigo-50/20">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-indigo-950 font-semibold bg-white px-2 py-1 rounded border border-indigo-200 shadow-2xs">
+                            @{username}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(username, `user-${staff.id}`)}
+                            title="Copy Username"
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded transition"
+                          >
+                            {copiedKey === `user-${staff.id}` ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Password Column */}
+                      <td className="py-3.5 px-4 bg-indigo-50/20">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-slate-800 bg-white px-2 py-1 rounded border border-indigo-200 shadow-2xs tracking-wider min-w-[75px]">
+                            {isPwVisible ? password : '••••••••'}
+                          </span>
+                          <button
+                            onClick={() => togglePasswordVisibility(staff.id)}
+                            title={isPwVisible ? 'Hide Password' : 'Show Password'}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded transition"
+                          >
+                            {isPwVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => handleCopy(password, `pw-${staff.id}`)}
+                            title="Copy Password"
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded transition"
+                          >
+                            {copiedKey === `pw-${staff.id}` ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Contact */}
+                      <td className="py-3.5 px-4 text-xs space-y-0.5">
                         {staff.email && (
-                          <p className="text-slate-500 flex items-center gap-1.5">
-                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                            {staff.email}
+                          <p className="text-slate-600 flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[140px]">{staff.email}</span>
                           </p>
                         )}
                         {staff.phone && (
-                          <p className="text-slate-500 flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <p className="text-slate-500 flex items-center gap-1 font-mono text-[11px]">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                             {staff.phone}
                           </p>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Joining Date */}
-                    <td className="py-3.5 px-4 text-xs text-slate-600">
-                      {staff.joining_date || '—'}
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          staff.is_active
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        {staff.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditModal(staff)}
-                          title="Edit details"
-                          className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleDeactivate(staff)}
-                          title={staff.is_active ? 'Deactivate staff' : 'Reactivate staff'}
-                          className={`p-1.5 rounded-lg transition ${
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                             staff.is_active
-                              ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                              : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-rose-100 text-rose-800 border border-rose-200'
                           }`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              staff.is_active ? 'bg-emerald-600' : 'bg-rose-600'
+                            }`}
+                          ></span>
+                          {staff.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View Details Button */}
+                          <button
+                            onClick={() => setViewingStaff(staff)}
+                            title="View Staff Details & Credentials"
+                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Edit Details */}
+                          <button
+                            onClick={() => handleOpenEditModal(staff)}
+                            title="Edit details"
+                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+
+                          {/* Delete or Reactivate */}
+                          {staff.is_active ? (
+                            <button
+                              onClick={() => handleDeleteStaff(staff)}
+                              title="Delete staff (Move to Inactive list)"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleReactivateStaff(staff)}
+                              title="Reactivate staff (Restore to Active list)"
+                              className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* View Staff Details Modal ("in details add username password column") */}
+      {viewingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+                  {viewingStaff.staff_name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-white">{viewingStaff.staff_name}</h3>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                        viewingStaff.is_active
+                          ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'
+                          : 'bg-rose-500/30 text-rose-200 border border-rose-400/30'
+                      }`}
+                    >
+                      {viewingStaff.is_active ? 'Active Staff' : 'Inactive / Deactivated'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 font-mono">
+                    Emp Code: {viewingStaff.employee_code} • Role: {viewingStaff.role}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingStaff(null)}
+                className="text-slate-400 hover:text-white transition p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Login Credentials Highlight Box */}
+              <div className="bg-gradient-to-br from-indigo-50/90 via-slate-50 to-indigo-50/40 p-4 rounded-xl border border-indigo-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-950">
+                        Login Credentials & Access
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Credentials to log in via Teacher App and Web Portal
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
+                    Live Portal Auth
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  {/* Username Field */}
+                  <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs">
+                    <p className="text-[11px] text-slate-500 font-medium mb-1">Username (Login ID)</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm font-bold text-indigo-950">
+                        @{viewingStaff.username || viewingStaff.identifier}
+                      </span>
+                      <button
+                        onClick={() =>
+                          handleCopy(
+                            viewingStaff.username || viewingStaff.identifier,
+                            `modal-user-${viewingStaff.id}`
+                          )
+                        }
+                        title="Copy Username"
+                        className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 text-xs font-medium rounded flex items-center gap-1 transition"
+                      >
+                        {copiedKey === `modal-user-${viewingStaff.id}` ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Password Field */}
+                  <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs">
+                    <p className="text-[11px] text-slate-500 font-medium mb-1">Login Password</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-sm font-bold text-slate-800">
+                        {visiblePasswords[`modal-${viewingStaff.id}`]
+                          ? viewingStaff.password || 'Staff@123'
+                          : '••••••••••••'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => togglePasswordVisibility(`modal-${viewingStaff.id}`)}
+                          title="Toggle visibility"
+                          className="p-1 text-slate-500 hover:text-indigo-600 rounded"
+                        >
+                          {visiblePasswords[`modal-${viewingStaff.id}`] ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleCopy(
+                              viewingStaff.password || 'Staff@123',
+                              `modal-pw-${viewingStaff.id}`
+                            )
+                          }
+                          title="Copy Password"
+                          className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 text-xs font-medium rounded flex items-center gap-1 transition"
+                        >
+                          {copiedKey === `modal-pw-${viewingStaff.id}` ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Professional & Department Info */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                  Academic & Professional Information
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Department</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.department || 'Academic'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Designation</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.designation || 'Subject Teacher'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Qualification</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.qualification || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Joining Date</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.joining_date || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">System Role</p>
+                    <p className="text-sm font-semibold text-indigo-700 mt-0.5">
+                      {viewingStaff.role}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Wing</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.wing_name || 'All Wings'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact & Personal Information */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                  Contact & Personal Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Official Email</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.email || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Mobile Phone</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5 font-mono">
+                      {viewingStaff.phone || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Gender</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                      {viewingStaff.gender || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <p className="text-[11px] text-slate-500">Emergency Contact</p>
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5 font-mono">
+                      {viewingStaff.emergency_phone || '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <div>
+                {viewingStaff.is_active ? (
+                  <button
+                    onClick={() => handleDeleteStaff(viewingStaff)}
+                    className="px-3.5 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Deactivate (Move to Inactive)
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleReactivateStaff(viewingStaff)}
+                    className="px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reactivate Account
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleOpenEditModal(viewingStaff);
+                    setViewingStaff(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition flex items-center gap-1.5"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Edit Details
+                </button>
+                <button
+                  onClick={() => setViewingStaff(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Staff Modal */}
       {isAddModalOpen && (
@@ -556,9 +1099,39 @@ export default function StaffListPage() {
                   <input
                     type="text"
                     required
-                    placeholder="EMP-101"
+                    placeholder="e.g. EMP-101"
                     value={formData.employee_code}
                     onChange={(e) => setFormData({ ...formData, employee_code: e.target.value })}
+                    className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Username (Login ID) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. teacher_ramesh"
+                    value={formData.identifier}
+                    onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
+                    className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Initial Password *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Staff@123"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -573,41 +1146,9 @@ export default function StaffListPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="TEACHER">TEACHER (Faculty & Mobile App Access)</option>
-                    <option value="ADMIN">ADMIN (School Administrator / Full Access)</option>
+                    <option value="TEACHER">TEACHER</option>
+                    <option value="ADMIN">ADMIN</option>
                   </select>
-                </div>
-
-                {/* Username / Identifier */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Username (App Login ID) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. ramesh.teacher"
-                    value={formData.identifier}
-                    onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
-                    className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Initial Password */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Initial Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Staff@123"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full text-sm pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
                 </div>
 
                 {/* Email */}
@@ -615,7 +1156,7 @@ export default function StaffListPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
                   <input
                     type="email"
-                    placeholder="ramesh@school.com"
+                    placeholder="teacher@school.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
@@ -627,7 +1168,7 @@ export default function StaffListPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
                   <input
                     type="tel"
-                    placeholder="+91 9876543210"
+                    placeholder="9876543210"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
@@ -655,7 +1196,7 @@ export default function StaffListPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Senior PGT Teacher"
+                    placeholder="e.g. Senior Faculty"
                     value={formData.designation}
                     onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
                     className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"

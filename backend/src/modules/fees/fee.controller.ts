@@ -51,7 +51,9 @@ export class FeeController {
   static async getAdminReceipts(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const search = req.query.search as string | undefined;
-      const receipts = await FeeService.getAdminReceipts(req.user!, search);
+      const date = req.query.date as string | undefined;
+      const mode = req.query.mode as string | undefined;
+      const receipts = await FeeService.getAdminReceipts(req.user!, { search, date, mode });
       res.status(200).json({ success: true, data: receipts });
     } catch (error) {
       next(error);

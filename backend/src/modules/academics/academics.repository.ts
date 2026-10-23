@@ -70,13 +70,158 @@ export class AcademicsRepository {
 
   static async getSubjectsBySchool(schoolId: string): Promise<SubjectRecord[]> {
     const query = `
-      SELECT id, name, code
+      SELECT id, name, code, COALESCE(type, 'THEORY') AS type, COALESCE(is_active, TRUE) AS is_active
       FROM subjects
       WHERE school_id = $1
       ORDER BY name ASC;
     `;
     const { rows } = await pool.query(query, [schoolId]);
     return rows;
+  }
+
+  static async getSubjectsWithDetails(schoolId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        s.id,
+        s.name,
+        s.code,
+        COALESCE(s.type, 'THEORY') AS type,
+        COALESCE(s.is_active, TRUE) AS is_active,
+        s.created_at,
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object('id', c.id, 'name', c.name)
+          ) FILTER (WHERE c.id IS NOT NULL),
+          '[]'::json
+        ) AS classes,
+        COUNT(DISTINCT tsa.staff_id)::int AS teachers_count
+      FROM subjects s
+      LEFT JOIN class_subjects cs ON cs.subject_id = s.id
+      LEFT JOIN classes c ON cs.class_id = c.id
+      LEFT JOIN teacher_subject_allocations tsa ON tsa.subject_id = s.id
+      WHERE s.school_id = $1
+      GROUP BY s.id, s.name, s.code, s.type, s.is_active, s.created_at
+      ORDER BY s.name ASC;
+    `;
+    const { rows } = await pool.query(query, [schoolId]);
+    return rows;
+  }
+
+  static async createSubject(
+    schoolId: string,
+    data: { name: string; code: string; type?: string; class_ids?: string[] }
+  ): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const insertQuery = `
+        INSERT INTO subjects (school_id, name, code, type, is_active)
+        VALUES ($1, $2, $3, $4, TRUE)
+        RETURNING id, name, code, type, is_active, created_at;
+      `;
+      const res = await client.query(insertQuery, [
+        schoolId,
+        data.name.trim(),
+        data.code.trim().toUpperCase(),
+        data.type || 'THEORY',
+      ]);
+      const newSubject = res.rows[0];
+
+      if (data.class_ids && Array.isArray(data.class_ids) && data.class_ids.length > 0) {
+        for (const classId of data.class_ids) {
+          await client.query(
+            `INSERT INTO class_subjects (class_id, subject_id) VALUES ($1, $2) ON CONFLICT (class_id, subject_id) DO NOTHING;`,
+            [classId, newSubject.id]
+          );
+        }
+      }
+      await client.query('COMMIT');
+      return newSubject;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async updateSubject(
+    schoolId: string,
+    subjectId: string,
+    data: { name?: string; code?: string; type?: string; is_active?: boolean; class_ids?: string[] }
+  ): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const fields: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (data.name !== undefined) {
+        fields.push(`name = $${idx++}`);
+        values.push(data.name.trim());
+      }
+      if (data.code !== undefined) {
+        fields.push(`code = $${idx++}`);
+        values.push(data.code.trim().toUpperCase());
+      }
+      if (data.type !== undefined) {
+        fields.push(`type = $${idx++}`);
+        values.push(data.type);
+      }
+      if (data.is_active !== undefined) {
+        fields.push(`is_active = $${idx++}`);
+        values.push(data.is_active);
+      }
+
+      if (fields.length > 0) {
+        values.push(subjectId, schoolId);
+        await client.query(
+          `UPDATE subjects SET ${fields.join(', ')} WHERE id = $${idx++} AND school_id = $${idx}`,
+          values
+        );
+      }
+
+      if (data.class_ids !== undefined && Array.isArray(data.class_ids)) {
+        await client.query(`DELETE FROM class_subjects WHERE subject_id = $1;`, [subjectId]);
+        for (const classId of data.class_ids) {
+          await client.query(
+            `INSERT INTO class_subjects (class_id, subject_id) VALUES ($1, $2) ON CONFLICT (class_id, subject_id) DO NOTHING;`,
+            [classId, subjectId]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      const fetchQuery = `
+        SELECT 
+          s.id, s.name, s.code, COALESCE(s.type, 'THEORY') AS type, COALESCE(s.is_active, TRUE) AS is_active,
+          COALESCE(
+            json_agg(DISTINCT jsonb_build_object('id', c.id, 'name', c.name)) FILTER (WHERE c.id IS NOT NULL),
+            '[]'::json
+          ) AS classes
+        FROM subjects s
+        LEFT JOIN class_subjects cs ON cs.subject_id = s.id
+        LEFT JOIN classes c ON cs.class_id = c.id
+        WHERE s.id = $1 AND s.school_id = $2
+        GROUP BY s.id, s.name, s.code, s.type, s.is_active;
+      `;
+      const finalRes = await pool.query(fetchQuery, [subjectId, schoolId]);
+      return finalRes.rows[0] || null;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async deleteSubject(schoolId: string, subjectId: string): Promise<boolean> {
+    const res = await pool.query(`DELETE FROM subjects WHERE id = $1 AND school_id = $2;`, [
+      subjectId,
+      schoolId,
+    ]);
+    return (res.rowCount ?? 0) > 0;
   }
 
   static async getClassRoster(classId: string, sectionId: string): Promise<StudentRosterItem[]> {

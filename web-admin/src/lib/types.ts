@@ -59,6 +59,19 @@ export interface BirthdaySummary {
   date_of_birth: string;
 }
 
+export interface StudentAttendanceRecordSummary {
+  id: string;
+  student_id: string;
+  status: 'PRESENT' | 'ABSENT' | string;
+  attendance_date: string;
+  remarks: string | null;
+  admission_number: string;
+  roll_number: string | null;
+  student_name: string;
+  class_name?: string;
+  section_name?: string;
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -70,9 +83,26 @@ export interface DashboardSummaryResponse {
     homework_pending_sections: number;
     total_absent_students: number;
     total_absent_staff: number;
+    total_faculty?: number;
     pending_leaves_count: number;
     today_birthdays_count: number;
   };
+  fee_realized?: {
+    total: number;
+    by_mode: {
+      cash: number;
+      online: number;
+      app_payments: number;
+      cheques: number;
+    };
+    counts?: {
+      cash: number;
+      online: number;
+      app_payments: number;
+      cheques: number;
+    };
+  };
+  today_student_attendance?: StudentAttendanceRecordSummary[];
   pending_leaves: PendingLeaveSummary[];
   today_birthdays: BirthdaySummary[];
 }
@@ -172,6 +202,17 @@ export interface SubjectItem {
   code: string;
 }
 
+export interface SubjectMasterItem {
+  id: string;
+  name: string;
+  code: string;
+  type?: string;
+  is_active?: boolean;
+  created_at?: string;
+  classes?: { id: string; name: string }[];
+  teachers_count?: number;
+}
+
 export interface TeacherItem {
   id: string;
   name: string;
@@ -186,6 +227,7 @@ export interface ExamItem {
 }
 
 export type UploadCategory =
+  | 'Study Material'
   | 'Syllabus'
   | 'Assignment'
   | 'Practice Sheet'
@@ -196,13 +238,24 @@ export type UploadCategory =
 export interface RecentUploadItem {
   id: string;
   title: string;
-  type: UploadCategory;
+  type?: UploadCategory | string;
+  material_type?: string;
+  class_id?: string;
   class_name: string;
-  section_name: string;
+  section_id?: string | null;
+  section_name?: string | null;
+  subject_id?: string;
   subject_name?: string;
+  subject_code?: string;
+  teacher_name?: string;
   file_name?: string;
+  file_size_bytes?: number | string;
+  content_type?: string;
+  s3_file_key?: string;
+  description?: string | null;
+  is_verified?: boolean;
   created_at: string;
-  status: 'Active' | 'Archived';
+  status?: 'Active' | 'Archived';
 }
 
 export interface SectionItem {

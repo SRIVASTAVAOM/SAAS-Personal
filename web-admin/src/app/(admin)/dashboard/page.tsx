@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Users,
   GraduationCap,
@@ -20,6 +21,11 @@ import {
   Paperclip,
   LayoutGrid,
   ClipboardList,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  Landmark,
+  ArrowUpRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { DashboardSummaryResponse, SectionSummary, PendingLeaveSummary } from '@/lib/types';
@@ -49,26 +55,268 @@ function KpiCard({
   description,
   icon: Icon,
   tone,
+  href,
+  onClick,
 }: {
   label: string;
   value: string;
   description: React.ReactNode;
   icon: React.ComponentType<{ className?: string }>;
   tone: Tone;
+  href?: string;
+  onClick?: () => void;
 }) {
+  const router = useRouter();
   const t = TONE[tone];
+  const isClickable = Boolean(href || onClick);
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (href) {
+      router.push(href);
+    }
+  };
+
   return (
     <div
-      className={`bg-white p-5 rounded-xl border border-slate-200 border-t-4 ${t.top} shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200`}
+      onClick={isClickable ? handleClick : undefined}
+      className={`bg-white p-5 rounded-xl border border-slate-200 border-t-4 ${t.top} shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ${
+        isClickable ? 'cursor-pointer group' : ''
+      }`}
+      title={isClickable ? `View ${label}` : undefined}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.icon}`}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">{label}</span>
+          {isClickable && (
+            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded flex items-center gap-0.5 group-hover:bg-indigo-100 transition shrink-0">
+              List <ArrowUpRight className="w-2.5 h-2.5" />
+            </span>
+          )}
+        </div>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.icon} ${isClickable ? 'group-hover:scale-105 transition-transform' : ''}`}>
           <Icon className="w-4 h-4" />
         </div>
       </div>
       <div className={`mt-3 text-3xl font-bold tracking-tight tabular-nums ${t.value}`}>{value}</div>
       <div className="mt-1.5 text-xs text-slate-500">{description}</div>
+    </div>
+  );
+}
+
+function FeeRealizedCard({
+  feeRealized,
+  hasData,
+  loading,
+}: {
+  feeRealized?: DashboardSummaryResponse['fee_realized'];
+  hasData: boolean;
+  loading: boolean;
+}) {
+  const router = useRouter();
+  const total = feeRealized?.total ?? 0;
+  const byMode = feeRealized?.by_mode ?? { cash: 0, online: 0, app_payments: 0, cheques: 0 };
+
+  const handleCardClick = () => {
+    router.push('/reports/daily-transactions');
+  };
+
+  const handleModeClick = (e: React.MouseEvent, mode: string) => {
+    e.stopPropagation();
+    router.push(`/reports/daily-transactions?mode=${encodeURIComponent(mode)}`);
+  };
+
+  return (
+    <div
+      onClick={handleCardClick}
+      className="group bg-white p-5 rounded-xl border border-slate-200 border-t-4 border-t-amber-500 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+      title="Click to view Daily Transaction Report"
+    >
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Fee Realized (M-T-D)
+            </span>
+            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-0.5 group-hover:bg-amber-100 transition">
+              Report <ArrowUpRight className="w-2.5 h-2.5" />
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-200">
+            <IndianRupee className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="mt-2 text-3xl font-bold tracking-tight tabular-nums text-slate-900">
+          {loading ? '…' : hasData ? `₹${total.toLocaleString('en-IN')}` : '—'}
+        </div>
+      </div>
+
+      {/* Payment Modes Grid (Cash, Online, App Payments, Cheques) */}
+      <div className="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={(e) => handleModeClick(e, 'CASH')}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-100 transition text-left cursor-pointer"
+          title="Filter by Cash in Daily Transaction Report"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <Banknote className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-emerald-800 truncate">Cash</span>
+          </div>
+          <span className="text-[11px] font-bold text-emerald-700 tabular-nums ml-1">
+            ₹{byMode.cash.toLocaleString('en-IN')}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => handleModeClick(e, 'ONLINE')}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-blue-50/70 hover:bg-blue-100/80 border border-blue-100 transition text-left cursor-pointer"
+          title="Filter by Online in Daily Transaction Report"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <CreditCard className="w-3 h-3 text-blue-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-blue-800 truncate">Online</span>
+          </div>
+          <span className="text-[11px] font-bold text-blue-700 tabular-nums ml-1">
+            ₹{byMode.online.toLocaleString('en-IN')}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => handleModeClick(e, 'APP_PAYMENTS')}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-purple-50/70 hover:bg-purple-100/80 border border-purple-100 transition text-left cursor-pointer"
+          title="Filter by App Payments in Daily Transaction Report"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <Smartphone className="w-3 h-3 text-purple-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-purple-800 truncate">App</span>
+          </div>
+          <span className="text-[11px] font-bold text-purple-700 tabular-nums ml-1">
+            ₹{byMode.app_payments.toLocaleString('en-IN')}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => handleModeClick(e, 'CHEQUES')}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-amber-50/70 hover:bg-amber-100/80 border border-amber-100 transition text-left cursor-pointer"
+          title="Filter by Cheques in Daily Transaction Report"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <Landmark className="w-3 h-3 text-amber-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-amber-800 truncate">Cheques</span>
+          </div>
+          <span className="text-[11px] font-bold text-amber-700 tabular-nums ml-1">
+            ₹{byMode.cheques.toLocaleString('en-IN')}
+          </span>
+        </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400 group-hover:text-indigo-600 transition font-medium">
+        <span>Daily Transaction Register</span>
+        <span className="flex items-center gap-0.5">
+          View Details →
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DailyStudentOverviewCard({
+  totalPresent,
+  totalAbsent,
+  attendanceRatio,
+  hasData,
+  loading,
+  onOpenModal,
+}: {
+  totalPresent: number;
+  totalAbsent: number;
+  attendanceRatio: number | null;
+  hasData: boolean;
+  loading: boolean;
+  onOpenModal: (initialTab: 'PRESENT' | 'ABSENT') => void;
+}) {
+  return (
+    <div
+      onClick={() => onOpenModal('PRESENT')}
+      className="group bg-white p-5 rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+      title="Click to view Present and Absent student lists"
+    >
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 truncate">
+              Daily Student Overview
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5 group-hover:bg-emerald-100 transition shrink-0">
+              List <ArrowUpRight className="w-2.5 h-2.5" />
+            </span>
+          </div>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200">
+            <UserCheck className="w-4 h-4" />
+          </div>
+        </div>
+
+        <div className="mt-2 flex items-baseline gap-2">
+          <span className="text-3xl font-bold tracking-tight tabular-nums text-emerald-700">
+            {loading ? '…' : hasData ? totalPresent.toLocaleString('en-IN') : '—'}
+          </span>
+          <span className="text-xs text-slate-500 font-medium">
+            present ({attendanceRatio !== null ? `${attendanceRatio}%` : '—'})
+          </span>
+        </div>
+      </div>
+
+      {/* Present & Absent Quick Chips */}
+      <div className="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-1.5">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal('PRESENT');
+          }}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-100 transition text-left cursor-pointer"
+          title="View Present Students List"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-emerald-800 truncate">Present</span>
+          </div>
+          <span className="text-[11px] font-bold text-emerald-700 tabular-nums ml-1">
+            {totalPresent}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal('ABSENT');
+          }}
+          className="flex items-center justify-between p-1.5 rounded-lg bg-rose-50/70 hover:bg-rose-100/80 border border-rose-100 transition text-left cursor-pointer"
+          title="View Absent Students List"
+        >
+          <div className="flex items-center gap-1 min-w-0">
+            <UserX className="w-3 h-3 text-rose-600 shrink-0" />
+            <span className="text-[10px] font-semibold text-rose-800 truncate">Absent</span>
+          </div>
+          <span className="text-[11px] font-bold text-rose-700 tabular-nums ml-1">
+            {totalAbsent}
+          </span>
+        </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400 group-hover:text-emerald-700 transition font-medium">
+        <span>Check Roster Status</span>
+        <span className="flex items-center gap-0.5">
+          View Details →
+        </span>
+      </div>
     </div>
   );
 }
@@ -80,6 +328,7 @@ function CounterCard({
   icon: Icon,
   tone,
   valueClass,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -87,13 +336,19 @@ function CounterCard({
   icon: React.ComponentType<{ className?: string }>;
   tone: Tone;
   valueClass?: string;
+  onClick?: () => void;
 }) {
   const t = TONE[tone];
+  const isClickable = Boolean(onClick);
   return (
     <div
-      className={`bg-white p-3.5 rounded-xl border border-slate-200 border-l-4 ${t.left} shadow-2xs flex items-center gap-3 hover:shadow-md transition-shadow duration-200`}
+      onClick={onClick}
+      className={`bg-white p-3.5 rounded-xl border border-slate-200 border-l-4 ${t.left} shadow-2xs flex items-center gap-3 hover:shadow-md transition-all duration-200 ${
+        isClickable ? 'cursor-pointer hover:-translate-y-0.5 group' : ''
+      }`}
+      title={isClickable ? `Click to view details` : undefined}
     >
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.icon}`}>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.icon} ${isClickable ? 'group-hover:scale-105 transition-transform' : ''}`}>
         <Icon className="w-4 h-4" />
       </div>
       <div className="min-w-0">
@@ -160,6 +415,7 @@ function formatDashboardDate(value?: string) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +424,11 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'SECTIONS' | 'LEAVES' | 'BIRTHDAYS'>('SECTIONS');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Attendance inspection modal state
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [attendanceModalTab, setAttendanceModalTab] = useState<'PRESENT' | 'ABSENT'>('PRESENT');
+  const [attendanceSearch, setAttendanceSearch] = useState('');
 
   const handleLeaveAction = async (
     leave: PendingLeaveSummary,
@@ -238,6 +499,26 @@ export default function DashboardPage() {
     });
   }, [data, searchQuery, filterType]);
 
+  const modalPresentList = useMemo(() => {
+    return (data?.today_student_attendance || []).filter((s) => s.status === 'PRESENT');
+  }, [data]);
+
+  const modalAbsentList = useMemo(() => {
+    return (data?.today_student_attendance || []).filter((s) => s.status === 'ABSENT');
+  }, [data]);
+
+  const activeModalList = attendanceModalTab === 'PRESENT' ? modalPresentList : modalAbsentList;
+
+  const filteredModalList = useMemo(() => {
+    if (!attendanceSearch.trim()) return activeModalList;
+    const q = attendanceSearch.toLowerCase();
+    return activeModalList.filter((s) =>
+      `${s.student_name} ${s.roll_number || ''} ${s.admission_number || ''} ${s.class_name || ''} ${s.section_name || ''}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [activeModalList, attendanceSearch]);
+
   // Values shown when the summary is not loaded: a dash, or an ellipsis while loading.
   const hasData = data !== null;
   const dash = loading ? '…' : '—';
@@ -301,34 +582,35 @@ export default function DashboardPage() {
           }
           icon={GraduationCap}
           tone="indigo"
+          href="/students"
         />
         <KpiCard
           label="Total Faculty"
-          value="—"
-          description="Not provided by the dashboard API"
-          icon={Users}
-          tone="slate"
-        />
-        <KpiCard
-          label="Present Today"
-          value={hasData ? totalPresentToday.toLocaleString('en-IN') : dash}
+          value={hasData && data?.kpis?.total_faculty !== undefined ? data.kpis.total_faculty.toLocaleString('en-IN') : dash}
           description={
             <>
-              <span className="font-semibold text-emerald-600">
-                {attendanceRatio !== null ? `${attendanceRatio}%` : '—'}
-              </span>{' '}
-              attendance ratio
+              <span className="font-semibold text-slate-700">Teaching & admin</span> staff
             </>
           }
-          icon={UserCheck}
-          tone="emerald"
+          icon={Users}
+          tone="slate"
+          href="/staff"
         />
-        <KpiCard
-          label="Fee Realized (M-T-D)"
-          value="—"
-          description="Not provided by the dashboard API"
-          icon={IndianRupee}
-          tone="amber"
+        <DailyStudentOverviewCard
+          totalPresent={totalPresentToday}
+          totalAbsent={absentStudents}
+          attendanceRatio={attendanceRatio}
+          hasData={hasData}
+          loading={loading}
+          onOpenModal={(tab) => {
+            setAttendanceModalTab(tab);
+            setAttendanceModalOpen(true);
+          }}
+        />
+        <FeeRealizedCard
+          feeRealized={data?.fee_realized}
+          hasData={hasData}
+          loading={loading}
         />
       </div>
 
@@ -348,6 +630,10 @@ export default function DashboardPage() {
           hint="Students marked absent today"
           icon={UserX}
           tone="amber"
+          onClick={() => {
+            setAttendanceModalTab('ABSENT');
+            setAttendanceModalOpen(true);
+          }}
         />
         <CounterCard
           label="Pending Leaves"
@@ -774,6 +1060,158 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Daily Student Overview - Attendance Modal */}
+      {attendanceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Daily Student Overview</h3>
+                  <p className="text-xs text-slate-500">
+                    Live attendance compliance & roster records for today ({attendanceDate || 'Today'})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAttendanceModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter Tabs & Search */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceModalTab('PRESENT')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                    attendanceModalTab === 'PRESENT'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Present Students ({modalPresentList.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceModalTab('ABSENT')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                    attendanceModalTab === 'ABSENT'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <UserX className="w-3.5 h-3.5" />
+                  <span>Absent Students ({modalAbsentList.length})</span>
+                </button>
+              </div>
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={attendanceSearch}
+                  onChange={(e) => setAttendanceSearch(e.target.value)}
+                  placeholder="Filter student or roll..."
+                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-48"
+                />
+              </div>
+            </div>
+
+            {/* Table of Present or Absent Students */}
+            <div className="overflow-y-auto flex-1 min-h-[220px] rounded-xl border border-slate-200">
+              {filteredModalList.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 space-y-2">
+                  <UserCheck className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs font-medium text-slate-700">
+                    No students found in {attendanceModalTab === 'PRESENT' ? 'Present' : 'Absent'} list.
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    {attendanceSearch ? 'Try a different search query' : 'Attendance might not be marked for this category yet.'}
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0">
+                      <th className="p-3 pl-4">Roll #</th>
+                      <th className="p-3">Student Name</th>
+                      <th className="p-3">Class & Section</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 pr-4">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredModalList.map((st, idx) => (
+                      <tr key={st.id || idx} className="hover:bg-slate-50 transition">
+                        <td className="p-3 pl-4 font-mono font-medium text-slate-700">
+                          {st.roll_number || '—'}
+                          <span className="block text-[10px] text-slate-400">
+                            {st.admission_number || ''}
+                          </span>
+                        </td>
+                        <td className="p-3 font-bold text-slate-900">
+                          {st.student_name}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {st.class_name ? `Class ${st.class_name} (${st.section_name || ''})` : '—'}
+                        </td>
+                        <td className="p-3">
+                          {st.status === 'PRESENT' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <CheckCircle className="w-3 h-3" />
+                              Present
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                              <UserX className="w-3 h-3" />
+                              Absent
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 pr-4 text-slate-500 italic text-[11px]">
+                          {st.remarks || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setAttendanceModalOpen(false);
+                  router.push('/attendance/students');
+                }}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+              >
+                <span>Go to Class Attendance Register</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAttendanceModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

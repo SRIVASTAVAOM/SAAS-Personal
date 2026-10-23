@@ -39,6 +39,19 @@ export interface BirthdaySummary {
   date_of_birth: string;
 }
 
+export interface StudentAttendanceRecordSummary {
+  id: string;
+  student_id: string;
+  status: 'PRESENT' | 'ABSENT' | string;
+  attendance_date: string;
+  remarks: string | null;
+  admission_number: string;
+  roll_number: string | null;
+  student_name: string;
+  class_name?: string;
+  section_name?: string;
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -50,9 +63,26 @@ export interface DashboardSummaryResponse {
     homework_pending_sections: number;
     total_absent_students: number;
     total_absent_staff: number;
+    total_faculty?: number;
     pending_leaves_count: number;
     today_birthdays_count: number;
   };
+  fee_realized?: {
+    total: number;
+    by_mode: {
+      cash: number;
+      online: number;
+      app_payments: number;
+      cheques: number;
+    };
+    counts: {
+      cash: number;
+      online: number;
+      app_payments: number;
+      cheques: number;
+    };
+  };
+  today_student_attendance?: StudentAttendanceRecordSummary[];
   pending_leaves: PendingLeaveSummary[];
   today_birthdays: BirthdaySummary[];
 }
@@ -216,6 +246,29 @@ export class AdminRepository {
       });
     }
 
+    // 3b. Today's student attendance records (Present and Absent students with details)
+    const todayStudentAttendanceRes = await pool.query(
+      `SELECT 
+         sar.id,
+         sar.student_id,
+         sar.status,
+         TO_CHAR(sar.attendance_date, 'YYYY-MM-DD') AS attendance_date,
+         sar.remarks,
+         sp.admission_number,
+         sp.roll_number,
+         CONCAT(sp.first_name, ' ', sp.last_name) AS student_name,
+         c.name AS class_name,
+         s.name AS section_name
+       FROM student_attendance_records sar
+       JOIN student_profiles sp ON sar.student_id = sp.id
+       JOIN users u ON sp.user_id = u.id
+       LEFT JOIN classes c ON sar.class_id = c.id
+       LEFT JOIN sections s ON sar.section_id = s.id
+       WHERE u.school_id = $1 AND sar.attendance_date = $2
+       ORDER BY c.name ASC, s.name ASC, sp.roll_number ASC, sp.first_name ASC;`,
+      [schoolId, today]
+    );
+
     // 4. Homework assigned today per section
     const homeworkRes = await pool.query(
       `SELECT 
@@ -281,6 +334,16 @@ export class AdminRepository {
       [schoolId, today]
     );
     const totalAbsentStaff = parseInt(absentStaffRes.rows[0]?.count || '0', 10);
+
+    // 6b. Total faculty in school
+    const facultyCountRes = await pool.query(
+      `SELECT COUNT(*) AS count
+       FROM staff_profiles sp
+       JOIN users u ON sp.user_id = u.id
+       WHERE u.school_id = $1 AND u.is_active = true;`,
+      [schoolId]
+    );
+    const totalFaculty = parseInt(facultyCountRes.rows[0]?.count || '0', 10);
 
     // 7. Pending leaves
     const staffLeavesRes = await pool.query(
@@ -370,6 +433,51 @@ export class AdminRepository {
       ...staffBirthdaysRes.rows,
     ];
 
+    // 9. Fee Realized breakdown across payment modes (CASH, ONLINE, APP_PAYMENTS, CHEQUES)
+    const feeRes = await pool.query(
+      `SELECT 
+         payment_mode,
+         COALESCE(SUM(amount_paid), 0)::float AS total_amount,
+         COUNT(*)::int AS count
+       FROM fee_receipts
+       WHERE school_id = $1
+       GROUP BY payment_mode;`,
+      [schoolId]
+    );
+
+    let cashTotal = 0;
+    let onlineTotal = 0;
+    let appPaymentsTotal = 0;
+    let chequesTotal = 0;
+    let cashCount = 0;
+    let onlineCount = 0;
+    let appPaymentsCount = 0;
+    let chequesCount = 0;
+
+    for (const r of feeRes.rows) {
+      const mode = (r.payment_mode || '').toUpperCase();
+      const amt = Number(r.total_amount) || 0;
+      const cnt = Number(r.count) || 0;
+      if (mode === 'CASH') {
+        cashTotal += amt;
+        cashCount += cnt;
+      } else if (mode === 'ONLINE' || mode === 'BANK_TRANSFER') {
+        onlineTotal += amt;
+        onlineCount += cnt;
+      } else if (mode === 'APP_PAYMENTS' || mode === 'APP' || mode === 'UPI') {
+        appPaymentsTotal += amt;
+        appPaymentsCount += cnt;
+      } else if (mode === 'CHEQUE' || mode === 'CHEQUES' || mode === 'DEMAND_DRAFT') {
+        chequesTotal += amt;
+        chequesCount += cnt;
+      } else {
+        onlineTotal += amt;
+        onlineCount += cnt;
+      }
+    }
+
+    const feeRealizedTotal = cashTotal + onlineTotal + appPaymentsTotal + chequesTotal;
+
     return {
       date: today,
       sections,
@@ -381,9 +489,26 @@ export class AdminRepository {
         homework_pending_sections: sections.length - homeworkAssignedCount,
         total_absent_students: totalAbsentStudents,
         total_absent_staff: totalAbsentStaff,
+        total_faculty: totalFaculty,
         pending_leaves_count: pendingLeaves.length,
         today_birthdays_count: todayBirthdays.length,
       },
+      fee_realized: {
+        total: feeRealizedTotal,
+        by_mode: {
+          cash: cashTotal,
+          online: onlineTotal,
+          app_payments: appPaymentsTotal,
+          cheques: chequesTotal,
+        },
+        counts: {
+          cash: cashCount,
+          online: onlineCount,
+          app_payments: appPaymentsCount,
+          cheques: chequesCount,
+        },
+      },
+      today_student_attendance: todayStudentAttendanceRes.rows,
       pending_leaves: pendingLeaves,
       today_birthdays: todayBirthdays,
     };
@@ -965,8 +1090,16 @@ export class AdminRepository {
    */
   static async getStudentsList(
     schoolId: string,
-    filters: { classId?: string; sectionId?: string; search?: string }
+    filters: { classId?: string; sectionId?: string; classIds?: string[]; sectionIds?: string[]; search?: string }
   ): Promise<any[]> {
+    const classIds = filters.classIds && filters.classIds.length > 0
+      ? filters.classIds
+      : filters.classId ? [filters.classId] : null;
+
+    const sectionIds = filters.sectionIds && filters.sectionIds.length > 0
+      ? filters.sectionIds
+      : filters.sectionId ? [filters.sectionId] : null;
+
     const query = `
       SELECT 
         sp.id,
@@ -1004,7 +1137,7 @@ export class AdminRepository {
             (COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END)::numeric / 
              NULLIF(COUNT(*), 0)::numeric) * 100, 1
           ) AS attendance_percentage
-        FROM student_attendances
+        FROM student_attendance_records
         GROUP BY student_id
       ) att ON att.student_id = sp.id
       LEFT JOIN (
@@ -1016,8 +1149,8 @@ export class AdminRepository {
         GROUP BY student_id
       ) fee ON fee.student_id = sp.id
       WHERE u.school_id = $1
-        AND ($2::uuid IS NULL OR sp.current_class_id = $2::uuid)
-        AND ($3::uuid IS NULL OR sp.current_section_id = $3::uuid)
+        AND ($2::uuid[] IS NULL OR sp.current_class_id = ANY($2::uuid[]))
+        AND ($3::uuid[] IS NULL OR sp.current_section_id = ANY($3::uuid[]))
         AND (
           $4::text IS NULL OR 
           sp.first_name ILIKE '%' || $4 || '%' OR 
@@ -1029,8 +1162,8 @@ export class AdminRepository {
     `;
     const { rows } = await pool.query(query, [
       schoolId,
-      filters.classId || null,
-      filters.sectionId || null,
+      classIds,
+      sectionIds,
       filters.search ? filters.search.trim() : null,
     ]);
     return rows;
@@ -1056,9 +1189,127 @@ export class AdminRepository {
   }
 
   /**
+   * 9b. Update Student Details
+   */
+  static async updateStudent(
+    schoolId: string,
+    studentId: string,
+    updates: {
+      first_name?: string;
+      last_name?: string;
+      roll_number?: string | null;
+      emergency_phone?: string | null;
+      blood_group?: string | null;
+      medical_notes?: string | null;
+      father_name?: string | null;
+      mother_name?: string | null;
+      gender?: string | null;
+      date_of_birth?: string | null;
+      current_class_id?: string | null;
+      current_section_id?: string | null;
+      phone?: string | null;
+      email?: string | null;
+    }
+  ): Promise<any> {
+    const checkQuery = `
+      SELECT sp.id, sp.user_id 
+      FROM student_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      WHERE sp.id = $1 AND u.school_id = $2;
+    `;
+    const checkRes = await pool.query(checkQuery, [studentId, schoolId]);
+    if (checkRes.rows.length === 0) {
+      return null;
+    }
+    const userId = checkRes.rows[0].user_id;
+
+    const profileFields: string[] = [];
+    const profileVals: any[] = [];
+    let pIdx = 1;
+
+    if (updates.first_name !== undefined) {
+      profileFields.push(`first_name = $${pIdx++}`);
+      profileVals.push(updates.first_name);
+    }
+    if (updates.last_name !== undefined) {
+      profileFields.push(`last_name = $${pIdx++}`);
+      profileVals.push(updates.last_name);
+    }
+    if (updates.roll_number !== undefined) {
+      profileFields.push(`roll_number = $${pIdx++}`);
+      profileVals.push(updates.roll_number);
+    }
+    if (updates.emergency_phone !== undefined) {
+      profileFields.push(`emergency_phone = $${pIdx++}`);
+      profileVals.push(updates.emergency_phone);
+    }
+    if (updates.blood_group !== undefined) {
+      profileFields.push(`blood_group = $${pIdx++}`);
+      profileVals.push(updates.blood_group);
+    }
+    if (updates.medical_notes !== undefined) {
+      profileFields.push(`medical_notes = $${pIdx++}`);
+      profileVals.push(updates.medical_notes);
+    }
+    if (updates.father_name !== undefined) {
+      profileFields.push(`father_name = $${pIdx++}`);
+      profileVals.push(updates.father_name);
+    }
+    if (updates.mother_name !== undefined) {
+      profileFields.push(`mother_name = $${pIdx++}`);
+      profileVals.push(updates.mother_name);
+    }
+    if (updates.gender !== undefined) {
+      profileFields.push(`gender = $${pIdx++}`);
+      profileVals.push(updates.gender);
+    }
+    if (updates.date_of_birth !== undefined) {
+      profileFields.push(`date_of_birth = $${pIdx++}`);
+      profileVals.push(updates.date_of_birth);
+    }
+    if (updates.current_class_id !== undefined) {
+      profileFields.push(`current_class_id = $${pIdx++}`);
+      profileVals.push(updates.current_class_id);
+    }
+    if (updates.current_section_id !== undefined) {
+      profileFields.push(`current_section_id = $${pIdx++}`);
+      profileVals.push(updates.current_section_id);
+    }
+
+    if (profileFields.length > 0) {
+      profileVals.push(studentId);
+      await pool.query(
+        `UPDATE student_profiles SET ${profileFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${pIdx}`,
+        profileVals
+      );
+    }
+
+    const userFields: string[] = [];
+    const userVals: any[] = [];
+    let uIdx = 1;
+    if (updates.phone !== undefined) {
+      userFields.push(`phone = $${uIdx++}`);
+      userVals.push(updates.phone);
+    }
+    if (updates.email !== undefined) {
+      userFields.push(`email = $${uIdx++}`);
+      userVals.push(updates.email);
+    }
+    if (userFields.length > 0) {
+      userVals.push(userId);
+      await pool.query(
+        `UPDATE users SET ${userFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${uIdx}`,
+        userVals
+      );
+    }
+
+    return await this.getStudentDetails(schoolId, studentId);
+  }
+
+  /**
    * 10. Staff Management: Get All Staff
    */
-  static async getAllStaff(schoolId: string, search?: string): Promise<any[]> {
+  static async getAllStaff(schoolId: string, search?: string, isActive?: boolean): Promise<any[]> {
     const query = `
       SELECT 
         sp.id,
@@ -1077,8 +1328,10 @@ export class AdminRepository {
         TO_CHAR(sp.joining_date, 'YYYY-MM-DD') AS joining_date,
         TO_CHAR(sp.date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
         sp.is_active,
+        COALESCE(sp.login_password, 'Staff@123') AS password,
         u.email,
         u.identifier,
+        u.identifier AS username,
         COALESCE(r.name, 'TEACHER') AS role,
         w.name AS wing_name,
         sa.assignment_type
@@ -1095,9 +1348,14 @@ export class AdminRepository {
           u.email ILIKE '%' || $2 || '%' OR
           u.identifier ILIKE '%' || $2 || '%'
         ))
+        AND ($3::boolean IS NULL OR sp.is_active = $3)
       ORDER BY sp.first_name ASC, sp.last_name ASC;
     `;
-    const { rows } = await pool.query(query, [schoolId, search ? search.trim() : null]);
+    const { rows } = await pool.query(query, [
+      schoolId,
+      search ? search.trim() : null,
+      isActive !== undefined ? isActive : null,
+    ]);
     return rows;
   }
 
@@ -1155,8 +1413,8 @@ export class AdminRepository {
         `INSERT INTO staff_profiles (
           user_id, employee_code, first_name, last_name, gender, date_of_birth,
           qualification, joining_date, emergency_phone, phone, blood_group,
-          department, designation, is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          department, designation, is_active, login_password
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *`,
         [
           userId,
@@ -1173,6 +1431,7 @@ export class AdminRepository {
           data.department || null,
           data.designation || null,
           true,
+          password,
         ]
       );
 
@@ -1266,6 +1525,7 @@ export class AdminRepository {
       if (data.password && data.password.trim()) {
         const hash = await bcrypt.hash(data.password.trim(), 12);
         await client.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+        await client.query('UPDATE staff_profiles SET login_password = $1 WHERE id = $2', [data.password.trim(), staffId]);
       }
 
       if (data.role) {
@@ -1374,6 +1634,172 @@ export class AdminRepository {
       filters.search ? filters.search.trim() : null,
     ]);
     return rows;
+  }
+
+  static async createAdminHomework(
+    schoolId: string,
+    data: {
+      classId: string;
+      sectionId: string;
+      subjectId: string;
+      staffId?: string;
+      title: string;
+      description: string;
+      assignedDate?: string;
+      dueDate: string;
+      s3AttachmentKey?: string;
+      attachmentName?: string;
+    },
+    defaultUserId?: string
+  ): Promise<any> {
+    let staffId = data.staffId;
+    if (!staffId) {
+      if (defaultUserId) {
+        const staffRes = await pool.query(
+          `SELECT id FROM staff_profiles WHERE user_id = $1 LIMIT 1;`,
+          [defaultUserId]
+        );
+        if (staffRes.rows.length > 0) {
+          staffId = staffRes.rows[0].id;
+        }
+      }
+      if (!staffId) {
+        const fallbackRes = await pool.query(
+          `SELECT sp.id FROM staff_profiles sp 
+           JOIN users u ON sp.user_id = u.id 
+           WHERE u.school_id = $1 
+           ORDER BY sp.created_at ASC 
+           LIMIT 1;`,
+          [schoolId]
+        );
+        if (fallbackRes.rows.length > 0) {
+          staffId = fallbackRes.rows[0].id;
+        } else {
+          throw new Error('No staff profile found to assign homework');
+        }
+      }
+    }
+
+    const assignedDate = data.assignedDate || new Date().toISOString().split('T')[0];
+    const dueDate = data.dueDate;
+
+    if (dueDate < assignedDate) {
+      const err: any = new Error('Submission due date cannot be earlier than assigned date');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const insertQuery = `
+      INSERT INTO homework_assignments 
+        (school_id, class_id, section_id, subject_id, assigned_by_staff_id, 
+         title, description, assigned_date, due_date, s3_attachment_key, attachment_name)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9::date, $10, $11)
+      RETURNING id;
+    `;
+    const res = await pool.query(insertQuery, [
+      schoolId,
+      data.classId,
+      data.sectionId,
+      data.subjectId,
+      staffId,
+      data.title.trim(),
+      data.description.trim(),
+      assignedDate,
+      dueDate,
+      data.s3AttachmentKey || null,
+      data.attachmentName || null,
+    ]);
+    const hwId = res.rows[0].id;
+    const fetchRes = await this.getAdminHomework(schoolId, {});
+    return fetchRes.find((h: any) => h.id === hwId) || res.rows[0];
+  }
+
+  static async updateAdminHomework(
+    schoolId: string,
+    homeworkId: string,
+    data: {
+      classId?: string;
+      sectionId?: string;
+      subjectId?: string;
+      staffId?: string;
+      title?: string;
+      description?: string;
+      assignedDate?: string;
+      dueDate?: string;
+      s3AttachmentKey?: string;
+      attachmentName?: string;
+    }
+  ): Promise<any> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (data.classId !== undefined) {
+      fields.push(`class_id = $${idx++}`);
+      values.push(data.classId);
+    }
+    if (data.sectionId !== undefined) {
+      fields.push(`section_id = $${idx++}`);
+      values.push(data.sectionId);
+    }
+    if (data.subjectId !== undefined) {
+      fields.push(`subject_id = $${idx++}`);
+      values.push(data.subjectId);
+    }
+    if (data.staffId !== undefined) {
+      fields.push(`assigned_by_staff_id = $${idx++}`);
+      values.push(data.staffId);
+    }
+    if (data.title !== undefined) {
+      fields.push(`title = $${idx++}`);
+      values.push(data.title.trim());
+    }
+    if (data.description !== undefined) {
+      fields.push(`description = $${idx++}`);
+      values.push(data.description.trim());
+    }
+    if (data.assignedDate !== undefined) {
+      fields.push(`assigned_date = $${idx++}::date`);
+      values.push(data.assignedDate);
+    }
+    if (data.dueDate !== undefined) {
+      fields.push(`due_date = $${idx++}::date`);
+      values.push(data.dueDate);
+    }
+    if (data.s3AttachmentKey !== undefined) {
+      fields.push(`s3_attachment_key = $${idx++}`);
+      values.push(data.s3AttachmentKey);
+    }
+    if (data.attachmentName !== undefined) {
+      fields.push(`attachment_name = $${idx++}`);
+      values.push(data.attachmentName);
+    }
+
+    if (fields.length > 0) {
+      fields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(homeworkId, schoolId);
+      const updateQuery = `
+        UPDATE homework_assignments
+        SET ${fields.join(', ')}
+        WHERE id = $${idx++} AND school_id = $${idx++}
+        RETURNING id;
+      `;
+      const updateRes = await pool.query(updateQuery, values);
+      if (updateRes.rows.length === 0) {
+        return null;
+      }
+    }
+
+    const fetchRes = await this.getAdminHomework(schoolId, {});
+    return fetchRes.find((h: any) => h.id === homeworkId) || null;
+  }
+
+  static async deleteAdminHomework(schoolId: string, homeworkId: string): Promise<boolean> {
+    const res = await pool.query(
+      `DELETE FROM homework_assignments WHERE id = $1 AND school_id = $2;`,
+      [homeworkId, schoolId]
+    );
+    return (res.rowCount ?? 0) > 0;
   }
 
   /**

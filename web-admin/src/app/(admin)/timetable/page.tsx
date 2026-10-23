@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useMemo, useSyncExternalStore, useRef } from 'react';
 import {
   CalendarDays,
   Save,
@@ -16,6 +16,9 @@ import {
   Copy,
   RefreshCw,
   X,
+  Search,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
@@ -23,9 +26,141 @@ import {
   TimetableSlotEntry,
   SubjectItem,
   SectionSummary,
+  ClassItem,
 } from '@/lib/types';
 import { TeacherWiseTimetable } from '@/components/timetable/TeacherWiseTimetable';
 import { SubstitutionsManager } from '@/components/timetable/SubstitutionsManager';
+
+export interface StaffOption {
+  id: string;
+  name: string;
+  employee_code?: string;
+  role?: string;
+}
+
+function StaffSearchSelect({
+  staffList,
+  selectedTeacherId,
+  selectedTeacherName,
+  onSelect,
+}: {
+  staffList: StaffOption[];
+  selectedTeacherId?: string;
+  selectedTeacherName?: string;
+  onSelect: (staff: StaffOption) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredStaff = useMemo(() => {
+    if (!search.trim()) return staffList;
+    const q = search.toLowerCase();
+    return staffList.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.employee_code && s.employee_code.toLowerCase().includes(q)) ||
+        (s.role && s.role.toLowerCase().includes(q))
+    );
+  }, [staffList, search]);
+
+  const currentSelected = staffList.find((s) => s.id === selectedTeacherId);
+  const displayName = currentSelected ? currentSelected.name : selectedTeacherName;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white text-left flex items-center justify-between hover:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition cursor-pointer"
+      >
+        <div className="flex items-center gap-2 truncate">
+          <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[10px] shrink-0">
+            {displayName ? displayName[0]?.toUpperCase() : <User className="w-3 h-3" />}
+          </div>
+          <span className={displayName ? 'font-semibold text-slate-800' : 'text-slate-400 font-normal'}>
+            {displayName || 'Select staff member from list...'}
+          </span>
+          {currentSelected?.employee_code && (
+            <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+              {currentSelected.employee_code}
+            </span>
+          )}
+        </div>
+        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-30 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+          {/* Search Input Box */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search staff by name or employee code..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:border-indigo-600 focus:outline-none bg-slate-50"
+            />
+          </div>
+
+          {/* Scrollable Staff List */}
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+            {filteredStaff.length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-400">
+                No staff found matching &quot;{search}&quot;
+              </div>
+            ) : (
+              filteredStaff.map((staff) => {
+                const isSelected = staff.id === selectedTeacherId;
+                return (
+                  <div
+                    key={staff.id}
+                    onClick={() => {
+                      onSelect(staff);
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                    className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer select-none transition ${
+                      isSelected
+                        ? 'bg-indigo-50 text-indigo-900 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px]">
+                        {staff.name[0]?.toUpperCase() || 'S'}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-900">{staff.name}</div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
+                          {staff.employee_code && <span>{staff.employee_code}</span>}
+                          {staff.role && <span>· {staff.role}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-4 h-4 text-indigo-600" />}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const DAYS = [
   { id: 1, name: 'Monday', short: 'Mon' },
@@ -56,6 +191,8 @@ const FALLBACK_SUBJECT_COLOR = '#94A3B8';
 
 export default function MasterTimetablePage() {
   const [sections, setSections] = useState<SectionSummary[]>([]);
+  const [academicClasses, setAcademicClasses] = useState<ClassItem[]>([]);
+  const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
@@ -88,27 +225,121 @@ export default function MasterTimetablePage() {
     () => -1
   );
 
-  // 1. Initial Load: Fetch sections & subjects
+  // 1. Initial Load: Fetch sections, classes, subjects, and staff
   useEffect(() => {
     const init = async () => {
       try {
-        const [dash, subs] = await Promise.all([
-          api.admin.getDashboardSummary(),
+        const [dash, classesRes, subs, teachersRes, allStaffRes] = await Promise.all([
+          api.admin.getDashboardSummary().catch(() => ({ sections: [] })),
+          api.academics.getClasses().catch(() => []),
           api.academics.getSubjects().catch(() => []),
+          api.admin.getTeachers().catch(() => []),
+          api.admin.getAllStaff().catch(() => []),
         ]);
 
         if (dash.sections && dash.sections.length > 0) {
           setSections(dash.sections);
-          setSelectedClassId(dash.sections[0].class_id);
-          setSelectedSectionId(dash.sections[0].section_id);
         }
-        setSubjects(subs);
+        setAcademicClasses(classesRes || []);
+        setSubjects(subs || []);
+
+        // Combine staff & teachers into a unique staff list
+        const staffMap = new Map<string, StaffOption>();
+
+        (allStaffRes || []).forEach((st: any) => {
+          const name = st.staff_name || `${st.first_name || ''} ${st.last_name || ''}`.trim() || 'Staff Member';
+          staffMap.set(st.id, {
+            id: st.id,
+            name,
+            employee_code: st.employee_code,
+            role: st.designation || st.department || 'Staff',
+          });
+        });
+
+        (teachersRes || []).forEach((t: any) => {
+          if (!staffMap.has(t.id)) {
+            staffMap.set(t.id, {
+              id: t.id,
+              name: t.name || 'Teacher',
+              employee_code: t.employee_code,
+              role: t.qualification || 'Teacher',
+            });
+          }
+        });
+
+        setStaffList(Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
       } catch (err: any) {
         console.error('Failed to initialize timetable controls:', err);
       }
     };
     init();
   }, []);
+
+  // Derive unique classes and sections for single-select dropdowns
+  const classOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; sections: Map<string, { id: string; name: string }> }>();
+
+    // From academic classes
+    academicClasses.forEach((c) => {
+      const cId = c.class_id || c.id;
+      const cName = c.class_name || c.name || 'Class';
+      if (!map.has(cId)) {
+        map.set(cId, { id: cId, name: cName, sections: new Map() });
+      }
+      const entry = map.get(cId)!;
+      if (Array.isArray(c.sections)) {
+        c.sections.forEach((sec) => {
+          if (sec.id && !entry.sections.has(sec.id)) {
+            entry.sections.set(sec.id, { id: sec.id, name: sec.name });
+          }
+        });
+      }
+    });
+
+    // From dashboard sections
+    sections.forEach((s) => {
+      if (s.class_id) {
+        if (!map.has(s.class_id)) {
+          map.set(s.class_id, { id: s.class_id, name: s.class_name, sections: new Map() });
+        }
+        const entry = map.get(s.class_id)!;
+        if (s.section_id && !entry.sections.has(s.section_id)) {
+          entry.sections.set(s.section_id, { id: s.section_id, name: s.section_name });
+        }
+      }
+    });
+
+    return Array.from(map.values())
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        sections: Array.from(c.sections.values()),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  }, [academicClasses, sections]);
+
+  // Sections for currently selected class
+  const currentClassSections = useMemo(() => {
+    const cls = classOptions.find((c) => c.id === selectedClassId);
+    return cls ? cls.sections : [];
+  }, [classOptions, selectedClassId]);
+
+  // Automatically select first class and section when options load
+  useEffect(() => {
+    if (classOptions.length > 0) {
+      if (!selectedClassId || !classOptions.some((c) => c.id === selectedClassId)) {
+        const first = classOptions[0];
+        setSelectedClassId(first.id);
+        if (first.sections.length > 0) {
+          setSelectedSectionId(first.sections[0].id);
+        }
+      } else if (!selectedSectionId || !currentClassSections.some((s) => s.id === selectedSectionId)) {
+        if (currentClassSections.length > 0) {
+          setSelectedSectionId(currentClassSections[0].id);
+        }
+      }
+    }
+  }, [classOptions, selectedClassId, currentClassSections, selectedSectionId]);
 
   // 2. Fetch Timetable Grid when Class/Section changes
   const fetchGrid = async () => {
@@ -192,6 +423,7 @@ export default function MasterTimetablePage() {
       setCellSlots(JSON.parse(JSON.stringify(existing)));
     } else {
       const def = PERIOD_DEFAULTS.find((p) => p.p === period)!;
+      const defaultStaff = staffList[0];
       setCellSlots([
         {
           day_of_week: day,
@@ -199,8 +431,8 @@ export default function MasterTimetablePage() {
           start_time: def.start,
           end_time: def.end,
           subject_id: subjects[0]?.id || '',
-          teacher_id: '',
-          teacher_name: '',
+          teacher_id: defaultStaff?.id || '',
+          teacher_name: defaultStaff?.name || '',
           room_number: '',
         },
       ]);
@@ -211,6 +443,7 @@ export default function MasterTimetablePage() {
   const handleAddCoTeacherSlot = () => {
     if (!editingCell) return;
     const def = PERIOD_DEFAULTS.find((p) => p.p === editingCell.period)!;
+    const defaultStaff = staffList[0];
     setCellSlots([
       ...cellSlots,
       {
@@ -219,8 +452,8 @@ export default function MasterTimetablePage() {
         start_time: def.start,
         end_time: def.end,
         subject_id: subjects[0]?.id || '',
-        teacher_id: '',
-        teacher_name: '',
+        teacher_id: defaultStaff?.id || '',
+        teacher_name: defaultStaff?.name || '',
         room_number: '',
       },
     ]);
@@ -340,24 +573,57 @@ export default function MasterTimetablePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Class & Section Selectors */}
-            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded border border-slate-200">
-              <span className="text-[11px] font-semibold text-slate-500 px-2 uppercase">Class / Sec:</span>
-              <select
-                value={`${selectedClassId}_${selectedSectionId}`}
-                onChange={(e) => {
-                  const [cId, sId] = e.target.value.split('_');
-                  setSelectedClassId(cId);
-                  setSelectedSectionId(sId);
-                }}
-                className="py-1 px-2.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-900 focus:border-indigo-600 outline-none"
-              >
-                {sections.map((s) => (
-                  <option key={`${s.class_id}_${s.section_id}`} value={`${s.class_id}_${s.section_id}`}>
-                    {s.class_name} · Section {s.section_name}
-                  </option>
-                ))}
-              </select>
+            {/* Separate Class & Section Selectors (Single Select) */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Class Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Class:</span>
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => {
+                    const newClassId = e.target.value;
+                    setSelectedClassId(newClassId);
+                    const cls = classOptions.find((c) => c.id === newClassId);
+                    if (cls && cls.sections.length > 0) {
+                      setSelectedSectionId(cls.sections[0].id);
+                    } else {
+                      setSelectedSectionId('');
+                    }
+                  }}
+                  className="py-1 px-2.5 text-xs font-semibold rounded-md bg-white border border-slate-200 text-slate-900 focus:border-indigo-600 outline-none cursor-pointer"
+                >
+                  {classOptions.length === 0 ? (
+                    <option value="">No Classes Found</option>
+                  ) : (
+                    classOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {/* Section Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Section:</span>
+                <select
+                  value={selectedSectionId}
+                  onChange={(e) => setSelectedSectionId(e.target.value)}
+                  disabled={!selectedClassId || currentClassSections.length === 0}
+                  className="py-1 px-2.5 text-xs font-semibold rounded-md bg-white border border-slate-200 text-slate-900 focus:border-indigo-600 outline-none cursor-pointer disabled:opacity-50"
+                >
+                  {currentClassSections.length === 0 ? (
+                    <option value="">No Sections</option>
+                  ) : (
+                    currentClassSections.map((sec) => (
+                      <option key={sec.id} value={sec.id}>
+                        Section {sec.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             </div>
 
             {/* Reload button */}
@@ -714,21 +980,24 @@ export default function MasterTimetablePage() {
                     </div>
                   </div>
 
-                  {/* Teacher Name / Code */}
+                  {/* Faculty / Staff Selection (Searchable) */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Faculty / Teacher
+                      Faculty / Staff Member *
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Mr. S. Sharma (Math Faculty)"
-                      value={slot.teacher_name || ''}
-                      onChange={(e) => {
+                    <StaffSearchSelect
+                      staffList={staffList}
+                      selectedTeacherId={slot.teacher_id}
+                      selectedTeacherName={slot.teacher_name}
+                      onSelect={(staff) => {
                         const updated = [...cellSlots];
-                        updated[index].teacher_name = e.target.value;
+                        updated[index] = {
+                          ...updated[index],
+                          teacher_id: staff.id,
+                          teacher_name: staff.name,
+                        };
                         setCellSlots(updated);
                       }}
-                      className="w-full text-xs p-2 rounded border border-slate-300 bg-white text-slate-900 focus:border-indigo-600 outline-none"
                     />
                   </div>
                 </div>

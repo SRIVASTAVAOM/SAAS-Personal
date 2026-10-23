@@ -21,6 +21,44 @@ export class AcademicsController {
     }
   }
 
+  static async getSubjectsWithDetails(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const subjects = await AcademicsService.getSubjectsWithDetails(req.user!.schoolId);
+      res.status(200).json({ success: true, data: subjects });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createSubject(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const newSub = await AcademicsService.createSubject(req.user!.schoolId, req.body);
+      res.status(201).json({ success: true, data: newSub, message: 'Subject created successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async updateSubject(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updated = await AcademicsService.updateSubject(req.user!.schoolId, id, req.body);
+      res.status(200).json({ success: true, data: updated, message: 'Subject updated successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async deleteSubject(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      await AcademicsService.deleteSubject(req.user!.schoolId, id);
+      res.status(200).json({ success: true, message: 'Subject deleted successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getClassRoster(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const { classId, sectionId } = req.params;

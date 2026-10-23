@@ -10,6 +10,57 @@ export class AcademicsService {
     return await AcademicsRepository.getSubjectsBySchool(schoolId);
   }
 
+  static async getSubjectsWithDetails(schoolId: string): Promise<any[]> {
+    return await AcademicsRepository.getSubjectsWithDetails(schoolId);
+  }
+
+  static async createSubject(schoolId: string, data: { name: string; code: string; type?: string; class_ids?: string[] }): Promise<any> {
+    if (!data.name || !data.code) {
+      const error: any = new Error('Subject name and code are required');
+      error.statusCode = 400;
+      throw error;
+    }
+    try {
+      return await AcademicsRepository.createSubject(schoolId, data);
+    } catch (err: any) {
+      if (err.code === '23505') {
+        const error: any = new Error(`A subject with code "${data.code.trim().toUpperCase()}" already exists in your school.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      throw err;
+    }
+  }
+
+  static async updateSubject(schoolId: string, subjectId: string, data: any): Promise<any> {
+    try {
+      const updated = await AcademicsRepository.updateSubject(schoolId, subjectId, data);
+      if (!updated) {
+        const error: any = new Error('Subject not found or unauthorized');
+        error.statusCode = 404;
+        throw error;
+      }
+      return updated;
+    } catch (err: any) {
+      if (err.code === '23505') {
+        const error: any = new Error(`A subject with code "${data.code?.trim().toUpperCase()}" already exists in your school.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      throw err;
+    }
+  }
+
+  static async deleteSubject(schoolId: string, subjectId: string): Promise<boolean> {
+    const deleted = await AcademicsRepository.deleteSubject(schoolId, subjectId);
+    if (!deleted) {
+      const error: any = new Error('Subject not found or cannot be deleted');
+      error.statusCode = 404;
+      throw error;
+    }
+    return deleted;
+  }
+
   static async getClassRoster(
     user: TokenPayload,
     classId: string,

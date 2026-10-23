@@ -198,4 +198,87 @@ export class MaterialsService {
       isMock,
     };
   }
+
+  static async getAdminMaterials(
+    user: TokenPayload,
+    filters: { classId?: string; sectionId?: string; subjectId?: string; type?: string; search?: string }
+  ): Promise<AcademicMaterial[]> {
+    return await MaterialsRepository.getAdminMaterials(user.schoolId, filters);
+  }
+
+  static async createAdminMaterial(user: TokenPayload, data: any): Promise<AcademicMaterial> {
+    const classId = data.classId || data.class_id;
+    const sectionId = data.sectionId || data.section_id;
+    const subjectId = data.subjectId || data.subject_id;
+    const title = data.title;
+    const description = data.description;
+    const materialType = data.materialType || data.material_type || data.type || 'Study Material';
+    const fileName = data.fileName || data.file_name || 'document.pdf';
+    const fileSizeBytes = data.fileSizeBytes || data.file_size_bytes || 1048576;
+    const contentType = data.contentType || data.content_type || 'application/pdf';
+
+    if (!classId || !subjectId || !title) {
+      throw { statusCode: 400, message: 'Class, Subject, and Document Title are required.' };
+    }
+
+    // Resolve staff profile ID
+    let staffId = data.staffId || data.staff_id;
+    if (!staffId) {
+      if (user.profileId) {
+        staffId = user.profileId;
+      } else {
+        const staffRes = await pool.query(
+          `SELECT sp.id FROM staff_profiles sp JOIN users u ON sp.user_id = u.id WHERE u.school_id = $1 LIMIT 1;`,
+          [user.schoolId]
+        );
+        if (staffRes.rows.length > 0) {
+          staffId = staffRes.rows[0].id;
+        } else {
+          throw { statusCode: 400, message: 'No staff profile found in school to attribute material.' };
+        }
+      }
+    }
+
+    const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const s3FileKey = data.s3FileKey || data.s3_file_key || `schools/${user.schoolId}/materials/${Date.now()}_${cleanFileName}`;
+
+    return await MaterialsRepository.createAdminMaterial({
+      schoolId: user.schoolId,
+      classId,
+      sectionId: sectionId || undefined,
+      subjectId,
+      uploadedByStaffId: staffId,
+      title: title.trim(),
+      description: description ? description.trim() : undefined,
+      materialType,
+      s3FileKey,
+      fileName: cleanFileName,
+      fileSizeBytes: Number(fileSizeBytes),
+      contentType,
+    });
+  }
+
+  static async updateAdminMaterial(user: TokenPayload, id: string, data: any): Promise<AcademicMaterial> {
+    const updated = await MaterialsRepository.updateAdminMaterial(id, user.schoolId, {
+      classId: data.classId || data.class_id,
+      sectionId: data.sectionId !== undefined ? data.sectionId : data.section_id,
+      subjectId: data.subjectId || data.subject_id,
+      title: data.title ? data.title.trim() : undefined,
+      description: data.description !== undefined ? data.description.trim() : undefined,
+      materialType: data.materialType || data.material_type || data.type,
+      fileName: data.fileName || data.file_name,
+    });
+    if (!updated) {
+      throw { statusCode: 404, message: 'Study material not found or unauthorized' };
+    }
+    return updated;
+  }
+
+  static async deleteAdminMaterial(user: TokenPayload, id: string): Promise<boolean> {
+    const deleted = await MaterialsRepository.deleteAdminMaterial(id, user.schoolId);
+    if (!deleted) {
+      throw { statusCode: 404, message: 'Study material not found or cannot be deleted' };
+    }
+    return deleted;
+  }
 }

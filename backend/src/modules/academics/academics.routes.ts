@@ -10,6 +10,10 @@ router.use(authenticateToken);
 
 router.get('/classes', AcademicsController.getClassesAndSections);
 router.get('/subjects', AcademicsController.getSubjects);
+router.get('/subjects/master', AcademicsController.getSubjectsWithDetails);
+router.post('/subjects', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsController.createSubject);
+router.patch('/subjects/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsController.updateSubject);
+router.delete('/subjects/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsController.deleteSubject);
 router.get('/class-roster/:classId/:sectionId', AcademicsController.getClassRoster);
 router.get('/my-roster', requireRole(['TEACHER']), AcademicsController.getMyRoster);
 router.get('/my-allocations', requireRole(['TEACHER']), AcademicsController.getMyAllocations);

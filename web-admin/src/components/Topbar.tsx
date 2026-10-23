@@ -13,13 +13,25 @@ const titleMap: Record<string, { title: string; subtitle: string }> = {
     title: 'Master Timetable Builder',
     subtitle: 'Day-wise (Mon–Sat) x period-wise (P1–P8) interactive grid matrix',
   },
+  '/academics/study-material': {
+    title: 'Study Material & Academic Repository',
+    subtitle: 'Upload, manage, and share syllabus, notes, and study resources with students & teachers',
+  },
   '/academics/uploads': {
-    title: 'Unified Academic & HW Upload Portal',
-    subtitle: 'Centralized repository for syllabus, homework, datesheets, and assignments',
+    title: 'Study Material & Academic Repository',
+    subtitle: 'Upload, manage, and share syllabus, notes, and study resources with students & teachers',
   },
   '/reports/greensheet': {
     title: 'Master Greensheet Report Cards & Marks',
     subtitle: 'Official class tabulation marksheet, subject percentiles, and rank roster',
+  },
+  '/homework': {
+    title: 'View/Assign Homework',
+    subtitle: 'Upload, assign, and edit homework for any class and section',
+  },
+  '/subjects': {
+    title: 'Subject Master',
+    subtitle: 'Manage curriculum subjects, class affiliations, and faculty allocations',
   },
 };
 

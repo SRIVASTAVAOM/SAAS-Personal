@@ -94,6 +94,66 @@ export class MaterialsController {
     }
   }
 
+  static async getAdminMaterials(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const classId = (req.query.class_id || req.query.classId) as string | undefined;
+      const sectionId = (req.query.section_id || req.query.sectionId) as string | undefined;
+      const subjectId = (req.query.subject_id || req.query.subjectId) as string | undefined;
+      const type = (req.query.type || req.query.category) as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const list = await MaterialsService.getAdminMaterials(user, { classId, sectionId, subjectId, type, search });
+      res.status(200).json({ success: true, data: list });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to fetch study materials',
+      });
+    }
+  }
+
+  static async createAdminMaterial(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const material = await MaterialsService.createAdminMaterial(user, req.body);
+      res.status(201).json({ success: true, data: material, message: 'Study material published successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to publish study material',
+      });
+    }
+  }
+
+  static async updateAdminMaterial(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const updated = await MaterialsService.updateAdminMaterial(user, id, req.body);
+      res.status(200).json({ success: true, data: updated, message: 'Study material updated successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to update study material',
+      });
+    }
+  }
+
+  static async deleteAdminMaterial(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      await MaterialsService.deleteAdminMaterial(user, id);
+      res.status(200).json({ success: true, message: 'Study material deleted successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || 'Failed to delete study material',
+      });
+    }
+  }
+
   /**
    * Safe local simulation handler for pre-signed PUT uploads when AWS credentials are not configured.
    */

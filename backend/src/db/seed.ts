@@ -578,7 +578,12 @@ export async function runSeeds(): Promise<void> {
       if (feeRes.rows.length > 0) {
         await client.query(`
           INSERT INTO fee_receipts (school_id, student_fee_id, student_id, receipt_number, payment_date, amount_paid, payment_mode, transaction_reference, remarks)
-          VALUES ($1, $2, $3, 'REC-2026-00412', '2026-04-10', 15000.00, 'BANK_TRANSFER', 'HDFC-TXN-882194', 'Paid in full for Quarter 1')
+          VALUES 
+            ($1, $2, $3, 'REC-2026-00412', '2026-04-10', 15000.00, 'BANK_TRANSFER', 'HDFC-TXN-882194', 'Paid in full for Quarter 1'),
+            ($1, $2, $3, 'REC-2026-00501', CURRENT_DATE, 18500.00, 'CASH', 'CASH-CNTR-01', 'Term 1 Tuition Fee via Cash Counter'),
+            ($1, $2, $3, 'REC-2026-00502', CURRENT_DATE, 24000.00, 'ONLINE', 'ICICI-NET-491022', 'Annual Lab & Library Fee via Netbanking'),
+            ($1, $2, $3, 'REC-2026-00503', CURRENT_DATE, 12500.00, 'APP_PAYMENTS', 'UPI-GPAY-983104', 'Term 2 Installment via School Parent App'),
+            ($1, $2, $3, 'REC-2026-00504', CURRENT_DATE, 22000.00, 'CHEQUE', 'CHQ-778192 - SBI', 'Quarterly Composite Fee Cheque deposit')
           ON CONFLICT (receipt_number) DO NOTHING;
         `, [schoolId, feeRes.rows[0].id, s1Id]);
       }

@@ -24,4 +24,10 @@ router.get('/class/:classId/:subjectId', MaterialsController.getMaterials);
 // Download URL for authorized users
 router.get('/:id/download-url', MaterialsController.getDownloadUrl);
 
+// Admin Study Materials Management (Upload, view, edit, delete across school)
+router.get('/admin/list', requireRole(['ADMIN', 'SUPER_ADMIN']), MaterialsController.getAdminMaterials);
+router.post('/admin', requireRole(['ADMIN', 'SUPER_ADMIN']), MaterialsController.createAdminMaterial);
+router.patch('/admin/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), MaterialsController.updateAdminMaterial);
+router.delete('/admin/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), MaterialsController.deleteAdminMaterial);
+
 export default router;

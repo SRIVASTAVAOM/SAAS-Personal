@@ -5,6 +5,7 @@ import { pool } from '../src/config/db.config';
 describe('Academic Materials & S3 Pre-signed URL API Tests', () => {
   let teacherToken: string;
   let studentToken: string;
+  let adminToken: string;
   let classId: string;
   let mathSubjectId: string;
   let materialId: string;
@@ -21,6 +22,12 @@ describe('Academic Materials & S3 Pre-signed URL API Tests', () => {
       .post('/api/v1/auth/login')
       .send({ identifier: 'student1', password: 'Password@123' });
     studentToken = sLogin.body.data.token;
+
+    // Login Admin (Management)
+    const mLogin = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'management1', password: 'Password@123' });
+    adminToken = mLogin.body.data.token;
 
     // Fetch Class & Subject
     const classRes = await pool.query(`SELECT id FROM classes WHERE name = 'Grade 10' LIMIT 1;`);
@@ -170,6 +177,85 @@ describe('Academic Materials & S3 Pre-signed URL API Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.header['content-type']).toContain('application/pdf');
+    });
+  });
+
+  describe('Admin Study Material Upload & Live Student/Teacher Connection', () => {
+    let adminUploadedMaterialId: string;
+
+    it('POST /api/v1/admin/materials - should allow Admin to upload study material', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/materials')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          class_id: classId,
+          subject_id: mathSubjectId,
+          title: 'Admin Master Study Guide: Coordinate Geometry',
+          description: 'Official school revision notes and practice problems',
+          material_type: 'Study Material',
+          file_name: 'coord_geometry_guide.pdf',
+          file_size_bytes: 2048500,
+          content_type: 'application/pdf',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
+      expect(res.body.data.is_verified).toBe(true);
+      expect(res.body.data.title).toBe('Admin Master Study Guide: Coordinate Geometry');
+      adminUploadedMaterialId = res.body.data.id;
+    });
+
+    it('GET /api/v1/materials/class/:classId/:subjectId - STUDENT can immediately see and access Admin uploaded material', async () => {
+      expect(adminUploadedMaterialId).toBeDefined();
+      const res = await request(app)
+        .get(`/api/v1/materials/class/${classId}/${mathSubjectId}`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      const found = res.body.data.find((m: any) => m.id === adminUploadedMaterialId);
+      expect(found).toBeDefined();
+      expect(found.title).toBe('Admin Master Study Guide: Coordinate Geometry');
+    });
+
+    it('GET /api/v1/materials/class/:classId/:subjectId - TEACHER can immediately see Admin uploaded material', async () => {
+      expect(adminUploadedMaterialId).toBeDefined();
+      const res = await request(app)
+        .get(`/api/v1/materials/class/${classId}/${mathSubjectId}`)
+        .set('Authorization', `Bearer ${teacherToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      const found = res.body.data.find((m: any) => m.id === adminUploadedMaterialId);
+      expect(found).toBeDefined();
+      expect(found.title).toBe('Admin Master Study Guide: Coordinate Geometry');
+    });
+
+    it('PATCH /api/v1/admin/materials/:id - allows Admin to update study material details', async () => {
+      expect(adminUploadedMaterialId).toBeDefined();
+      const res = await request(app)
+        .patch(`/api/v1/admin/materials/${adminUploadedMaterialId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: 'Admin Master Study Guide: Coordinate Geometry (Revised)',
+          material_type: 'Practice Sheet',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.title).toBe('Admin Master Study Guide: Coordinate Geometry (Revised)');
+    });
+
+    it('DELETE /api/v1/admin/materials/:id - allows Admin to delete study material', async () => {
+      expect(adminUploadedMaterialId).toBeDefined();
+      const res = await request(app)
+        .delete(`/api/v1/admin/materials/${adminUploadedMaterialId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
     });
   });
 });

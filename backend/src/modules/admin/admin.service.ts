@@ -114,7 +114,7 @@ export class AdminService {
 
   static async getStudentsList(
     user: TokenPayload,
-    filters: { classId?: string; sectionId?: string; search?: string }
+    filters: { classId?: string; sectionId?: string; classIds?: string[]; sectionIds?: string[]; search?: string }
   ): Promise<any[]> {
     return AdminRepository.getStudentsList(user.schoolId, filters);
   }
@@ -129,9 +129,19 @@ export class AdminService {
     return student;
   }
 
+  static async updateStudent(user: TokenPayload, studentId: string, updates: any): Promise<any> {
+    const updated = await AdminRepository.updateStudent(user.schoolId, studentId, updates);
+    if (!updated) {
+      const error: any = new Error('Student not found or unauthorized');
+      error.statusCode = 404;
+      throw error;
+    }
+    return updated;
+  }
+
   // Staff Management
-  static async getAllStaff(user: TokenPayload, search?: string): Promise<any[]> {
-    return AdminRepository.getAllStaff(user.schoolId, search);
+  static async getAllStaff(user: TokenPayload, search?: string, isActive?: boolean): Promise<any[]> {
+    return AdminRepository.getAllStaff(user.schoolId, search, isActive);
   }
 
   static async createStaff(user: TokenPayload, data: any): Promise<any> {
@@ -151,12 +161,67 @@ export class AdminService {
     return AdminRepository.deleteStaff(user.schoolId, staffId);
   }
 
-  // Homework Inspection
+  // Homework Management (View, Upload/Assign, Edit, Delete)
   static async getAdminHomework(
     user: TokenPayload,
     filters: { classId?: string; sectionId?: string; subjectId?: string; search?: string }
   ): Promise<any[]> {
     return AdminRepository.getAdminHomework(user.schoolId, filters);
+  }
+
+  static async createAdminHomework(user: TokenPayload, data: any): Promise<any> {
+    if (!data.class_id || !data.section_id || !data.subject_id || !data.title || !data.due_date) {
+      const error: any = new Error('Class, Section, Subject, Title, and Due Date are required');
+      error.statusCode = 400;
+      throw error;
+    }
+    return AdminRepository.createAdminHomework(
+      user.schoolId,
+      {
+        classId: data.class_id,
+        sectionId: data.section_id,
+        subjectId: data.subject_id,
+        staffId: data.staff_id,
+        title: data.title,
+        description: data.description || '',
+        assignedDate: data.assigned_date,
+        dueDate: data.due_date,
+        attachmentName: data.attachment_name,
+        s3AttachmentKey: data.s3_attachment_key,
+      },
+      user.userId
+    );
+  }
+
+  static async updateAdminHomework(user: TokenPayload, homeworkId: string, data: any): Promise<any> {
+    const updated = await AdminRepository.updateAdminHomework(user.schoolId, homeworkId, {
+      classId: data.class_id,
+      sectionId: data.section_id,
+      subjectId: data.subject_id,
+      staffId: data.staff_id,
+      title: data.title,
+      description: data.description,
+      assignedDate: data.assigned_date,
+      dueDate: data.due_date,
+      attachmentName: data.attachment_name,
+      s3AttachmentKey: data.s3_attachment_key,
+    });
+    if (!updated) {
+      const error: any = new Error('Homework record not found or unauthorized');
+      error.statusCode = 404;
+      throw error;
+    }
+    return updated;
+  }
+
+  static async deleteAdminHomework(user: TokenPayload, homeworkId: string): Promise<boolean> {
+    const deleted = await AdminRepository.deleteAdminHomework(user.schoolId, homeworkId);
+    if (!deleted) {
+      const error: any = new Error('Homework record not found or cannot be deleted');
+      error.statusCode = 404;
+      throw error;
+    }
+    return deleted;
   }
 
   // Feedback & Complaints

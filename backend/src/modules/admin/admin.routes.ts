@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/rbac.middleware';
 import { AdminController } from './admin.controller';
+import { MaterialsController } from '../materials/materials.controller';
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.delete('/timetable/substitutions/:id', AdminController.deleteSubstitution
 // Student Directory & Profile Endpoints
 router.get('/students', AdminController.getStudentsList);
 router.get('/students/:id', AdminController.getStudentDetails);
+router.patch('/students/:id', AdminController.updateStudent);
 
 // Staff Directory & Management Endpoints (CRUD)
 router.get('/staff', AdminController.getAllStaff);
@@ -38,12 +40,21 @@ router.post('/staff', AdminController.createStaff);
 router.patch('/staff/:id', AdminController.updateStaff);
 router.delete('/staff/:id', AdminController.deleteStaff);
 
-// View Homework (All assignments across classes with teacher names)
+// View & Assign Homework (Upload, assign, edit, delete across classes)
 router.get('/homework', AdminController.getAdminHomework);
+router.post('/homework', AdminController.createAdminHomework);
+router.patch('/homework/:id', AdminController.updateAdminHomework);
+router.delete('/homework/:id', AdminController.deleteAdminHomework);
 
 // View Feedback & Student Grievances
 router.get('/feedback', AdminController.getAdminFeedback);
 router.patch('/complaints/:id', AdminController.updateComplaintStatus);
+
+// Study Material & Academic Repository (Upload, view, edit, delete across school)
+router.get('/materials', MaterialsController.getAdminMaterials);
+router.post('/materials', MaterialsController.createAdminMaterial);
+router.patch('/materials/:id', MaterialsController.updateAdminMaterial);
+router.delete('/materials/:id', MaterialsController.deleteAdminMaterial);
 
 export default router;
 

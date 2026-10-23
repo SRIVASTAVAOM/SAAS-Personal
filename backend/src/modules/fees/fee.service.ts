@@ -259,7 +259,34 @@ export class FeeService {
   /**
    * Admin: List all receipts with student and class metadata
    */
-  static async getAdminReceipts(user: TokenPayload, search?: string): Promise<any[]> {
+  static async getAdminReceipts(
+    user: TokenPayload,
+    filtersParam?: string | { search?: string; date?: string; mode?: string }
+  ): Promise<any[]> {
+    const filters = typeof filtersParam === 'string' ? { search: filtersParam } : (filtersParam || {});
+    const search = filters.search ? filters.search.trim() : null;
+    const date = filters.date ? filters.date.trim() : null;
+    const rawMode = filters.mode ? filters.mode.trim().toUpperCase() : null;
+
+    let modeFilterCondition = '';
+    const params: any[] = [user.schoolId, search, date];
+
+    if (rawMode && rawMode !== 'ALL') {
+      if (rawMode === 'CASH') {
+        params.push('CASH');
+        modeFilterCondition = `AND r.payment_mode = $${params.length}`;
+      } else if (rawMode === 'ONLINE') {
+        modeFilterCondition = `AND r.payment_mode IN ('ONLINE', 'BANK_TRANSFER')`;
+      } else if (rawMode === 'APP_PAYMENTS' || rawMode === 'APP' || rawMode === 'UPI') {
+        modeFilterCondition = `AND r.payment_mode IN ('APP_PAYMENTS', 'APP', 'UPI')`;
+      } else if (rawMode === 'CHEQUES' || rawMode === 'CHEQUE') {
+        modeFilterCondition = `AND r.payment_mode IN ('CHEQUE', 'CHEQUES', 'DEMAND_DRAFT')`;
+      } else {
+        params.push(rawMode);
+        modeFilterCondition = `AND r.payment_mode = $${params.length}`;
+      }
+    }
+
     const query = `
       SELECT 
         r.id,
@@ -288,11 +315,14 @@ export class FeeService {
           r.receipt_number ILIKE '%' || $2 || '%' OR
           sp.first_name ILIKE '%' || $2 || '%' OR
           sp.last_name ILIKE '%' || $2 || '%' OR
-          sp.admission_number ILIKE '%' || $2 || '%'
+          sp.admission_number ILIKE '%' || $2 || '%' OR
+          r.transaction_reference ILIKE '%' || $2 || '%'
         )
+        AND ($3::date IS NULL OR r.payment_date = $3::date)
+        ${modeFilterCondition}
       ORDER BY r.created_at DESC;
     `;
-    const { rows } = await pool.query(query, [user.schoolId, search ? search.trim() : null]);
+    const { rows } = await pool.query(query, params);
     return rows;
   }
 

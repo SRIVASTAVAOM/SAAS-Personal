@@ -253,9 +253,29 @@ export class AdminController {
       const user = (req as any).user;
       const classId = (req.query.class_id || req.query.classId) as string | undefined;
       const sectionId = (req.query.section_id || req.query.sectionId) as string | undefined;
+      const classIdsParam = (req.query.class_ids || req.query.classIds) as string | string[] | undefined;
+      const sectionIdsParam = (req.query.section_ids || req.query.sectionIds) as string | string[] | undefined;
       const search = req.query.search as string | undefined;
 
-      const students = await AdminService.getStudentsList(user, { classId, sectionId, search });
+      const classIds = Array.isArray(classIdsParam)
+        ? classIdsParam
+        : typeof classIdsParam === 'string'
+        ? classIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined;
+
+      const sectionIds = Array.isArray(sectionIdsParam)
+        ? sectionIdsParam
+        : typeof sectionIdsParam === 'string'
+        ? sectionIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined;
+
+      const students = await AdminService.getStudentsList(user, {
+        classId,
+        sectionId,
+        classIds,
+        sectionIds,
+        search,
+      });
       res.status(200).json({ success: true, data: students });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
@@ -277,13 +297,30 @@ export class AdminController {
   }
 
   /**
+   * PATCH /api/v1/admin/students/:id
+   */
+  static async updateStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const updated = await AdminService.updateStudent(user, id, req.body);
+      res.status(200).json({ success: true, data: updated, message: 'Student updated successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
    * GET /api/v1/admin/staff
    */
   static async getAllStaff(req: Request, res: Response): Promise<void> {
     try {
       const user = (req as any).user;
       const search = req.query.search as string | undefined;
-      const staff = await AdminService.getAllStaff(user, search);
+      const isActiveParam = req.query.is_active as string | undefined;
+      const isActive =
+        isActiveParam === 'true' ? true : isActiveParam === 'false' ? false : undefined;
+      const staff = await AdminService.getAllStaff(user, search, isActive);
       res.status(200).json({ success: true, data: staff });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
@@ -344,6 +381,47 @@ export class AdminController {
 
       const homework = await AdminService.getAdminHomework(user, { classId, sectionId, subjectId, search });
       res.status(200).json({ success: true, data: homework });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/v1/admin/homework
+   */
+  static async createAdminHomework(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const created = await AdminService.createAdminHomework(user, req.body);
+      res.status(201).json({ success: true, data: created, message: 'Homework assigned successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * PATCH /api/v1/admin/homework/:id
+   */
+  static async updateAdminHomework(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const updated = await AdminService.updateAdminHomework(user, id, req.body);
+      res.status(200).json({ success: true, data: updated, message: 'Homework updated successfully' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * DELETE /api/v1/admin/homework/:id
+   */
+  static async deleteAdminHomework(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      await AdminService.deleteAdminHomework(user, id);
+      res.status(200).json({ success: true, message: 'Homework deleted successfully' });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }

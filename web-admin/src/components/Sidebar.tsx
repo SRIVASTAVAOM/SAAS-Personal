@@ -14,6 +14,7 @@ import {
   Users,
   UserCheck,
   BookOpen,
+  Library,
   UserCog,
   ClipboardCheck,
   Receipt,
@@ -21,6 +22,7 @@ import {
   Bell,
   MessageSquare,
   Globe,
+  FolderOpen,
 } from 'lucide-react';
 import { clearSession, getCurrentUser } from '@/lib/api';
 
@@ -57,6 +59,11 @@ const navSections: NavSection[] = [
         icon: Users,
       },
       {
+        name: '2. Subject Master',
+        href: '/subjects',
+        icon: Library,
+      },
+      {
         name: '3. View Timetable',
         href: '/timetable',
         icon: CalendarDays,
@@ -73,14 +80,14 @@ const navSections: NavSection[] = [
         icon: UserCheck,
       },
       {
-        name: '11. View Homework',
+        name: '11. View/Assign Homework',
         href: '/homework',
         icon: BookOpen,
       },
       {
-        name: 'Unified Uploads',
-        href: '/academics/uploads',
-        icon: UploadCloud,
+        name: 'Study Material',
+        href: '/academics/study-material',
+        icon: FolderOpen,
       },
     ],
   },
