@@ -26,6 +26,8 @@ import {
   CheckSquare,
   Square,
   Sparkles,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ClassItem } from '@/lib/types';
@@ -73,6 +75,107 @@ export default function StudentsDirectoryPage() {
   });
   const [editSaving, setEditSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Bulk Upload State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<any[]>([]);
+  const [csvFileName, setCsvFileName] = useState<string>('');
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<any | null>(null);
+
+  const downloadSampleTemplate = () => {
+    const csvContent =
+      'admission_no,roll_no,first_name,last_name,class_name,section_name,gender,dob,phone,emergency_phone,father_name,mother_name,blood_group\n' +
+      'STU202601,1,Aarav,Sharma,Grade 10,Section A,MALE,2011-05-14,9876543201,9876543201,Rajesh Sharma,Sunita Sharma,O+\n' +
+      'STU202602,2,Diya,Verma,Grade 10,Section A,FEMALE,2011-08-22,9876543202,9876543202,Amit Verma,Pooja Verma,B+\n' +
+      'STU202603,1,Rohan,Kumar,Grade 9,Section B,MALE,2012-01-10,9876543203,9876543203,Suresh Kumar,Meena Kumar,A+\n' +
+      'STU202604,2,Ananya,Patel,Grade 9,Section B,FEMALE,2012-03-18,9876543204,9876543204,Vikram Patel,Rekha Patel,AB+';
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'students_bulk_upload_sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+    setBulkError(null);
+    setBulkSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        if (!text) throw new Error('File is empty');
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          throw new Error('CSV must contain a header row and at least 1 data row.');
+        }
+
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
+        const parsed: any[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowValues = lines[i].split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+          if (rowValues.length < 2 || rowValues.every((v) => !v)) continue;
+
+          const rowObj: any = {};
+          headers.forEach((hdr, idx) => {
+            rowObj[hdr] = rowValues[idx] || '';
+          });
+
+          // Normalize fields
+          parsed.push({
+            admission_no: rowObj.admission_no || rowObj.admission_number || rowObj.adm_no || '',
+            roll_no: rowObj.roll_no || rowObj.roll_number || '',
+            first_name: rowObj.first_name || rowObj.name || 'Student',
+            last_name: rowObj.last_name || '',
+            class_name: rowObj.class_name || rowObj.class || 'Grade 10',
+            section_name: rowObj.section_name || rowObj.section || 'Section A',
+            gender: (rowObj.gender || 'MALE').toUpperCase(),
+            dob: rowObj.dob || rowObj.date_of_birth || '',
+            phone: rowObj.phone || '',
+            emergency_phone: rowObj.emergency_phone || rowObj.phone || '',
+            father_name: rowObj.father_name || rowObj.father || '',
+            mother_name: rowObj.mother_name || rowObj.mother || '',
+            blood_group: rowObj.blood_group || '',
+          });
+        }
+
+        if (parsed.length === 0) {
+          throw new Error('No valid student rows found in the CSV file.');
+        }
+
+        setCsvPreview(parsed);
+      } catch (err: any) {
+        setBulkError(err?.message || 'Failed to parse CSV file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExecuteBulkUpload = async () => {
+    if (csvPreview.length === 0) return;
+    try {
+      setBulkUploading(true);
+      setBulkError(null);
+      const res = await api.admin.bulkUploadStudents(csvPreview);
+      setBulkSuccess(res.data || res);
+      showToast(`Successfully processed ${csvPreview.length} students!`);
+      await loadData();
+    } catch (err: any) {
+      setBulkError(err?.message || 'Failed to upload students data');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -428,6 +531,19 @@ export default function StudentsDirectoryPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setBulkError(null);
+              setBulkSuccess(null);
+              setCsvPreview([]);
+              setCsvFileName('');
+              setIsBulkModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-900/20 transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Bulk Upload Students (CSV)</span>
+          </button>
           <button
             onClick={loadData}
             title="Refresh Directory"
@@ -1235,6 +1351,196 @@ export default function StudentsDirectoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* BULK UPLOAD STUDENTS MODAL                                                */}
+      {/* ========================================================================= */}
+      {isBulkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Bulk Upload Students</h3>
+                  <p className="text-xs text-slate-500">
+                    Import full student roster. Automatically splits by Class &amp; Section and creates student logins.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBulkModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-5">
+              {/* Step 1: Download Template */}
+              <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    Step 1: Download Official CSV Template
+                  </h4>
+                  <p className="text-[11px] text-indigo-800/80 mt-0.5">
+                    Pre-formatted template with all columns (Admission No, Class, Section, Roll No, Phone, Parent details).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadSampleTemplate}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Sample CSV</span>
+                </button>
+              </div>
+
+              {/* Step 2: Select CSV File */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  Step 2: Choose your prepared CSV file
+                </label>
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-indigo-400 transition bg-slate-50/50">
+                  <input
+                    type="file"
+                    id="studentCsvFile"
+                    accept=".csv,text/csv"
+                    onChange={handleCsvFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="studentCsvFile"
+                    className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-indigo-600 hover:underline">
+                        Click to select CSV file
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Accepts standard CSV files exported from Excel or Google Sheets
+                      </p>
+                    </div>
+                    {csvFileName && (
+                      <span className="mt-1 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-100 text-emerald-800">
+                        Selected: {csvFileName}
+                      </span>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Error Banner */}
+              {bulkError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{bulkError}</span>
+                </div>
+              )}
+
+              {/* Success Result Summary */}
+              {bulkSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs text-emerald-900">
+                  <div className="flex items-center gap-2 font-bold text-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Upload Completed Successfully!</span>
+                  </div>
+                  <div className="text-[11px] space-y-1 text-emerald-800">
+                    <p>Total Records Processed: <strong>{bulkSuccess.total || csvPreview.length}</strong></p>
+                    <p>New Students Created: <strong>{bulkSuccess.created}</strong> | Updated: <strong>{bulkSuccess.updated}</strong></p>
+                    {bulkSuccess.breakdown && (
+                      <div className="mt-2 pt-2 border-t border-emerald-200 flex flex-wrap gap-2">
+                        {Object.entries(bulkSuccess.breakdown).map(([cls, count]) => (
+                          <span key={cls} className="px-2 py-0.5 bg-white rounded border border-emerald-300 font-mono text-[10px]">
+                            {cls}: {String(count)} student{count === 1 ? '' : 's'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Table */}
+              {csvPreview.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Detected Records Preview ({csvPreview.length} students found)</span>
+                    <span className="text-[11px] font-normal text-slate-500">
+                      Showing first {Math.min(5, csvPreview.length)} rows
+                    </span>
+                  </div>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                        <tr>
+                          <th className="px-3 py-2">Admission No</th>
+                          <th className="px-3 py-2">Name</th>
+                          <th className="px-3 py-2">Class &amp; Sec</th>
+                          <th className="px-3 py-2">Roll No</th>
+                          <th className="px-3 py-2">Phone</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {csvPreview.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2 font-mono font-semibold text-slate-800">{row.admission_no || 'AUTO'}</td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{row.first_name} {row.last_name}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-[10px]">
+                                {row.class_name} - {row.section_name}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-mono">{row.roll_no || '—'}</td>
+                            <td className="px-3 py-2 font-mono text-slate-600">{row.phone || row.emergency_phone || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkUpload}
+                disabled={bulkUploading || csvPreview.length === 0}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer"
+              >
+                {bulkUploading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing &amp; Splitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import {csvPreview.length > 0 ? `(${csvPreview.length}) Students` : ''}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

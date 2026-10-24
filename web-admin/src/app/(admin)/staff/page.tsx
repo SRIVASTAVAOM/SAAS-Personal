@@ -29,6 +29,10 @@ import {
   ShieldAlert,
   UserCheck,
   UserX,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -96,6 +100,103 @@ export default function StaffListPage() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Bulk Staff Upload State
+  const [isBulkStaffModalOpen, setIsBulkStaffModalOpen] = useState(false);
+  const [staffCsvPreview, setStaffCsvPreview] = useState<any[]>([]);
+  const [staffCsvFileName, setStaffCsvFileName] = useState('');
+  const [bulkStaffUploading, setBulkStaffUploading] = useState(false);
+  const [bulkStaffError, setBulkStaffError] = useState<string | null>(null);
+  const [bulkStaffSuccess, setBulkStaffSuccess] = useState<any | null>(null);
+
+  const downloadStaffSampleTemplate = () => {
+    const csvContent =
+      'employee_code,first_name,last_name,email,phone,qualification,department,designation,gender,role\n' +
+      'EMP001,Vikram,Sharma,vikram@school.edu,9876500001,M.Sc Mathematics,Mathematics,PGT Faculty,MALE,TEACHER\n' +
+      'EMP002,Priya,Verma,priya@school.edu,9876500002,M.Sc Physics,Science,TGT Faculty,FEMALE,TEACHER\n' +
+      'EMP003,Sunita,Joshi,sunita@school.edu,9876500003,M.A English,Languages,TGT Faculty,FEMALE,TEACHER\n' +
+      'EMP004,Rajesh,Gupta,rajesh@school.edu,9876500004,M.Com,Social Science,Senior Teacher,MALE,TEACHER';
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'teachers_staff_sample_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleStaffCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStaffCsvFileName(file.name);
+    setBulkStaffError(null);
+    setBulkStaffSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        if (!text) throw new Error('File is empty');
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          throw new Error('CSV must contain a header row and at least 1 data row.');
+        }
+
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
+        const parsed: any[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowValues = lines[i].split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+          if (rowValues.length < 2 || rowValues.every((v) => !v)) continue;
+
+          const rowObj: any = {};
+          headers.forEach((hdr, idx) => {
+            rowObj[hdr] = rowValues[idx] || '';
+          });
+
+          parsed.push({
+            employee_code: rowObj.employee_code || rowObj.emp_code || '',
+            first_name: rowObj.first_name || rowObj.name || 'Staff',
+            last_name: rowObj.last_name || '',
+            email: rowObj.email || '',
+            phone: rowObj.phone || '',
+            qualification: rowObj.qualification || '',
+            department: rowObj.department || 'Academics',
+            designation: rowObj.designation || 'Teacher',
+            gender: (rowObj.gender || 'MALE').toUpperCase(),
+            role: (rowObj.role || 'TEACHER').toUpperCase(),
+          });
+        }
+
+        if (parsed.length === 0) {
+          throw new Error('No valid faculty records found in the CSV file.');
+        }
+
+        setStaffCsvPreview(parsed);
+      } catch (err: any) {
+        setBulkStaffError(err?.message || 'Failed to parse CSV file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExecuteBulkStaffUpload = async () => {
+    if (staffCsvPreview.length === 0) return;
+    try {
+      setBulkStaffUploading(true);
+      setBulkStaffError(null);
+      const res = await api.admin.bulkUploadStaff(staffCsvPreview);
+      setBulkStaffSuccess(res.data || res);
+      setSuccessMessage(`Successfully imported ${staffCsvPreview.length} faculty members!`);
+      await fetchStaff();
+    } catch (err: any) {
+      setBulkStaffError(err?.message || 'Failed to upload staff records');
+    } finally {
+      setBulkStaffUploading(false);
+    }
+  };
 
   // Load all staff
   const fetchStaff = async () => {
@@ -331,11 +432,24 @@ export default function StaffListPage() {
           </p>
         </div>
 
-        {/* Add Staff Button */}
-        <div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => {
+              setBulkStaffError(null);
+              setBulkStaffSuccess(null);
+              setStaffCsvPreview([]);
+              setStaffCsvFileName('');
+              setIsBulkStaffModalOpen(true);
+            }}
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-xs flex items-center gap-2 border border-white/20 shadow-xs transition cursor-pointer"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Bulk Upload Teachers (CSV)</span>
+          </button>
           <button
             onClick={handleOpenAddModal}
-            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-900/40 transition"
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2 shadow-lg shadow-indigo-900/40 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Add New Staff
@@ -1441,6 +1555,188 @@ export default function StaffListPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* BULK UPLOAD TEACHERS MODAL                                                */}
+      {/* ========================================================================= */}
+      {isBulkStaffModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Bulk Upload Faculty &amp; Teachers</h3>
+                  <p className="text-xs text-slate-500">
+                    Import teacher roster. Creates user credentials and faculty profiles in batch.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBulkStaffModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-5">
+              {/* Step 1: Download Template */}
+              <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    Step 1: Download Official CSV Template
+                  </h4>
+                  <p className="text-[11px] text-indigo-800/80 mt-0.5">
+                    Pre-formatted template with all columns (Employee Code, Name, Email, Phone, Qualification, Department, Designation).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadStaffSampleTemplate}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Sample CSV</span>
+                </button>
+              </div>
+
+              {/* Step 2: Select CSV File */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  Step 2: Choose your prepared CSV file
+                </label>
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-indigo-400 transition bg-slate-50/50">
+                  <input
+                    type="file"
+                    id="staffCsvFile"
+                    accept=".csv,text/csv"
+                    onChange={handleStaffCsvFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="staffCsvFile"
+                    className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-indigo-600 hover:underline">
+                        Click to select CSV file
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Accepts standard CSV files exported from Excel or HR sheets
+                      </p>
+                    </div>
+                    {staffCsvFileName && (
+                      <span className="mt-1 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-100 text-emerald-800">
+                        Selected: {staffCsvFileName}
+                      </span>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Error Banner */}
+              {bulkStaffError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{bulkStaffError}</span>
+                </div>
+              )}
+
+              {/* Success Result Summary */}
+              {bulkStaffSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs text-emerald-900">
+                  <div className="flex items-center gap-2 font-bold text-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Upload Completed Successfully!</span>
+                  </div>
+                  <div className="text-[11px] space-y-1 text-emerald-800">
+                    <p>Total Records Processed: <strong>{bulkStaffSuccess.total || staffCsvPreview.length}</strong></p>
+                    <p>New Teachers Created: <strong>{bulkStaffSuccess.created}</strong> | Skipped: <strong>{bulkStaffSuccess.skipped || 0}</strong></p>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Table */}
+              {staffCsvPreview.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Detected Records Preview ({staffCsvPreview.length} faculty members found)</span>
+                    <span className="text-[11px] font-normal text-slate-500">
+                      Showing first {Math.min(5, staffCsvPreview.length)} rows
+                    </span>
+                  </div>
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                        <tr>
+                          <th className="px-3 py-2">Emp Code</th>
+                          <th className="px-3 py-2">Name</th>
+                          <th className="px-3 py-2">Department</th>
+                          <th className="px-3 py-2">Designation</th>
+                          <th className="px-3 py-2">Phone</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {staffCsvPreview.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2 font-mono font-semibold text-slate-800">{row.employee_code || 'AUTO'}</td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{row.first_name} {row.last_name}</td>
+                            <td className="px-3 py-2 text-slate-600">{row.department || '—'}</td>
+                            <td className="px-3 py-2">
+                              <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-[10px]">
+                                {row.designation || 'Teacher'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-600">{row.phone || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setIsBulkStaffModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkStaffUpload}
+                disabled={bulkStaffUploading || staffCsvPreview.length === 0}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition cursor-pointer"
+              >
+                {bulkStaffUploading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Importing Faculty...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import {staffCsvPreview.length > 0 ? `(${staffCsvPreview.length}) Teachers` : ''}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

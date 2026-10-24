@@ -456,5 +456,76 @@ export class AdminController {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
   }
+
+  // 17. Bulk Upload Students
+  static async bulkUploadStudents(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { students } = req.body;
+      const result = await AdminService.bulkUploadStudents(user, students);
+      res.status(200).json({ success: true, message: 'Students successfully processed and allocated', data: result });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // 18. Bulk Upload Staff
+  static async bulkUploadStaff(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { staff } = req.body;
+      const result = await AdminService.bulkUploadStaff(user, staff);
+      res.status(200).json({ success: true, message: 'Staff roster successfully processed', data: result });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // 19. Get Academic Allocations
+  static async getAcademicAllocations(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const data = await AdminService.getAcademicAllocations(user);
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // 20. Save Academic Allocations
+  static async saveAcademicAllocations(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const result = await AdminService.saveAcademicAllocations(user, req.body);
+      res.status(200).json({ success: true, message: 'Academic allocations successfully updated', data: result });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // 21. Student 360-Degree Inspector
+  static async getStudentInspection(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const data = await AdminService.getStudentInspection(user, id);
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // 22. Teacher 360-Degree Inspector
+  static async getTeacherInspection(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const data = await AdminService.getTeacherInspection(user, id);
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
 }
+
 

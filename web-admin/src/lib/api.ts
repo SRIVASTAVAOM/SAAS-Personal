@@ -215,6 +215,13 @@ export const api = {
       return request<any[]>(`/admin/students${qs}`);
     },
 
+    bulkUploadStudents: async (students: any[]): Promise<any> => {
+      return request<any>('/admin/students/bulk-upload', {
+        method: 'POST',
+        body: JSON.stringify({ students }),
+      });
+    },
+
     getStudentDetails: async (id: string): Promise<any> => {
       return request<any>(`/admin/students/${encodeURIComponent(id)}`);
     },
@@ -242,6 +249,13 @@ export const api = {
       });
     },
 
+    bulkUploadStaff: async (staff: any[]): Promise<any> => {
+      return request('/admin/staff/bulk-upload', {
+        method: 'POST',
+        body: JSON.stringify({ staff }),
+      });
+    },
+
     updateStaff: async (id: string, payload: any): Promise<any> => {
       return request(`/admin/staff/${encodeURIComponent(id)}`, {
         method: 'PATCH',
@@ -253,6 +267,32 @@ export const api = {
       return request(`/admin/staff/${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
+    },
+
+    // Academic Class Teacher & Subject Teacher Allocations
+    getAcademicAllocations: async (): Promise<any> => {
+      return request<any>('/admin/academics/allocations');
+    },
+
+    saveAcademicAllocations: async (payload: {
+      class_id: string;
+      section_id: string;
+      class_teacher_id?: string | null;
+      subject_allocations?: Array<{ subject_id: string; teacher_id: string | null }>;
+    }): Promise<any> => {
+      return request<any>('/admin/academics/allocations', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    // Real-Time 360-Degree Dashboard Inspection
+    getStudentInspection: async (id: string): Promise<any> => {
+      return request<any>(`/admin/dashboard/student-inspect/${encodeURIComponent(id)}`);
+    },
+
+    getTeacherInspection: async (id: string): Promise<any> => {
+      return request<any>(`/admin/dashboard/teacher-inspect/${encodeURIComponent(id)}`);
     },
 
     // Homework Management (View & Assign)

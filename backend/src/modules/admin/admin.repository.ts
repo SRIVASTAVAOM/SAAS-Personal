@@ -2213,5 +2213,755 @@ export class AdminRepository {
     ]);
     return rows[0] || null;
   }
+
+  /**
+   * 17. Bulk Upload Students with Auto-Class/Section Resolution
+   */
+  static async bulkUploadStudents(schoolId: string, students: any[]): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Fetch or create default wing
+      let wingRes = await client.query(
+        'SELECT id FROM wings WHERE school_id = $1 ORDER BY created_at ASC LIMIT 1',
+        [schoolId]
+      );
+      let defaultWingId: string;
+      if (wingRes.rows.length === 0) {
+        const newWing = await client.query(
+          'INSERT INTO wings (school_id, name) VALUES ($1, $2) RETURNING id',
+          [schoolId, 'Main Wing']
+        );
+        defaultWingId = newWing.rows[0].id;
+      } else {
+        defaultWingId = wingRes.rows[0].id;
+      }
+
+      // Fetch existing classes & sections for quick caching
+      const classesRes = await client.query(
+        'SELECT id, name FROM classes WHERE school_id = $1',
+        [schoolId]
+      );
+      const classMap = new Map<string, string>(); // lowercase name -> id
+      classesRes.rows.forEach((r: any) => classMap.set(r.name.trim().toLowerCase(), r.id));
+
+      const sectionsRes = await client.query(
+        `SELECT s.id, s.class_id, s.name 
+         FROM sections s 
+         JOIN classes c ON s.class_id = c.id 
+         WHERE c.school_id = $1`,
+        [schoolId]
+      );
+      const sectionMap = new Map<string, string>(); // `${classId}_${lowercase sectionName}` -> id
+      sectionsRes.rows.forEach((r: any) =>
+        sectionMap.set(`${r.class_id}_${r.name.trim().toLowerCase()}`, r.id)
+      );
+
+      // Student role id
+      const studentRoleRes = await client.query(
+        "SELECT id FROM roles WHERE name = 'STUDENT' LIMIT 1"
+      );
+      const studentRoleId = studentRoleRes.rows[0]?.id;
+
+      let createdCount = 0;
+      let updatedCount = 0;
+      const classBreakdown: { [key: string]: number } = {};
+
+      for (const row of students) {
+        const rawClassName = (row.class_name || row.class || 'Grade 10').trim();
+        const rawSectionName = (row.section_name || row.section || 'Section A').trim();
+        const firstName = (row.first_name || row.name || 'Student').trim();
+        const lastName = (row.last_name || '').trim();
+        const admissionNumber = (
+          row.admission_no ||
+          row.admission_number ||
+          `ADM${Date.now()}${Math.floor(Math.random() * 1000)}`
+        ).trim();
+        const rollNumber = row.roll_no ? String(row.roll_no).trim() : (row.roll_number ? String(row.roll_number).trim() : null);
+        const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
+        const dob = row.dob || row.date_of_birth || null;
+        const phone = row.phone ? String(row.phone).trim() : null;
+        const emergencyPhone = row.emergency_phone ? String(row.emergency_phone).trim() : phone;
+        const fatherName = row.father_name || row.father || null;
+        const motherName = row.mother_name || row.mother || null;
+        const bloodGroup = row.blood_group || null;
+        const password = row.password || 'Student@123';
+
+        // 1. Resolve Class
+        const classKey = rawClassName.toLowerCase();
+        let classId = classMap.get(classKey);
+        if (!classId) {
+          const newClass = await client.query(
+            'INSERT INTO classes (school_id, wing_id, name) VALUES ($1, $2, $3) ON CONFLICT (school_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+            [schoolId, defaultWingId, rawClassName]
+          );
+          classId = String(newClass.rows[0].id);
+          classMap.set(classKey, classId);
+        }
+
+        // 2. Resolve Section
+        const secKey = `${classId}_${rawSectionName.toLowerCase()}`;
+        let sectionId = sectionMap.get(secKey);
+        if (!sectionId) {
+          const newSec = await client.query(
+            'INSERT INTO sections (class_id, name) VALUES ($1, $2) ON CONFLICT (class_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+            [classId, rawSectionName]
+          );
+          sectionId = String(newSec.rows[0].id);
+          sectionMap.set(secKey, sectionId);
+        }
+
+        // 3. User Credentials & Profile
+        const existingUserRes = await client.query(
+          'SELECT u.id AS user_id, sp.id AS profile_id FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id WHERE u.school_id = $1 AND u.identifier = $2',
+          [schoolId, admissionNumber]
+        );
+
+        let safeUserPhone = phone;
+        if (safeUserPhone) {
+          const phoneCheck = await client.query('SELECT id FROM users WHERE phone = $1', [safeUserPhone]);
+          if (phoneCheck.rows.length > 0) {
+            safeUserPhone = null; // Avoid users_phone_key unique collision; stored in emergency_phone
+          }
+        }
+
+        if (existingUserRes.rows.length > 0) {
+          const { user_id, profile_id } = existingUserRes.rows[0];
+          if (safeUserPhone) {
+            await client.query('UPDATE users SET phone = $1 WHERE id = $2', [safeUserPhone, user_id]);
+          }
+          if (profile_id) {
+            await client.query(
+              `UPDATE student_profiles SET
+                first_name = $1,
+                last_name = $2,
+                roll_number = COALESCE($3, roll_number),
+                current_class_id = $4,
+                current_section_id = $5,
+                gender = COALESCE($6, gender),
+                date_of_birth = COALESCE($7, date_of_birth),
+                emergency_phone = COALESCE($8, emergency_phone),
+                father_name = COALESCE($9, father_name),
+                mother_name = COALESCE($10, mother_name),
+                blood_group = COALESCE($11, blood_group),
+                updated_at = CURRENT_TIMESTAMP
+              WHERE id = $12`,
+              [
+                firstName,
+                lastName,
+                rollNumber,
+                classId,
+                sectionId,
+                gender,
+                dob,
+                emergencyPhone,
+                fatherName,
+                motherName,
+                bloodGroup,
+                profile_id,
+              ]
+            );
+          }
+          updatedCount++;
+        } else {
+          const passwordHash = await bcrypt.hash(password, 10);
+          const userInsert = await client.query(
+            `INSERT INTO users (school_id, identifier, phone, password_hash, is_active)
+             VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
+            [schoolId, admissionNumber, safeUserPhone, passwordHash]
+          );
+          const newUserId = userInsert.rows[0].id;
+
+          if (studentRoleId) {
+            await client.query(
+              'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+              [newUserId, studentRoleId]
+            );
+          }
+
+          await client.query(
+            `INSERT INTO student_profiles (
+              user_id, admission_number, roll_number, first_name, last_name,
+              current_class_id, current_section_id, gender, date_of_birth,
+              emergency_phone, father_name, mother_name, blood_group, is_active
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, TRUE)`,
+            [
+              newUserId,
+              admissionNumber,
+              rollNumber,
+              firstName,
+              lastName,
+              classId,
+              sectionId,
+              gender,
+              dob,
+              emergencyPhone,
+              fatherName,
+              motherName,
+              bloodGroup,
+            ]
+          );
+          createdCount++;
+        }
+
+        const breakdownKey = `${rawClassName} - ${rawSectionName}`;
+        classBreakdown[breakdownKey] = (classBreakdown[breakdownKey] || 0) + 1;
+      }
+
+      await client.query('COMMIT');
+      return {
+        success: true,
+        total: students.length,
+        created: createdCount,
+        updated: updatedCount,
+        breakdown: classBreakdown,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 18. Bulk Upload Staff / Teachers
+   */
+  static async bulkUploadStaff(schoolId: string, staffList: any[]): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const teacherRoleRes = await client.query("SELECT id FROM roles WHERE name = 'TEACHER' LIMIT 1");
+      const defaultRoleId = teacherRoleRes.rows[0]?.id;
+
+      let createdCount = 0;
+      let skippedCount = 0;
+
+      for (const row of staffList) {
+        const empCode = (row.employee_code || row.emp_code || `EMP${Date.now()}${Math.floor(Math.random() * 1000)}`).trim();
+        const firstName = (row.first_name || row.name || 'Staff').trim();
+        const lastName = (row.last_name || '').trim();
+        const email = row.email ? row.email.trim().toLowerCase() : null;
+        const phone = row.phone ? String(row.phone).trim() : null;
+        const qualification = row.qualification || null;
+        const department = row.department || 'Academics';
+        const designation = row.designation || 'Teacher';
+        const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
+        const joiningDate = row.joining_date || new Date().toISOString().split('T')[0];
+        const rawPassword = row.password || 'Staff@123';
+        const roleName = (row.role || 'TEACHER').toUpperCase();
+
+        // Check if employee code or identifier exists
+        const userCheck = await client.query(
+          'SELECT id FROM users WHERE school_id = $1 AND (identifier = $2 OR (email IS NOT NULL AND email = $3))',
+          [schoolId, empCode, email]
+        );
+
+        if (userCheck.rows.length > 0) {
+          skippedCount++;
+          continue;
+        }
+
+        let safeStaffPhone = phone;
+        if (safeStaffPhone) {
+          const phoneCheck = await client.query('SELECT id FROM users WHERE phone = $1', [safeStaffPhone]);
+          if (phoneCheck.rows.length > 0) {
+            safeStaffPhone = null; // Stored safely on staff_profiles.phone
+          }
+        }
+
+        const passwordHash = await bcrypt.hash(rawPassword, 10);
+        const userRes = await client.query(
+          `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+           VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id`,
+          [schoolId, empCode, email, safeStaffPhone, passwordHash]
+        );
+        const userId = userRes.rows[0].id;
+
+        const roleRes = await client.query('SELECT id FROM roles WHERE name = $1', [roleName]);
+        const roleId = roleRes.rows[0]?.id || defaultRoleId;
+        if (roleId) {
+          await client.query(
+            'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [userId, roleId]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO staff_profiles (
+            user_id, employee_code, first_name, last_name, gender,
+            qualification, joining_date, phone, emergency_phone, department,
+            designation, is_active, login_password
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)`,
+          [
+            userId,
+            empCode,
+            firstName,
+            lastName,
+            gender,
+            qualification,
+            joiningDate,
+            phone,
+            phone,
+            department,
+            designation,
+            rawPassword,
+          ]
+        );
+        createdCount++;
+      }
+
+      await client.query('COMMIT');
+      return {
+        success: true,
+        total: staffList.length,
+        created: createdCount,
+        skipped: skippedCount,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 19. Academic Allocations: Get All Classes, Sections, Class Teachers & Subject Teachers
+   */
+  static async getAcademicAllocations(schoolId: string): Promise<any> {
+    // 1. All classes & sections
+    const classesQuery = `
+      SELECT 
+        c.id AS class_id,
+        c.name AS class_name,
+        s.id AS section_id,
+        s.name AS section_name
+      FROM classes c
+      JOIN sections s ON s.class_id = c.id
+      WHERE c.school_id = $1
+      ORDER BY c.name ASC, s.name ASC;
+    `;
+    const { rows: sectionsList } = await pool.query(classesQuery, [schoolId]);
+
+    // 2. Class teachers from staff_assignments
+    const classTeachersQuery = `
+      SELECT 
+        sa.class_id,
+        sa.section_id,
+        sp.id AS staff_id,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS staff_name,
+        sp.employee_code
+      FROM staff_assignments sa
+      JOIN staff_profiles sp ON sa.staff_id = sp.id
+      WHERE sa.assignment_type = 'CLASS_TEACHER';
+    `;
+    const { rows: classTeachers } = await pool.query(classTeachersQuery);
+    const ctMap = new Map<string, any>();
+    classTeachers.forEach((ct: any) => ctMap.set(`${ct.class_id}_${ct.section_id}`, ct));
+
+    // 3. Subjects mapped per class
+    const subjectsQuery = `
+      SELECT 
+        c.id AS class_id,
+        sub.id AS subject_id,
+        sub.name AS subject_name,
+        sub.code AS subject_code
+      FROM class_subjects cs
+      JOIN classes c ON cs.class_id = c.id
+      JOIN subjects sub ON cs.subject_id = sub.id
+      WHERE c.school_id = $1
+      ORDER BY sub.name ASC;
+    `;
+    const { rows: classSubjects } = await pool.query(subjectsQuery, [schoolId]);
+
+    // If a class has no class_subjects mapped yet, provide all school subjects as available
+    const allSubjectsQuery = `SELECT id AS subject_id, name AS subject_name, code AS subject_code FROM subjects WHERE school_id = $1 ORDER BY name ASC;`;
+    const { rows: allSubjects } = await pool.query(allSubjectsQuery, [schoolId]);
+
+    // 4. Subject teachers from teacher_subject_allocations
+    const tsaQuery = `
+      SELECT 
+        tsa.class_id,
+        tsa.section_id,
+        tsa.subject_id,
+        sp.id AS staff_id,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS staff_name,
+        sp.employee_code
+      FROM teacher_subject_allocations tsa
+      JOIN staff_profiles sp ON tsa.staff_id = sp.id;
+    `;
+    const { rows: tsaRows } = await pool.query(tsaQuery);
+    const tsaMap = new Map<string, any>();
+    tsaRows.forEach((tsa: any) => tsaMap.set(`${tsa.class_id}_${tsa.section_id}_${tsa.subject_id}`, tsa));
+
+    // 5. All available teachers for dropdowns
+    const teachersQuery = `
+      SELECT 
+        sp.id,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS name,
+        sp.employee_code,
+        sp.department,
+        sp.designation
+      FROM staff_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      WHERE u.school_id = $1 AND sp.is_active = TRUE
+      ORDER BY sp.first_name ASC;
+    `;
+    const { rows: teachers } = await pool.query(teachersQuery, [schoolId]);
+
+    // Construct hierarchy
+    const sectionsResult = sectionsList.map((sec: any) => {
+      const ct = ctMap.get(`${sec.class_id}_${sec.section_id}`) || null;
+      let relevantSubjects = classSubjects.filter((cs: any) => cs.class_id === sec.class_id);
+      if (relevantSubjects.length === 0) {
+        relevantSubjects = allSubjects;
+      }
+
+      const subjectsWithAlloc = relevantSubjects.map((sub: any) => {
+        const assigned = tsaMap.get(`${sec.class_id}_${sec.section_id}_${sub.subject_id}`) || null;
+        return {
+          subject_id: sub.subject_id,
+          subject_name: sub.subject_name,
+          subject_code: sub.subject_code,
+          assigned_teacher: assigned
+            ? {
+                staff_id: assigned.staff_id,
+                staff_name: assigned.staff_name,
+                employee_code: assigned.employee_code,
+              }
+            : null,
+        };
+      });
+
+      return {
+        class_id: sec.class_id,
+        class_name: sec.class_name,
+        section_id: sec.section_id,
+        section_name: sec.section_name,
+        class_teacher: ct
+          ? {
+              staff_id: ct.staff_id,
+              staff_name: ct.staff_name,
+              employee_code: ct.employee_code,
+            }
+          : null,
+        subjects: subjectsWithAlloc,
+      };
+    });
+
+    return {
+      allocations: sectionsResult,
+      teachers,
+      total_sections: sectionsResult.length,
+      total_teachers: teachers.length,
+    };
+  }
+
+  /**
+   * 20. Academic Allocations: Save Class Teacher & Subject Teacher Allocations
+   */
+  static async saveAcademicAllocations(
+    schoolId: string,
+    data: {
+      class_id: string;
+      section_id: string;
+      class_teacher_id?: string | null;
+      subject_allocations?: Array<{ subject_id: string; teacher_id: string | null }>;
+    }
+  ): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { class_id, section_id, class_teacher_id, subject_allocations } = data;
+
+      // 1. Update Class Teacher
+      if (class_teacher_id !== undefined) {
+        await client.query(
+          `DELETE FROM staff_assignments 
+           WHERE class_id = $1 AND section_id = $2 AND assignment_type = 'CLASS_TEACHER'`,
+          [class_id, section_id]
+        );
+
+        if (class_teacher_id && class_teacher_id.trim()) {
+          await client.query(
+            `INSERT INTO staff_assignments (staff_id, class_id, section_id, assignment_type)
+             VALUES ($1, $2, $3, 'CLASS_TEACHER')`,
+            [class_teacher_id.trim(), class_id, section_id]
+          );
+        }
+      }
+
+      // 2. Update Subject Teachers
+      if (subject_allocations && Array.isArray(subject_allocations)) {
+        // Resolve academic year
+        let ayRes = await client.query(
+          'SELECT id FROM academic_years WHERE school_id = $1 ORDER BY is_current DESC, created_at DESC LIMIT 1',
+          [schoolId]
+        );
+        let academicYearId: string;
+        if (ayRes.rows.length === 0) {
+          const newAy = await client.query(
+            `INSERT INTO academic_years (school_id, label, start_date, end_date, is_current)
+             VALUES ($1, '2026-2027', '2026-04-01', '2027-03-31', TRUE) RETURNING id`,
+            [schoolId]
+          );
+          academicYearId = newAy.rows[0].id;
+        } else {
+          academicYearId = ayRes.rows[0].id;
+        }
+
+        for (const item of subject_allocations) {
+          // Remove existing allocation for this class-section-subject
+          await client.query(
+            `DELETE FROM teacher_subject_allocations 
+             WHERE class_id = $1 AND section_id = $2 AND subject_id = $3`,
+            [class_id, section_id, item.subject_id]
+          );
+
+          // Ensure class_subjects has this subject
+          await client.query(
+            `INSERT INTO class_subjects (class_id, subject_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [class_id, item.subject_id]
+          );
+
+          if (item.teacher_id && item.teacher_id.trim()) {
+            await client.query(
+              `INSERT INTO teacher_subject_allocations (staff_id, class_id, section_id, subject_id, academic_year_id)
+               VALUES ($1, $2, $3, $4, $5)`,
+              [item.teacher_id.trim(), class_id, section_id, item.subject_id, academicYearId]
+            );
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      return { success: true, message: 'Academic allocations updated successfully.' };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 21. Student 360-Degree Inspector for Admin Dashboard
+   */
+  static async getStudentInspection(schoolId: string, studentId: string): Promise<any> {
+    const studentQuery = `
+      SELECT 
+        sp.id,
+        sp.admission_number,
+        sp.roll_number,
+        sp.first_name,
+        sp.last_name,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS full_name,
+        sp.gender,
+        sp.date_of_birth,
+        sp.father_name,
+        sp.mother_name,
+        sp.emergency_phone,
+        sp.blood_group,
+        u.identifier AS username,
+        u.phone,
+        c.id AS class_id,
+        c.name AS class_name,
+        s.id AS section_id,
+        s.name AS section_name
+      FROM student_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      LEFT JOIN classes c ON sp.current_class_id = c.id
+      LEFT JOIN sections s ON sp.current_section_id = s.id
+      WHERE sp.id = $1 AND u.school_id = $2;
+    `;
+    const { rows: stRows } = await pool.query(studentQuery, [studentId, schoolId]);
+    if (stRows.length === 0) return null;
+    const student = stRows[0];
+
+    // Today's Attendance
+    const attQuery = `
+      SELECT status, remarks, created_at
+      FROM student_attendance_records
+      WHERE student_id = $1 AND attendance_date = CURRENT_DATE
+      ORDER BY created_at DESC LIMIT 1;
+    `;
+    const { rows: attRows } = await pool.query(attQuery, [studentId]);
+    const attendanceToday = attRows[0] || { status: 'NOT_RECORDED', remarks: null };
+
+    // Fees status
+    const feeQuery = `
+      SELECT 
+        COALESCE(SUM(amount), 0)::int AS total_fees,
+        COALESCE(SUM(amount_paid), 0)::int AS paid_fees,
+        COALESCE(SUM(amount - amount_paid), 0)::int AS due_fees
+      FROM student_fees
+      WHERE student_id = $1;
+    `;
+    const { rows: feeRows } = await pool.query(feeQuery, [studentId]);
+
+    const receiptsQuery = `
+      SELECT receipt_number, amount_paid, payment_mode, payment_date
+      FROM fee_receipts
+      WHERE student_id = $1
+      ORDER BY payment_date DESC LIMIT 5;
+    `;
+    const { rows: receiptRows } = await pool.query(receiptsQuery, [studentId]);
+
+    // Class Teacher
+    const ctQuery = `
+      SELECT 
+        sp.id AS staff_id,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS teacher_name,
+        sp.employee_code,
+        sp.phone
+      FROM staff_assignments sa
+      JOIN staff_profiles sp ON sa.staff_id = sp.id
+      WHERE sa.class_id = $1 AND sa.section_id = $2 AND sa.assignment_type = 'CLASS_TEACHER'
+      LIMIT 1;
+    `;
+    const { rows: ctRows } = await pool.query(ctQuery, [student.class_id, student.section_id]);
+
+    // Subject Teachers
+    const stQuery = `
+      SELECT 
+        sub.name AS subject_name,
+        sub.code AS subject_code,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS teacher_name,
+        sp.employee_code
+      FROM teacher_subject_allocations tsa
+      JOIN subjects sub ON tsa.subject_id = sub.id
+      JOIN staff_profiles sp ON tsa.staff_id = sp.id
+      WHERE tsa.class_id = $1 AND tsa.section_id = $2
+      ORDER BY sub.name ASC;
+    `;
+    const { rows: subTeachers } = await pool.query(stQuery, [student.class_id, student.section_id]);
+
+    // Today's Timetable
+    const ttQuery = `
+      SELECT 
+        ts.period_id,
+        p.start_time,
+        p.end_time,
+        sub.name AS subject_name,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS teacher_name
+      FROM timetable_slots ts
+      JOIN periods p ON ts.period_id = p.id
+      JOIN subjects sub ON ts.subject_id = sub.id
+      JOIN staff_profiles sp ON ts.teacher_id = sp.id
+      WHERE ts.class_id = $1 AND ts.section_id = $2 AND ts.day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)
+      ORDER BY p.start_time ASC;
+    `;
+    let scheduleRows: any[] = [];
+    try {
+      const { rows } = await pool.query(ttQuery, [student.class_id, student.section_id]);
+      scheduleRows = rows;
+    } catch {
+      // Period table fallback
+    }
+
+    return {
+      student,
+      attendance: attendanceToday,
+      fees: {
+        total: feeRows[0]?.total_fees || 0,
+        paid: feeRows[0]?.paid_fees || 0,
+        due: feeRows[0]?.due_fees || 0,
+        receipts: receiptRows,
+      },
+      class_teacher: ctRows[0] || null,
+      subject_teachers: subTeachers,
+      today_schedule: scheduleRows,
+    };
+  }
+
+  /**
+   * 22. Teacher 360-Degree Inspector for Admin Dashboard
+   */
+  static async getTeacherInspection(schoolId: string, teacherId: string): Promise<any> {
+    const teacherQuery = `
+      SELECT 
+        sp.id,
+        sp.employee_code,
+        sp.first_name,
+        sp.last_name,
+        CONCAT(sp.first_name, ' ', sp.last_name) AS full_name,
+        sp.gender,
+        sp.qualification,
+        sp.department,
+        sp.designation,
+        sp.joining_date,
+        sp.phone,
+        u.identifier AS username,
+        u.email
+      FROM staff_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      WHERE sp.id = $1 AND u.school_id = $2;
+    `;
+    const { rows: tRows } = await pool.query(teacherQuery, [teacherId, schoolId]);
+    if (tRows.length === 0) return null;
+    const teacher = tRows[0];
+
+    // Class Teacher assignments
+    const ctQuery = `
+      SELECT c.name AS class_name, s.name AS section_name
+      FROM staff_assignments sa
+      JOIN classes c ON sa.class_id = c.id
+      JOIN sections s ON sa.section_id = s.id
+      WHERE sa.staff_id = $1 AND sa.assignment_type = 'CLASS_TEACHER';
+    `;
+    const { rows: ctAssignments } = await pool.query(ctQuery, [teacherId]);
+
+    // Subjects taught
+    const subQuery = `
+      SELECT 
+        c.name AS class_name,
+        s.name AS section_name,
+        sub.name AS subject_name,
+        sub.code AS subject_code
+      FROM teacher_subject_allocations tsa
+      JOIN classes c ON tsa.class_id = c.id
+      JOIN sections s ON tsa.section_id = s.id
+      JOIN subjects sub ON tsa.subject_id = sub.id
+      WHERE tsa.staff_id = $1
+      ORDER BY c.name ASC, s.name ASC, sub.name ASC;
+    `;
+    const { rows: subjectsTaught } = await pool.query(subQuery, [teacherId]);
+
+    // Today's classes
+    const ttQuery = `
+      SELECT 
+        c.name AS class_name,
+        s.name AS section_name,
+        sub.name AS subject_name,
+        p.start_time,
+        p.end_time
+      FROM timetable_slots ts
+      JOIN classes c ON ts.class_id = c.id
+      JOIN sections s ON ts.section_id = s.id
+      JOIN subjects sub ON ts.subject_id = sub.id
+      JOIN periods p ON ts.period_id = p.id
+      WHERE ts.teacher_id = $1 AND ts.day_of_week = EXTRACT(ISODOW FROM CURRENT_DATE)
+      ORDER BY p.start_time ASC;
+    `;
+    let todayClasses: any[] = [];
+    try {
+      const { rows } = await pool.query(ttQuery, [teacherId]);
+      todayClasses = rows;
+    } catch {
+      // Graceful fallback
+    }
+
+    return {
+      teacher,
+      class_teacher_of: ctAssignments,
+      subjects_taught: subjectsTaught,
+      today_classes: todayClasses,
+    };
+  }
 }
+
 

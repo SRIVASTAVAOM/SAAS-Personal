@@ -464,4 +464,157 @@ describe('Web Admin Panel Module Integration Tests (/api/v1/admin)', () => {
       expect(foundInActive.is_active).toBe(true);
     });
   });
+
+  describe('Bulk Ingestion, Academic Allocations & 360-Degree Inspector', () => {
+    let uploadedStudentId: string;
+    let uploadedTeacherId: string;
+
+    it('POST /api/v1/admin/students/bulk-upload - uploads students and auto-maps to classes/sections', async () => {
+      const uniqueSuffix = Date.now().toString().slice(-4);
+      const res = await request(app)
+        .post('/api/v1/admin/students/bulk-upload')
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          students: [
+            {
+              admission_no: `BULK_STU_${uniqueSuffix}_1`,
+              roll_no: '101',
+              first_name: 'Aarav',
+              last_name: 'Sharma',
+              class_name: 'Grade 10',
+              section_name: 'Section A',
+              gender: 'MALE',
+              phone: '9876543210',
+            },
+            {
+              admission_no: `BULK_STU_${uniqueSuffix}_2`,
+              roll_no: '102',
+              first_name: 'Diya',
+              last_name: 'Patel',
+              class_name: 'Grade 9',
+              section_name: 'Section B',
+              gender: 'FEMALE',
+              phone: '9876543211',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.total).toBe(2);
+      expect(res.body.data.created).toBeGreaterThanOrEqual(1);
+
+      // Verify students appear in list
+      const listRes = await request(app)
+        .get(`/api/v1/admin/students?search=Aarav`)
+        .set('Authorization', `Bearer ${managementToken}`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.data.length).toBeGreaterThanOrEqual(1);
+      uploadedStudentId = listRes.body.data[0].id;
+    });
+
+    it('POST /api/v1/admin/staff/bulk-upload - uploads staff roster and creates credentials', async () => {
+      const uniqueSuffix = Date.now().toString().slice(-4);
+      const res = await request(app)
+        .post('/api/v1/admin/staff/bulk-upload')
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          staff: [
+            {
+              employee_code: `BULK_EMP_${uniqueSuffix}_1`,
+              first_name: 'Sunil',
+              last_name: 'Mishra',
+              email: `sunil_${uniqueSuffix}@school.edu`,
+              phone: '9876500001',
+              qualification: 'M.Sc Physics',
+              department: 'Science',
+              designation: 'Senior Faculty',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.total).toBe(1);
+      expect(res.body.data.created).toBe(1);
+
+      const staffRes = await request(app)
+        .get(`/api/v1/admin/staff?search=Sunil`)
+        .set('Authorization', `Bearer ${managementToken}`);
+      expect(staffRes.status).toBe(200);
+      expect(staffRes.body.data.length).toBeGreaterThanOrEqual(1);
+      uploadedTeacherId = staffRes.body.data[0].id;
+    });
+
+    it('GET & POST /api/v1/admin/academics/allocations - manages class teacher and subject teacher allocations', async () => {
+      // 1. Get allocations
+      const getRes = await request(app)
+        .get('/api/v1/admin/academics/allocations')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.success).toBe(true);
+      expect(Array.isArray(getRes.body.data.allocations)).toBe(true);
+      expect(Array.isArray(getRes.body.data.teachers)).toBe(true);
+
+      const firstSec = getRes.body.data.allocations[0];
+      expect(firstSec).toBeDefined();
+
+      // 2. Save allocations
+      const saveRes = await request(app)
+        .post('/api/v1/admin/academics/allocations')
+        .set('Authorization', `Bearer ${managementToken}`)
+        .send({
+          class_id: firstSec.class_id,
+          section_id: firstSec.section_id,
+          class_teacher_id: uploadedTeacherId || teacherProfileId,
+          subject_allocations: firstSec.subjects.map((sub: any) => ({
+            subject_id: sub.subject_id,
+            teacher_id: uploadedTeacherId || teacherProfileId,
+          })),
+        });
+
+      expect(saveRes.status).toBe(200);
+      expect(saveRes.body.success).toBe(true);
+
+      // Verify updated allocations
+      const verifyRes = await request(app)
+        .get('/api/v1/admin/academics/allocations')
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(verifyRes.status).toBe(200);
+      const updatedSec = verifyRes.body.data.allocations.find(
+        (a: any) => a.class_id === firstSec.class_id && a.section_id === firstSec.section_id
+      );
+      expect(updatedSec).toBeDefined();
+      expect(updatedSec.class_teacher).not.toBeNull();
+    });
+
+    it('GET /api/v1/admin/dashboard/student-inspect/:id - returns student 360 overview', async () => {
+      expect(uploadedStudentId).toBeDefined();
+      const res = await request(app)
+        .get(`/api/v1/admin/dashboard/student-inspect/${uploadedStudentId}`)
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.student).toBeDefined();
+      expect(res.body.data.attendance).toBeDefined();
+      expect(res.body.data.fees).toBeDefined();
+    });
+
+    it('GET /api/v1/admin/dashboard/teacher-inspect/:id - returns teacher 360 overview', async () => {
+      expect(uploadedTeacherId).toBeDefined();
+      const res = await request(app)
+        .get(`/api/v1/admin/dashboard/teacher-inspect/${uploadedTeacherId}`)
+        .set('Authorization', `Bearer ${managementToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.teacher).toBeDefined();
+      expect(res.body.data.class_teacher_of).toBeDefined();
+      expect(res.body.data.subjects_taught).toBeDefined();
+    });
+  });
 });
+

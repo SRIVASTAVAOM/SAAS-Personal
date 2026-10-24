@@ -244,5 +244,58 @@ export class AdminService {
     }
     return AdminRepository.updateComplaintStatus(user.schoolId, complaintId, data);
   }
+
+  // Bulk Ingestion & Academic Allocation Hub
+  static async bulkUploadStudents(user: TokenPayload, students: any[]): Promise<any> {
+    if (!Array.isArray(students) || students.length === 0) {
+      const error: any = new Error('Students list is required and must not be empty');
+      error.statusCode = 400;
+      throw error;
+    }
+    return AdminRepository.bulkUploadStudents(user.schoolId, students);
+  }
+
+  static async bulkUploadStaff(user: TokenPayload, staffList: any[]): Promise<any> {
+    if (!Array.isArray(staffList) || staffList.length === 0) {
+      const error: any = new Error('Staff list is required and must not be empty');
+      error.statusCode = 400;
+      throw error;
+    }
+    return AdminRepository.bulkUploadStaff(user.schoolId, staffList);
+  }
+
+  static async getAcademicAllocations(user: TokenPayload): Promise<any> {
+    return AdminRepository.getAcademicAllocations(user.schoolId);
+  }
+
+  static async saveAcademicAllocations(user: TokenPayload, data: any): Promise<any> {
+    if (!data.class_id || !data.section_id) {
+      const error: any = new Error('Class ID and Section ID are required');
+      error.statusCode = 400;
+      throw error;
+    }
+    return AdminRepository.saveAcademicAllocations(user.schoolId, data);
+  }
+
+  static async getStudentInspection(user: TokenPayload, studentId: string): Promise<any> {
+    const data = await AdminRepository.getStudentInspection(user.schoolId, studentId);
+    if (!data) {
+      const error: any = new Error('Student profile not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    return data;
+  }
+
+  static async getTeacherInspection(user: TokenPayload, teacherId: string): Promise<any> {
+    const data = await AdminRepository.getTeacherInspection(user.schoolId, teacherId);
+    if (!data) {
+      const error: any = new Error('Teacher profile not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    return data;
+  }
 }
+
 

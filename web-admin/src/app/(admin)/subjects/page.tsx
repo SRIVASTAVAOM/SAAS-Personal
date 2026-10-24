@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Library,
   BookOpen,
@@ -32,6 +33,7 @@ const SUBJECT_TYPES = [
 ];
 
 export default function SubjectMasterPage() {
+  const router = useRouter();
   const [subjects, setSubjects] = useState<SubjectMasterItem[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -293,6 +295,30 @@ export default function SubjectMasterPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Navigation Tab Strip */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          className="px-4 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-xs flex items-center gap-2 cursor-pointer"
+        >
+          <Library className="w-4 h-4" />
+          Subject Master
+        </button>
+        <button
+          onClick={() => router.push('/academics/allocations')}
+          className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-2 cursor-pointer"
+        >
+          <GraduationCap className="w-4 h-4" />
+          Class &amp; Subject Teacher Allocation Hub
+        </button>
+        <button
+          onClick={() => router.push('/timetable')}
+          className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center gap-2 cursor-pointer"
+        >
+          <BookOpen className="w-4 h-4" />
+          Master Timetable Grid
+        </button>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

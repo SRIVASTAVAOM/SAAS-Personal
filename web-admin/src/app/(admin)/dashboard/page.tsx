@@ -34,6 +34,13 @@ import {
   AlertTriangle,
   Layers,
   ChevronDown,
+  Phone,
+  Mail,
+  User,
+  Briefcase,
+  ArrowRight,
+  Eye,
+  Receipt,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { DashboardSummaryResponse, SectionSummary, PendingLeaveSummary } from '@/lib/types';
@@ -62,6 +69,122 @@ export default function DashboardPage() {
 
   // Expand compliance grid toggle
   const [showComplianceGrid, setShowComplianceGrid] = useState(false);
+
+  // Institutional 360 Inspector States
+  const [inspectorTab, setInspectorTab] = useState<'STUDENT' | 'TEACHER'>('STUDENT');
+  const [inspectorClassId, setInspectorClassId] = useState<string>('ALL');
+  const [inspectorSectionId, setInspectorSectionId] = useState<string>('ALL');
+  const [inspectorSearchQuery, setInspectorSearchQuery] = useState<string>('');
+
+  const [studentsList, setStudentsList] = useState<any[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [studentInspection, setStudentInspection] = useState<any | null>(null);
+  const [loadingStudentInspect, setLoadingStudentInspect] = useState<boolean>(false);
+
+  const [teachersList, setTeachersList] = useState<any[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+  const [teacherInspection, setTeacherInspection] = useState<any | null>(null);
+  const [loadingTeacherInspect, setLoadingTeacherInspect] = useState<boolean>(false);
+
+  // Fetch students for inspector
+  const fetchInspectorStudents = async () => {
+    try {
+      const res = await api.admin.getStudents({
+        class_id: inspectorClassId === 'ALL' ? undefined : inspectorClassId,
+        section_id: inspectorSectionId === 'ALL' ? undefined : inspectorSectionId,
+        search: inspectorSearchQuery.trim() || undefined,
+      });
+      const list = Array.isArray(res) ? res : [];
+      setStudentsList(list);
+      if (list.length > 0) {
+        if (!selectedStudentId || !list.some((s: any) => s.id === selectedStudentId)) {
+          setSelectedStudentId(list[0].id);
+          loadStudentInspection(list[0].id);
+        }
+      } else {
+        setSelectedStudentId(null);
+        setStudentInspection(null);
+      }
+    } catch (e) {
+      console.error('Error fetching students for inspector:', e);
+    }
+  };
+
+  // Load individual student inspection
+  const loadStudentInspection = async (studentId: string) => {
+    try {
+      setLoadingStudentInspect(true);
+      const res = await api.admin.getStudentInspection(studentId);
+      setStudentInspection(res);
+    } catch (e) {
+      console.error('Error loading student inspection:', e);
+      setStudentInspection(null);
+    } finally {
+      setLoadingStudentInspect(false);
+    }
+  };
+
+  // Fetch teachers for inspector
+  const fetchInspectorTeachers = async () => {
+    try {
+      const res = await api.admin.getAllStaff(undefined, true);
+      const list = Array.isArray(res) ? res : [];
+      setTeachersList(list);
+      if (list.length > 0) {
+        if (!selectedTeacherId || !list.some((t: any) => t.id === selectedTeacherId)) {
+          setSelectedTeacherId(list[0].id);
+          loadTeacherInspection(list[0].id);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching teachers for inspector:', e);
+    }
+  };
+
+  // Load individual teacher inspection
+  const loadTeacherInspection = async (teacherId: string) => {
+    try {
+      setLoadingTeacherInspect(true);
+      const res = await api.admin.getTeacherInspection(teacherId);
+      setTeacherInspection(res);
+    } catch (e) {
+      console.error('Error loading teacher inspection:', e);
+      setTeacherInspection(null);
+    } finally {
+      setLoadingTeacherInspect(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInspectorStudents();
+  }, [inspectorClassId, inspectorSectionId, inspectorSearchQuery]);
+
+  useEffect(() => {
+    fetchInspectorTeachers();
+  }, []);
+
+  const handleInspectStudentFromModal = (studentId: string) => {
+    setAttendanceModalOpen(false);
+    setInspectorTab('STUDENT');
+    setSelectedStudentId(studentId);
+    loadStudentInspection(studentId);
+    setTimeout(() => {
+      const elem = document.getElementById('institutional-inspector');
+      if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleInspectTeacherDirect = (teacherId?: string) => {
+    setInspectorTab('TEACHER');
+    if (teacherId) {
+      setSelectedTeacherId(teacherId);
+      loadTeacherInspection(teacherId);
+    }
+    setTimeout(() => {
+      const elem = document.getElementById('institutional-inspector');
+      if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   // Fetch live dashboard summary
   const fetchSummary = async (dateParam?: string) => {
@@ -116,6 +239,19 @@ export default function DashboardPage() {
       .filter((s) => s.class_id === selectedClass)
       .map((s) => ({ id: s.section_id, name: s.section_name }));
   }, [data?.sections, selectedClass]);
+
+  // Distinct sections for Institutional Inspector
+  const inspectorDistinctSections = useMemo(() => {
+    if (!data?.sections) return [];
+    if (inspectorClassId === 'ALL') {
+      const map = new Map<string, string>();
+      data.sections.forEach((s) => map.set(s.section_id, s.section_name));
+      return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    }
+    return data.sections
+      .filter((s) => s.class_id === inspectorClassId)
+      .map((s) => ({ id: s.section_id, name: s.section_name }));
+  }, [data?.sections, inspectorClassId]);
 
   // Total Students count
   const totalStudents = useMemo(() => {
@@ -882,6 +1018,563 @@ export default function DashboardPage() {
       </div>
 
       {/* ========================================================================= */}
+      {/* 2.5. INSTITUTIONAL 360° REAL-TIME INSPECTOR (STUDENT & TEACHER LIVE CARD)  */}
+      {/* ========================================================================= */}
+      <div id="institutional-inspector" className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden scroll-mt-6">
+        {/* Header Ribbon */}
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/90 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <Sparkles className="w-5 h-5 text-indigo-200" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-base tracking-tight text-white">
+                  Institutional 360° Real-Time Inspector
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+                  100% Real PostgreSQL Sync
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200/80">
+                Live operational card for any student or teacher across academic, attendance &amp; financial records
+              </p>
+            </div>
+          </div>
+
+          {/* Mode Switcher Tabs */}
+          <div className="inline-flex p-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/15 self-start md:self-center">
+            <button
+              type="button"
+              onClick={() => setInspectorTab('STUDENT')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                inspectorTab === 'STUDENT'
+                  ? 'bg-white text-slate-950 shadow-sm'
+                  : 'text-white/80 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Student 360° ({studentsList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setInspectorTab('TEACHER')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                inspectorTab === 'TEACHER'
+                  ? 'bg-white text-slate-950 shadow-sm'
+                  : 'text-white/80 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              Teacher 360° ({teachersList.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Filter & Selection Bar */}
+        <div className="p-4 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {inspectorTab === 'STUDENT' ? (
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              {/* Class Filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-500">Class:</span>
+                <select
+                  value={inspectorClassId}
+                  onChange={(e) => {
+                    setInspectorClassId(e.target.value);
+                    setInspectorSectionId('ALL');
+                  }}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="ALL">All Classes</option>
+                  {distinctClasses.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Section Filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-500">Section:</span>
+                <select
+                  value={inspectorSectionId}
+                  onChange={(e) => setInspectorSectionId(e.target.value)}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="ALL">All Sections</option>
+                  {inspectorDistinctSections.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Student Select Dropdown */}
+              <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                <span className="text-[11px] font-semibold text-slate-500">Select Student:</span>
+                <select
+                  value={selectedStudentId || ''}
+                  onChange={(e) => {
+                    setSelectedStudentId(e.target.value);
+                    if (e.target.value) loadStudentInspection(e.target.value);
+                  }}
+                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {studentsList.length === 0 ? (
+                    <option value="">No students found</option>
+                  ) : (
+                    studentsList.map((st: any) => (
+                      <option key={st.id} value={st.id}>
+                        {st.full_name || `${st.first_name} ${st.last_name}`} (Roll: {st.roll_number || st.admission_number || '—'}{st.class_name ? ` • ${st.class_name}-${st.section_name}` : ''})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            </div>
+          ) : (
+            /* Teacher Select Dropdown */
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              <div className="flex items-center gap-1.5 flex-1 min-w-[260px]">
+                <span className="text-[11px] font-semibold text-slate-500">Select Teacher:</span>
+                <select
+                  value={selectedTeacherId || ''}
+                  onChange={(e) => {
+                    setSelectedTeacherId(e.target.value);
+                    if (e.target.value) loadTeacherInspection(e.target.value);
+                  }}
+                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-indigo-950 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {teachersList.length === 0 ? (
+                    <option value="">No teachers found</option>
+                  ) : (
+                    teachersList.map((t: any) => (
+                      <option key={t.id} value={t.id}>
+                        {t.staff_name || `${t.first_name} ${t.last_name}`} ({t.employee_code || 'No Code'} • {t.designation || 'Teacher'})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Search */}
+          <div className="relative w-full sm:w-60">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={inspectorTab === 'STUDENT' ? 'Search student name / roll...' : 'Search teacher name / code...'}
+              value={inspectorSearchQuery}
+              onChange={(e) => setInspectorSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+
+        {/* Live Content Deck */}
+        <div className="p-5">
+          {inspectorTab === 'STUDENT' ? (
+            loadingStudentInspect ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                <p className="text-xs font-medium">Fetching real-time student records from database...</p>
+              </div>
+            ) : !studentInspection ? (
+              <div className="py-12 text-center text-slate-400">
+                <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-700 text-sm">No student selected</p>
+                <p className="text-xs text-slate-400">Upload students or choose a student from the dropdown above</p>
+              </div>
+            ) : (
+              /* STUDENT 360° LIVE DISPLAY CARD */
+              <div className="space-y-4">
+                {/* Top Student Header Strip */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-white border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-xs">
+                      {studentInspection.student?.first_name?.[0] || 'S'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-extrabold text-slate-900 text-base">
+                          {studentInspection.student?.full_name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          {studentInspection.student?.class_name} - {studentInspection.student?.section_name}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span>Roll No: <strong>{studentInspection.student?.roll_number || '—'}</strong></span>
+                        <span>•</span>
+                        <span>Adm No: <strong>{studentInspection.student?.admission_number || '—'}</strong></span>
+                        <span>•</span>
+                        <span>Parent Phone: <strong>{studentInspection.student?.emergency_phone || studentInspection.student?.phone || '—'}</strong></span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Badges: Attendance Today + Fee Balance */}
+                  <div className="flex items-center gap-2 self-start sm:self-center">
+                    {/* Today Attendance Badge */}
+                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${
+                      studentInspection.attendance?.status === 'PRESENT'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : studentInspection.attendance?.status === 'ABSENT'
+                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {studentInspection.attendance?.status === 'PRESENT' ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          <span>Present Today</span>
+                        </>
+                      ) : studentInspection.attendance?.status === 'ABSENT' ? (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-rose-600" />
+                          <span>Absent Today</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>Attendance Pending</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Fee Balance Badge */}
+                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${
+                      (studentInspection.fees?.due || 0) === 0
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border-rose-200'
+                    }`}>
+                      <IndianRupee className="w-3.5 h-3.5" />
+                      <span>
+                        {(studentInspection.fees?.due || 0) === 0 ? 'Fees Fully Paid' : `₹ ${(studentInspection.fees?.due || 0).toLocaleString('en-IN')} Due`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3-Column Inspection Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* Column 1: Faculty In-Charge (Class Teacher & Subject Teachers) */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <GraduationCap className="w-4 h-4 text-purple-600" />
+                        <span>Faculty In-Charge</span>
+                      </div>
+                      <button
+                        onClick={() => router.push('/academics/allocations')}
+                        className="text-[11px] font-semibold text-purple-600 hover:underline"
+                      >
+                        Allocation Hub →
+                      </button>
+                    </div>
+
+                    {/* Homeroom Class Teacher */}
+                    <div className="bg-white p-3 rounded-lg border border-purple-100 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
+                        Homeroom Class Teacher
+                      </span>
+                      <p className="font-bold text-slate-900 text-sm mt-1">
+                        {studentInspection.class_teacher?.teacher_name || 'Not Allocated Yet'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Code: {studentInspection.class_teacher?.employee_code || '—'} • Phone: {studentInspection.class_teacher?.phone || '—'}
+                      </p>
+                    </div>
+
+                    {/* Subject Teachers List */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-600">Assigned Subject Teachers:</span>
+                      {(!studentInspection.subject_teachers || studentInspection.subject_teachers.length === 0) ? (
+                        <p className="text-slate-400 italic text-[11px]">No subject teacher allocations recorded</p>
+                      ) : (
+                        <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                          {studentInspection.subject_teachers.map((st: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-md border border-slate-200/70 text-[11px]">
+                              <span className="font-semibold text-slate-700">{st.subject_name}</span>
+                              <span className="text-slate-500">{st.teacher_name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Column 2: Fee Ledger & Receipts */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <IndianRupee className="w-4 h-4 text-emerald-600" />
+                        <span>Financial Fee Ledger</span>
+                      </div>
+                      <button
+                        onClick={() => router.push('/fees')}
+                        className="text-[11px] font-semibold text-emerald-600 hover:underline"
+                      >
+                        Fee Desk →
+                      </button>
+                    </div>
+
+                    {/* Fee Summary Cards */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-[10px] text-slate-500 font-medium">Total Fee</span>
+                        <p className="font-bold text-slate-900 mt-0.5">₹ {(studentInspection.fees?.total || 0).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="bg-emerald-50/60 p-2 rounded-lg border border-emerald-100">
+                        <span className="text-[10px] text-emerald-700 font-medium">Paid</span>
+                        <p className="font-bold text-emerald-800 mt-0.5">₹ {(studentInspection.fees?.paid || 0).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="bg-rose-50/60 p-2 rounded-lg border border-rose-100">
+                        <span className="text-[10px] text-rose-700 font-medium">Due</span>
+                        <p className="font-bold text-rose-800 mt-0.5">₹ {(studentInspection.fees?.due || 0).toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+
+                    {/* Recent Fee Receipts */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-600">Recent Payment Receipts:</span>
+                      {(!studentInspection.fees?.receipts || studentInspection.fees?.receipts.length === 0) ? (
+                        <p className="text-slate-400 italic text-[11px]">No fee receipts found</p>
+                      ) : (
+                        <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                          {studentInspection.fees?.receipts.map((rcpt: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-md border border-slate-200/70 text-[11px]">
+                              <div>
+                                <span className="font-bold text-slate-800">#{rcpt.receipt_number || 'RCPT'}</span>
+                                <span className="text-[10px] text-slate-400 ml-1.5">{rcpt.payment_mode}</span>
+                              </div>
+                              <span className="font-bold text-emerald-700">₹ {Number(rcpt.amount_paid).toLocaleString('en-IN')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Column 3: Guardian & Schedule Today */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <CalendarDays className="w-4 h-4 text-blue-600" />
+                        <span>Today&apos;s Class Schedule</span>
+                      </div>
+                      <button
+                        onClick={() => router.push('/timetable')}
+                        className="text-[11px] font-semibold text-blue-600 hover:underline"
+                      >
+                        Timetable →
+                      </button>
+                    </div>
+
+                    {/* Guardians info */}
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-200/70 space-y-1 text-[11px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Father:</span>
+                        <span className="font-semibold text-slate-800">{studentInspection.student?.father_name || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Mother:</span>
+                        <span className="font-semibold text-slate-800">{studentInspection.student?.mother_name || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Portal User:</span>
+                        <span className="font-mono text-indigo-700">{studentInspection.student?.username || '—'}</span>
+                      </div>
+                    </div>
+
+                    {/* Schedule List */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-600">Lectures Scheduled Today:</span>
+                      {(!studentInspection.today_schedule || studentInspection.today_schedule.length === 0) ? (
+                        <p className="text-slate-400 italic text-[11px]">No periods scheduled for today</p>
+                      ) : (
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                          {studentInspection.today_schedule.map((slot: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1 rounded-md border border-slate-200/70 text-[11px]">
+                              <span className="font-semibold text-slate-700">{slot.subject_name}</span>
+                              <span className="text-slate-400 font-mono text-[10px]">{slot.start_time?.slice(0,5)} - {slot.end_time?.slice(0,5)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            /* TEACHER 360° LIVE DISPLAY CARD */
+            loadingTeacherInspect ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-emerald-600" />
+                <p className="text-xs font-medium">Fetching teacher academic allocations from database...</p>
+              </div>
+            ) : !teacherInspection ? (
+              <div className="py-12 text-center text-slate-400">
+                <GraduationCap className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-700 text-sm">No teacher selected</p>
+                <p className="text-xs text-slate-400">Upload faculty staff or choose a teacher from the dropdown above</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Top Teacher Header Strip */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50/70 via-teal-50/50 to-white border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-xs">
+                      {teacherInspection.teacher?.first_name?.[0] || 'T'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-extrabold text-slate-900 text-base">
+                          {teacherInspection.teacher?.full_name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          {teacherInspection.teacher?.designation || 'Teacher'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span>Code: <strong>{teacherInspection.teacher?.employee_code || '—'}</strong></span>
+                        <span>•</span>
+                        <span>Dept: <strong>{teacherInspection.teacher?.department || 'Academics'}</strong></span>
+                        <span>•</span>
+                        <span>Phone: <strong>{teacherInspection.teacher?.phone || '—'}</strong></span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-center">
+                    <button
+                      onClick={() => router.push('/staff')}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs"
+                    >
+                      Staff Directory
+                    </button>
+                    <button
+                      onClick={() => router.push('/academics/allocations')}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Allocate Classes
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3-Column Teacher Inspection Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* Column 1: Homeroom Class Teacher Assignment */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs pb-2 border-b border-slate-200">
+                      <LayoutGrid className="w-4 h-4 text-purple-600" />
+                      <span>Homeroom Class Teacher Of</span>
+                    </div>
+
+                    {(!teacherInspection.class_teacher_of || teacherInspection.class_teacher_of.length === 0) ? (
+                      <div className="p-4 bg-white rounded-lg border border-slate-200 text-center text-slate-400">
+                        <AlertCircle className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                        <p className="font-semibold text-slate-600 text-xs">Not Assigned as Class Teacher</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Assign in Academic Allocations Hub</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {teacherInspection.class_teacher_of.map((c: any, idx: number) => (
+                          <div key={idx} className="bg-white p-3 rounded-lg border border-purple-200 shadow-2xs flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
+                                Class Teacher
+                              </span>
+                              <p className="font-bold text-slate-900 text-sm mt-1">
+                                {c.class_name} - {c.section_name}
+                              </p>
+                            </div>
+                            <CheckCircle className="w-5 h-5 text-purple-600" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Column 2: Subject & Class Allocations */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <BookOpen className="w-4 h-4 text-emerald-600" />
+                        <span>Subjects Taught ({teacherInspection.subjects_taught?.length || 0})</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                        Active
+                      </span>
+                    </div>
+
+                    {(!teacherInspection.subjects_taught || teacherInspection.subjects_taught.length === 0) ? (
+                      <div className="p-4 bg-white rounded-lg border border-slate-200 text-center text-slate-400">
+                        <p className="text-xs">No subject allocations found</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {teacherInspection.subjects_taught.map((sub: any, idx: number) => (
+                          <div key={idx} className="bg-white p-2.5 rounded-lg border border-slate-200/70 flex items-center justify-between">
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{sub.subject_name}</p>
+                              <p className="text-[10px] text-slate-500 font-medium">
+                                {sub.class_name} - {sub.section_name}
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-400">{sub.subject_code || 'SUB'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Column 3: Today's Teaching Schedule */}
+                  <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                        <Clock className="w-4 h-4 text-blue-600" />
+                        <span>Today&apos;s Lecture Schedule</span>
+                      </div>
+                      <button
+                        onClick={() => router.push('/timetable')}
+                        className="text-[11px] font-semibold text-blue-600 hover:underline"
+                      >
+                        Timetable →
+                      </button>
+                    </div>
+
+                    {(!teacherInspection.today_classes || teacherInspection.today_classes.length === 0) ? (
+                      <div className="p-4 bg-white rounded-lg border border-slate-200 text-center text-slate-400">
+                        <Clock className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                        <p className="text-xs font-semibold text-slate-600">No periods scheduled today</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Faculty is free or timetable not published</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {teacherInspection.today_classes.map((cls: any, idx: number) => (
+                          <div key={idx} className="bg-white p-2.5 rounded-lg border border-slate-200/70 flex items-center justify-between">
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{cls.subject_name}</p>
+                              <p className="text-[10px] text-slate-500 font-medium">{cls.class_name} - {cls.section_name}</p>
+                            </div>
+                            <span className="font-mono text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                              {cls.start_time?.slice(0,5)} - {cls.end_time?.slice(0,5)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
       {/* 3. LOWER SECTION: TODAY'S STATUS TABLE (LEFT) + QUICK ACCESS (RIGHT)       */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -938,14 +1631,14 @@ export default function DashboardPage() {
 
                 {/* 2. Total Teacher */}
                 <tr
-                  onClick={() => router.push('/staff')}
+                  onClick={() => handleInspectTeacherDirect()}
                   className="hover:bg-slate-50/80 transition cursor-pointer group"
                 >
                   <td className="py-2.5 px-4 text-center font-medium text-slate-400">2</td>
                   <td className="py-2.5 px-4 font-semibold text-slate-800 flex items-center justify-between">
                     <span>Total Teacher</span>
-                    <span className="text-[10px] text-blue-600 opacity-0 group-hover:opacity-100 transition">
-                      Staff Directory →
+                    <span className="text-[10px] text-emerald-600 opacity-0 group-hover:opacity-100 transition">
+                      Inspect 360° →
                     </span>
                   </td>
                   <td className="py-2.5 px-4 text-center font-bold text-slate-900">
@@ -1352,6 +2045,7 @@ export default function DashboardPage() {
                       <th className="py-2 px-3">Roll No</th>
                       <th className="py-2 px-3">Class & Section</th>
                       <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2 px-3 text-right">360° Inspector</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1376,6 +2070,16 @@ export default function DashboardPage() {
                           >
                             {st.status}
                           </span>
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleInspectStudentFromModal(st.student_id || st.id)}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[10px] transition inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                            Inspect
+                          </button>
                         </td>
                       </tr>
                     ))}
