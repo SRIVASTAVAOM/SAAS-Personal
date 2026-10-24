@@ -72,6 +72,70 @@ export interface StudentAttendanceRecordSummary {
   section_name?: string;
 }
 
+export interface RecentActivitySummary {
+  id: string;
+  date: string;
+  time: string;
+  activity: string;
+  user: string;
+}
+
+export interface TodayStatusSummary {
+  total_students: number;
+  present_students: number;
+  absent_students: number;
+  total_teachers: number;
+  present_teachers: number;
+  absent_teachers: number;
+  total_classes: number;
+  total_sections: number;
+  today_fee_collection: number;
+  total_transport: number;
+  total_parents: number;
+}
+
+export interface FeeOverviewSummary {
+  total_students: number;
+  total_fee: number;
+  paid_fee: number;
+  due_fee: number;
+  paid_percentage: number;
+  due_percentage: number;
+}
+
+export interface FeeModeSummary {
+  amount: number;
+  count: number;
+}
+
+export interface DaywiseCollectionSummary {
+  date: string;
+  total_received: number;
+  total_created: number;
+  received_count: number;
+  created_count: number;
+  by_mode: {
+    cash: FeeModeSummary;
+    online: FeeModeSummary;
+    cheque: FeeModeSummary;
+    upi: FeeModeSummary;
+  };
+}
+
+export interface MonthlyCollectionSummary {
+  month: string;
+  total_received: number;
+  total_created: number;
+  received_count: number;
+  created_count: number;
+  by_mode: {
+    cash: FeeModeSummary;
+    online: FeeModeSummary;
+    cheque: FeeModeSummary;
+    upi: FeeModeSummary;
+  };
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -87,6 +151,8 @@ export interface DashboardSummaryResponse {
     pending_leaves_count: number;
     today_birthdays_count: number;
   };
+  daily_collection?: DaywiseCollectionSummary;
+  monthly_collection?: MonthlyCollectionSummary;
   fee_realized?: {
     total: number;
     by_mode: {
@@ -102,6 +168,9 @@ export interface DashboardSummaryResponse {
       cheques: number;
     };
   };
+  fee_overview?: FeeOverviewSummary;
+  today_status?: TodayStatusSummary;
+  recent_activities?: RecentActivitySummary[];
   today_student_attendance?: StudentAttendanceRecordSummary[];
   pending_leaves: PendingLeaveSummary[];
   today_birthdays: BirthdaySummary[];

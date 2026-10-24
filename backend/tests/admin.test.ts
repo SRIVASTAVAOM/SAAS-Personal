@@ -138,6 +138,21 @@ describe('Web Admin Panel Module Integration Tests (/api/v1/admin)', () => {
       // Verify today birthdays list
       expect(data).toHaveProperty('today_birthdays');
       expect(Array.isArray(data.today_birthdays)).toBe(true);
+
+      // Verify day-wise and monthly collection
+      expect(data).toHaveProperty('daily_collection');
+      expect(data.daily_collection).toHaveProperty('total_received');
+      expect(data.daily_collection).toHaveProperty('total_created');
+      expect(data.daily_collection).toHaveProperty('by_mode');
+      expect(data.daily_collection.by_mode).toHaveProperty('cash');
+      expect(data.daily_collection.by_mode).toHaveProperty('online');
+      expect(data.daily_collection.by_mode).toHaveProperty('cheque');
+      expect(data.daily_collection.by_mode).toHaveProperty('upi');
+
+      expect(data).toHaveProperty('monthly_collection');
+      expect(data.monthly_collection).toHaveProperty('total_received');
+      expect(data.monthly_collection).toHaveProperty('total_created');
+      expect(data.monthly_collection).toHaveProperty('by_mode');
     });
   });
 

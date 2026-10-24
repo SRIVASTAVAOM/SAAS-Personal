@@ -12,9 +12,12 @@ export class AdminService {
    */
   static async getDashboardSummary(
     user: TokenPayload,
-    date?: string
+    date?: string,
+    classId?: string,
+    sectionId?: string,
+    month?: string
   ): Promise<DashboardSummaryResponse> {
-    return AdminRepository.getDashboardSummary(user.schoolId, date);
+    return AdminRepository.getDashboardSummary(user.schoolId, date, classId, sectionId, month);
   }
 
   /**

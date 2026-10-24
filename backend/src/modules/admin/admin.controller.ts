@@ -62,10 +62,13 @@ export class AdminController {
   static async getDashboardSummary(req: Request, res: Response): Promise<void> {
     try {
       const user = (req as any).user;
-      const { date } = req.query;
+      const { date, class_id, classId, section_id, sectionId, month } = req.query;
       const summary = await AdminService.getDashboardSummary(
         user,
-        typeof date === 'string' ? date : undefined
+        typeof date === 'string' ? date : undefined,
+        (class_id || classId) as string,
+        (section_id || sectionId) as string,
+        typeof month === 'string' ? month : undefined
       );
       res.status(200).json({
         success: true,

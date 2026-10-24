@@ -114,9 +114,20 @@ export const api = {
 
   // Admin Command Center & Core
   admin: {
-    getDashboardSummary: async (date?: string): Promise<DashboardSummaryResponse> => {
-      const query = date ? `?date=${encodeURIComponent(date)}` : '';
-      return request<DashboardSummaryResponse>(`/admin/dashboard/summary${query}`);
+    getDashboardSummary: async (
+      params?: string | { date?: string; classId?: string; sectionId?: string; month?: string }
+    ): Promise<DashboardSummaryResponse> => {
+      if (typeof params === 'string') {
+        const query = params ? `?date=${encodeURIComponent(params)}` : '';
+        return request<DashboardSummaryResponse>(`/admin/dashboard/summary${query}`);
+      }
+      const q = new URLSearchParams();
+      if (params?.date) q.append('date', params.date);
+      if (params?.classId && params.classId !== 'ALL') q.append('class_id', params.classId);
+      if (params?.sectionId && params.sectionId !== 'ALL') q.append('section_id', params.sectionId);
+      if (params?.month && params.month !== 'CURRENT') q.append('month', params.month);
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+      return request<DashboardSummaryResponse>(`/admin/dashboard/summary${queryStr}`);
     },
 
     getTimetableGrid: async (

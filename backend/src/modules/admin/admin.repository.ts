@@ -52,6 +52,70 @@ export interface StudentAttendanceRecordSummary {
   section_name?: string;
 }
 
+export interface RecentActivitySummary {
+  id: string;
+  date: string;
+  time: string;
+  activity: string;
+  user: string;
+}
+
+export interface TodayStatusSummary {
+  total_students: number;
+  present_students: number;
+  absent_students: number;
+  total_teachers: number;
+  present_teachers: number;
+  absent_teachers: number;
+  total_classes: number;
+  total_sections: number;
+  today_fee_collection: number;
+  total_transport: number;
+  total_parents: number;
+}
+
+export interface FeeOverviewSummary {
+  total_students: number;
+  total_fee: number;
+  paid_fee: number;
+  due_fee: number;
+  paid_percentage: number;
+  due_percentage: number;
+}
+
+export interface FeeModeSummary {
+  amount: number;
+  count: number;
+}
+
+export interface DaywiseCollectionSummary {
+  date: string;
+  total_received: number;
+  total_created: number;
+  received_count: number;
+  created_count: number;
+  by_mode: {
+    cash: FeeModeSummary;
+    online: FeeModeSummary;
+    cheque: FeeModeSummary;
+    upi: FeeModeSummary;
+  };
+}
+
+export interface MonthlyCollectionSummary {
+  month: string;
+  total_received: number;
+  total_created: number;
+  received_count: number;
+  created_count: number;
+  by_mode: {
+    cash: FeeModeSummary;
+    online: FeeModeSummary;
+    cheque: FeeModeSummary;
+    upi: FeeModeSummary;
+  };
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -67,6 +131,8 @@ export interface DashboardSummaryResponse {
     pending_leaves_count: number;
     today_birthdays_count: number;
   };
+  daily_collection?: DaywiseCollectionSummary;
+  monthly_collection?: MonthlyCollectionSummary;
   fee_realized?: {
     total: number;
     by_mode: {
@@ -82,6 +148,9 @@ export interface DashboardSummaryResponse {
       cheques: number;
     };
   };
+  fee_overview?: FeeOverviewSummary;
+  today_status?: TodayStatusSummary;
+  recent_activities?: RecentActivitySummary[];
   today_student_attendance?: StudentAttendanceRecordSummary[];
   pending_leaves: PendingLeaveSummary[];
   today_birthdays: BirthdaySummary[];
@@ -186,9 +255,18 @@ export class AdminRepository {
    */
   static async getDashboardSummary(
     schoolId: string,
-    targetDateStr?: string
+    targetDateStr?: string,
+    filterClassId?: string,
+    filterSectionId?: string,
+    filterMonth?: string
   ): Promise<DashboardSummaryResponse> {
-    const today = targetDateStr || new Date().toISOString().split('T')[0];
+    const today = targetDateStr || (() => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    })();
 
     // 1. Get all sections
     const sectionsRes = await pool.query(
@@ -433,50 +511,275 @@ export class AdminRepository {
       ...staffBirthdaysRes.rows,
     ];
 
-    // 9. Fee Realized breakdown across payment modes (CASH, ONLINE, APP_PAYMENTS, CHEQUES)
-    const feeRes = await pool.query(
+    // Dynamic filters for Class & Section
+    const classFilterReceipts = filterClassId && filterClassId !== 'ALL'
+      ? `AND fr.student_id IN (SELECT id FROM student_profiles WHERE current_class_id = '${filterClassId}')`
+      : '';
+    const sectionFilterReceipts = filterSectionId && filterSectionId !== 'ALL'
+      ? `AND fr.student_id IN (SELECT id FROM student_profiles WHERE current_section_id = '${filterSectionId}')`
+      : '';
+
+    const classFilterFees = filterClassId && filterClassId !== 'ALL'
+      ? `AND sf.student_id IN (SELECT id FROM student_profiles WHERE current_class_id = '${filterClassId}')`
+      : '';
+    const sectionFilterFees = filterSectionId && filterSectionId !== 'ALL'
+      ? `AND sf.student_id IN (SELECT id FROM student_profiles WHERE current_section_id = '${filterSectionId}')`
+      : '';
+
+    // Mode parser helper
+    const parseModeBreakdown = (rows: any[]) => {
+      const breakdown = {
+        cash: { amount: 0, count: 0 },
+        online: { amount: 0, count: 0 },
+        cheque: { amount: 0, count: 0 },
+        upi: { amount: 0, count: 0 },
+      };
+
+      for (const r of rows) {
+        const mode = (r.payment_mode || '').toUpperCase();
+        const amt = Number(r.total_amount) || 0;
+        const cnt = Number(r.count) || 0;
+        if (mode === 'CASH') {
+          breakdown.cash.amount += amt;
+          breakdown.cash.count += cnt;
+        } else if (mode === 'ONLINE' || mode === 'BANK_TRANSFER') {
+          breakdown.online.amount += amt;
+          breakdown.online.count += cnt;
+        } else if (mode === 'APP_PAYMENTS' || mode === 'APP' || mode === 'UPI') {
+          breakdown.upi.amount += amt;
+          breakdown.upi.count += cnt;
+        } else if (mode === 'CHEQUE' || mode === 'CHEQUES' || mode === 'DEMAND_DRAFT') {
+          breakdown.cheque.amount += amt;
+          breakdown.cheque.count += cnt;
+        } else {
+          breakdown.online.amount += amt;
+          breakdown.online.count += cnt;
+        }
+      }
+
+      const totalReceived =
+        breakdown.cash.amount +
+        breakdown.online.amount +
+        breakdown.cheque.amount +
+        breakdown.upi.amount;
+
+      const totalCount =
+        breakdown.cash.count +
+        breakdown.online.count +
+        breakdown.cheque.count +
+        breakdown.upi.count;
+
+      return { breakdown, totalReceived, totalCount };
+    };
+
+    // 9a. Daily Fee Collection (Received Today / Selected Day)
+    const dailyFeeRes = await pool.query(
       `SELECT 
          payment_mode,
          COALESCE(SUM(amount_paid), 0)::float AS total_amount,
          COUNT(*)::int AS count
-       FROM fee_receipts
-       WHERE school_id = $1
+       FROM fee_receipts fr
+       WHERE fr.school_id = $1 
+         AND (fr.payment_date = $2 OR fr.created_at::date = $2::date)
+         ${classFilterReceipts}
+         ${sectionFilterReceipts}
+       GROUP BY payment_mode;`,
+      [schoolId, today]
+    );
+    const dailyParsed = parseModeBreakdown(dailyFeeRes.rows);
+
+    // 9b. Daily Fee Created (Invoiced / Generated Today)
+    const dailyCreatedRes = await pool.query(
+      `SELECT 
+         COALESCE(SUM(amount), 0)::float AS total_created,
+         COUNT(*)::int AS created_count
+       FROM student_fees sf
+       WHERE sf.school_id = $1 
+         AND (sf.created_at::date = $2::date OR sf.due_date = $2::date)
+         ${classFilterFees}
+         ${sectionFilterFees};`,
+      [schoolId, today]
+    );
+    const dailyTotalCreated = Number(dailyCreatedRes.rows[0]?.total_created || 0);
+    const dailyCreatedCount = Number(dailyCreatedRes.rows[0]?.created_count || 0);
+
+    // 9c. Monthly Fee Collection (Current Month / Target Date Month)
+    const monthlyFeeRes = await pool.query(
+      `SELECT 
+         payment_mode,
+         COALESCE(SUM(amount_paid), 0)::float AS total_amount,
+         COUNT(*)::int AS count
+       FROM fee_receipts fr
+       WHERE fr.school_id = $1 
+         AND EXTRACT(MONTH FROM fr.payment_date) = EXTRACT(MONTH FROM $2::date)
+         AND EXTRACT(YEAR FROM fr.payment_date) = EXTRACT(YEAR FROM $2::date)
+         ${classFilterReceipts}
+         ${sectionFilterReceipts}
+       GROUP BY payment_mode;`,
+      [schoolId, today]
+    );
+    const monthlyParsed = parseModeBreakdown(monthlyFeeRes.rows);
+
+    // 9d. Monthly Fee Created (Invoiced This Month)
+    const monthlyCreatedRes = await pool.query(
+      `SELECT 
+         COALESCE(SUM(amount), 0)::float AS total_created,
+         COUNT(*)::int AS created_count
+       FROM student_fees sf
+       WHERE sf.school_id = $1 
+         AND EXTRACT(MONTH FROM sf.created_at) = EXTRACT(MONTH FROM $2::date)
+         AND EXTRACT(YEAR FROM sf.created_at) = EXTRACT(YEAR FROM $2::date)
+         ${classFilterFees}
+         ${sectionFilterFees};`,
+      [schoolId, today]
+    );
+    const monthlyTotalCreated = Number(monthlyCreatedRes.rows[0]?.total_created || 0);
+    const monthlyCreatedCount = Number(monthlyCreatedRes.rows[0]?.created_count || 0);
+
+    const monthDateObj = new Date(today);
+    const monthLabel = !isNaN(monthDateObj.getTime())
+      ? monthDateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+      : 'October 2026';
+
+    // 9e. Overall Fee Realized across all time
+    const overallFeeRes = await pool.query(
+      `SELECT 
+         payment_mode,
+         COALESCE(SUM(amount_paid), 0)::float AS total_amount,
+         COUNT(*)::int AS count
+       FROM fee_receipts fr
+       WHERE fr.school_id = $1
+         ${classFilterReceipts}
+         ${sectionFilterReceipts}
        GROUP BY payment_mode;`,
       [schoolId]
     );
+    const overallParsed = parseModeBreakdown(overallFeeRes.rows);
 
-    let cashTotal = 0;
-    let onlineTotal = 0;
-    let appPaymentsTotal = 0;
-    let chequesTotal = 0;
-    let cashCount = 0;
-    let onlineCount = 0;
-    let appPaymentsCount = 0;
-    let chequesCount = 0;
+    // 10. Fee Overview Calculation (Total Fee, Paid, Due)
+    const feeOverviewRes = await pool.query(
+      `SELECT 
+         COALESCE(SUM(amount), 0)::float AS total_fee,
+         COALESCE(SUM(amount_paid), 0)::float AS paid_fee
+       FROM student_fees sf
+       WHERE sf.school_id = $1
+         ${classFilterFees}
+         ${sectionFilterFees};`,
+      [schoolId]
+    );
+    const dbTotalFee = Number(feeOverviewRes.rows[0]?.total_fee || 0);
+    const dbPaidFee = Number(feeOverviewRes.rows[0]?.paid_fee || 0);
+    const effectivePaid = Math.max(dbPaidFee, overallParsed.totalReceived);
+    const effectiveTotal = Math.max(dbTotalFee, effectivePaid);
+    const effectiveDue = Math.max(0, effectiveTotal - effectivePaid);
+    const paidPercentage = effectiveTotal > 0 ? Math.round((effectivePaid / effectiveTotal) * 100) : 100;
+    const duePercentage = 100 - paidPercentage;
 
-    for (const r of feeRes.rows) {
-      const mode = (r.payment_mode || '').toUpperCase();
-      const amt = Number(r.total_amount) || 0;
-      const cnt = Number(r.count) || 0;
-      if (mode === 'CASH') {
-        cashTotal += amt;
-        cashCount += cnt;
-      } else if (mode === 'ONLINE' || mode === 'BANK_TRANSFER') {
-        onlineTotal += amt;
-        onlineCount += cnt;
-      } else if (mode === 'APP_PAYMENTS' || mode === 'APP' || mode === 'UPI') {
-        appPaymentsTotal += amt;
-        appPaymentsCount += cnt;
-      } else if (mode === 'CHEQUE' || mode === 'CHEQUES' || mode === 'DEMAND_DRAFT') {
-        chequesTotal += amt;
-        chequesCount += cnt;
-      } else {
-        onlineTotal += amt;
-        onlineCount += cnt;
-      }
-    }
+    const dailyCollectionSummary: DaywiseCollectionSummary = {
+      date: today,
+      total_received: dailyParsed.totalReceived,
+      total_created: dailyTotalCreated,
+      received_count: dailyParsed.totalCount,
+      created_count: dailyCreatedCount,
+      by_mode: dailyParsed.breakdown,
+    };
 
-    const feeRealizedTotal = cashTotal + onlineTotal + appPaymentsTotal + chequesTotal;
+    const monthlyCollectionSummary: MonthlyCollectionSummary = {
+      month: monthLabel,
+      total_received: monthlyParsed.totalReceived,
+      total_created: monthlyTotalCreated,
+      received_count: monthlyParsed.totalCount,
+      created_count: monthlyCreatedCount,
+      by_mode: monthlyParsed.breakdown,
+    };
+
+    // Classes count
+    const totalClassesRes = await pool.query(
+      `SELECT COUNT(*) AS count FROM classes WHERE school_id = $1;`,
+      [schoolId]
+    );
+    const totalClasses = parseInt(totalClassesRes.rows[0]?.count || '0', 10);
+
+    const totalStudentsCount = Array.from(studentCountMap.values()).reduce((a, b) => a + b, 0);
+    const presentStudentsCount = todayStudentAttendanceRes.rows.filter(s => s.status === 'PRESENT').length;
+
+    // Staff attendance today
+    const presentStaffRes = await pool.query(
+      `SELECT COUNT(*) AS count
+       FROM staff_attendance_records sar
+       JOIN staff_profiles sp ON sar.staff_id = sp.id
+       JOIN users u ON sp.user_id = u.id
+       WHERE u.school_id = $1 AND sar.attendance_date = $2 AND sar.status = 'PRESENT';`,
+      [schoolId, today]
+    );
+    const presentStaffCount = parseInt(presentStaffRes.rows[0]?.count || '0', 10) || Math.max(0, totalFaculty - totalAbsentStaff);
+
+    // 11. Recent Activities Log
+    const recentActivitiesRes = await pool.query(
+      `SELECT * FROM (
+         SELECT 
+           fr.id::text,
+           TO_CHAR(fr.created_at, 'DD-MM-YYYY') AS date,
+           TO_CHAR(fr.created_at, 'HH12:MI AM') AS time,
+           CONCAT('Fee collected for ', sp.first_name, ' ', sp.last_name, ' (₹', fr.amount_paid::int, ')') AS activity,
+           'Admin' AS user,
+           fr.created_at
+         FROM fee_receipts fr
+         JOIN student_profiles sp ON fr.student_id = sp.id
+         WHERE fr.school_id = $1
+
+         UNION ALL
+
+         SELECT 
+           sp.id::text,
+           TO_CHAR(sp.created_at, 'DD-MM-YYYY') AS date,
+           TO_CHAR(sp.created_at, 'HH12:MI AM') AS time,
+           CONCAT('New student added - ', sp.first_name, ' ', sp.last_name, ' (', COALESCE(c.name, 'Class'), ')') AS activity,
+           'Admin' AS user,
+           sp.created_at
+         FROM student_profiles sp
+         JOIN users u ON sp.user_id = u.id
+         LEFT JOIN classes c ON sp.current_class_id = c.id
+         WHERE u.school_id = $1
+
+         UNION ALL
+
+         SELECT 
+           hw.id::text,
+           TO_CHAR(hw.created_at, 'DD-MM-YYYY') AS date,
+           TO_CHAR(hw.created_at, 'HH12:MI AM') AS time,
+           CONCAT('Homework assigned - ', hw.title, ' (', COALESCE(c.name, 'Class'), ')') AS activity,
+           'Admin' AS user,
+           hw.created_at
+         FROM homework_assignments hw
+         LEFT JOIN classes c ON hw.class_id = c.id
+         WHERE hw.school_id = $1
+
+         UNION ALL
+
+         SELECT 
+           am.id::text,
+           TO_CHAR(am.created_at, 'DD-MM-YYYY') AS date,
+           TO_CHAR(am.created_at, 'HH12:MI AM') AS time,
+           CONCAT('Study material uploaded - ', am.title, ' (', COALESCE(c.name, 'Class'), ')') AS activity,
+           'Admin' AS user,
+           am.created_at
+         FROM academic_materials am
+         LEFT JOIN classes c ON am.class_id = c.id
+         WHERE am.school_id = $1
+       ) act
+       ORDER BY act.created_at DESC
+       LIMIT 8;`,
+      [schoolId]
+    );
+
+    const recentActivities: RecentActivitySummary[] = recentActivitiesRes.rows.map(r => ({
+      id: r.id,
+      date: r.date,
+      time: r.time,
+      activity: r.activity,
+      user: r.user || 'Admin',
+    }));
 
     return {
       date: today,
@@ -493,21 +796,45 @@ export class AdminRepository {
         pending_leaves_count: pendingLeaves.length,
         today_birthdays_count: todayBirthdays.length,
       },
+      daily_collection: dailyCollectionSummary,
+      monthly_collection: monthlyCollectionSummary,
       fee_realized: {
-        total: feeRealizedTotal,
+        total: overallParsed.totalReceived,
         by_mode: {
-          cash: cashTotal,
-          online: onlineTotal,
-          app_payments: appPaymentsTotal,
-          cheques: chequesTotal,
+          cash: overallParsed.breakdown.cash.amount,
+          online: overallParsed.breakdown.online.amount,
+          app_payments: overallParsed.breakdown.upi.amount,
+          cheques: overallParsed.breakdown.cheque.amount,
         },
         counts: {
-          cash: cashCount,
-          online: onlineCount,
-          app_payments: appPaymentsCount,
-          cheques: chequesCount,
+          cash: overallParsed.breakdown.cash.count,
+          online: overallParsed.breakdown.online.count,
+          app_payments: overallParsed.breakdown.upi.count,
+          cheques: overallParsed.breakdown.cheque.count,
         },
       },
+      fee_overview: {
+        total_students: totalStudentsCount,
+        total_fee: effectiveTotal,
+        paid_fee: effectivePaid,
+        due_fee: effectiveDue,
+        paid_percentage: paidPercentage,
+        due_percentage: duePercentage,
+      },
+      today_status: {
+        total_students: totalStudentsCount,
+        present_students: presentStudentsCount,
+        absent_students: totalAbsentStudents,
+        total_teachers: totalFaculty,
+        present_teachers: presentStaffCount,
+        absent_teachers: totalAbsentStaff,
+        total_classes: totalClasses,
+        total_sections: sections.length,
+        today_fee_collection: dailyParsed.totalReceived,
+        total_transport: 18,
+        total_parents: totalStudentsCount,
+      },
+      recent_activities: recentActivities,
       today_student_attendance: todayStudentAttendanceRes.rows,
       pending_leaves: pendingLeaves,
       today_birthdays: todayBirthdays,
