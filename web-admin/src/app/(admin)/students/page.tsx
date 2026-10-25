@@ -192,7 +192,9 @@ export default function StudentsDirectoryPage() {
           throw new Error('CSV must contain a header row and at least 1 data row.');
         }
 
-        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
+        const headers = lines[0].split(',').map((h) =>
+          h.trim().toLowerCase().replace(/['"]/g, '').replace(/[\s\.\-_]+/g, '_').replace(/^_+|_+$/g, '')
+        );
         const parsed: any[] = [];
 
         for (let i = 1; i < lines.length; i++) {
@@ -204,22 +206,32 @@ export default function StudentsDirectoryPage() {
             rowObj[hdr] = rowValues[idx] || '';
           });
 
-          // Normalize fields
+          // Normalize fields with wide alias support
           parsed.push({
-            admission_no: rowObj.admission_no || rowObj.admission_number || rowObj.adm_no || '',
-            roll_no: rowObj.roll_no || rowObj.roll_number || '',
-            first_name: rowObj.first_name || rowObj.name || 'Student',
-            last_name: rowObj.last_name || '',
-            class_name: rowObj.class_name || rowObj.class || 'Grade 10',
-            section_name: rowObj.section_name || rowObj.section || 'Section A',
+            admission_no:
+              rowObj.admission_no ||
+              rowObj.admission_number ||
+              rowObj.admissionno ||
+              rowObj.adm_no ||
+              rowObj.admno ||
+              rowObj.reg_no ||
+              rowObj.registration_no ||
+              rowObj.student_id ||
+              rowObj.id ||
+              '',
+            roll_no: rowObj.roll_no || rowObj.roll_number || rowObj.rollno || '',
+            first_name: rowObj.first_name || rowObj.firstname || rowObj.name || rowObj.student_name || 'Student',
+            last_name: rowObj.last_name || rowObj.lastname || '',
+            class_name: rowObj.class_name || rowObj.class || rowObj.classname || rowObj.grade || 'Grade 10',
+            section_name: rowObj.section_name || rowObj.section || rowObj.sec || 'Section A',
             gender: (rowObj.gender || 'MALE').toUpperCase(),
-            dob: parseSafeDate(rowObj.dob || rowObj.date_of_birth) || '',
-            admission_date: parseSafeDate(rowObj.admission_date || rowObj.adm_date) || '',
-            phone: rowObj.phone || '',
-            emergency_phone: rowObj.emergency_phone || rowObj.phone || '',
-            father_name: rowObj.father_name || rowObj.father || '',
-            mother_name: rowObj.mother_name || rowObj.mother || '',
-            blood_group: rowObj.blood_group || '',
+            dob: parseSafeDate(rowObj.dob || rowObj.date_of_birth || rowObj.birth_date || rowObj.birthdate) || '',
+            admission_date: parseSafeDate(rowObj.admission_date || rowObj.adm_date || rowObj.joining_date) || '',
+            phone: rowObj.phone || rowObj.mobile || rowObj.contact || '',
+            emergency_phone: rowObj.emergency_phone || rowObj.phone || rowObj.mobile || '',
+            father_name: rowObj.father_name || rowObj.father || rowObj.fathername || '',
+            mother_name: rowObj.mother_name || rowObj.mother || rowObj.mothername || '',
+            blood_group: rowObj.blood_group || rowObj.bloodgroup || '',
           });
         }
 

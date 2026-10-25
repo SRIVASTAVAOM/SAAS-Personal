@@ -2377,16 +2377,30 @@ export class AdminRepository {
       let updatedCount = 0;
       const classBreakdown: { [key: string]: number } = {};
 
+      let rowIdx = 0;
       for (const row of students) {
-        const rawClassName = (row.class_name || row.class || 'Grade 10').trim();
-        const rawSectionName = (row.section_name || row.section || 'Section A').trim();
-        const firstName = (row.first_name || row.name || 'Student').trim();
-        const lastName = (row.last_name || '').trim();
-        const admissionNumber = (
+        rowIdx++;
+        const rawClassName = (row.class_name || row.class || 'Grade 10').toString().trim();
+        const rawSectionName = (row.section_name || row.section || 'Section A').toString().trim();
+        const firstName = (row.first_name || row.name || 'Student').toString().trim();
+        const lastName = (row.last_name || '').toString().trim();
+        
+        // Clean and ensure collision-free admission number
+        let rawAdm = (
           row.admission_no ||
           row.admission_number ||
-          `ADM${Date.now()}${Math.floor(Math.random() * 1000)}`
-        ).trim();
+          row.adm_no ||
+          row['admission no'] ||
+          row['admission number'] ||
+          row['adm no'] ||
+          ''
+        ).toString().trim();
+
+        if (!rawAdm) {
+          rawAdm = `ADM-${Date.now()}-${rowIdx}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        }
+        const admissionNumber = rawAdm;
+
         const rollNumber = row.roll_no ? String(row.roll_no).trim() : (row.roll_number ? String(row.roll_number).trim() : null);
         const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
         const dob = parseSafeDate(row.dob || row.date_of_birth);
@@ -2422,45 +2436,67 @@ export class AdminRepository {
           sectionMap.set(secKey, sectionId);
         }
 
-        // 3. User Credentials & Profile
+        // 3. User Credentials & Profile: Case-insensitive check across users table
         const existingUserRes = await client.query(
-          'SELECT u.id AS user_id, sp.id AS profile_id FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id WHERE u.school_id = $1 AND u.identifier = $2',
-          [schoolId, admissionNumber]
+          'SELECT u.id AS user_id, sp.id AS profile_id FROM users u LEFT JOIN student_profiles sp ON sp.user_id = u.id WHERE LOWER(TRIM(u.identifier)) = LOWER(TRIM($1)) LIMIT 1',
+          [admissionNumber]
         );
 
         let safeUserPhone = phone;
         if (safeUserPhone) {
-          const phoneCheck = await client.query('SELECT id FROM users WHERE phone = $1', [safeUserPhone]);
+          const phoneCheck = await client.query(
+            'SELECT id FROM users WHERE phone = $1 AND LOWER(TRIM(identifier)) != LOWER(TRIM($2))',
+            [safeUserPhone, admissionNumber]
+          );
           if (phoneCheck.rows.length > 0) {
-            safeUserPhone = null; // Avoid users_phone_key unique collision; stored in emergency_phone
+            safeUserPhone = null; // Avoid users_phone_key collision; stored in emergency_phone
           }
         }
 
         if (existingUserRes.rows.length > 0) {
-          const { user_id, profile_id } = existingUserRes.rows[0];
-          if (safeUserPhone) {
-            await client.query('UPDATE users SET phone = $1 WHERE id = $2', [safeUserPhone, user_id]);
+          const userId = existingUserRes.rows[0].user_id;
+          let profileId = existingUserRes.rows[0].profile_id;
+
+          // Keep user account active and attached to this school
+          await client.query(
+            'UPDATE users SET school_id = $1, phone = COALESCE($2, phone), is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+            [schoolId, safeUserPhone, userId]
+          );
+
+          if (!profileId) {
+            // Check if profile exists by admission_number
+            const profCheck = await client.query(
+              'SELECT id FROM student_profiles WHERE LOWER(TRIM(admission_number)) = LOWER(TRIM($1)) LIMIT 1',
+              [admissionNumber]
+            );
+            if (profCheck.rows.length > 0) {
+              profileId = profCheck.rows[0].id;
+            }
           }
-          if (profile_id) {
+
+          if (profileId) {
             await client.query(
               `UPDATE student_profiles SET
                 first_name = $1,
                 last_name = $2,
-                roll_number = COALESCE($3, roll_number),
-                current_class_id = $4,
-                current_section_id = $5,
-                gender = COALESCE($6, gender),
-                date_of_birth = COALESCE($7, date_of_birth),
-                emergency_phone = COALESCE($8, emergency_phone),
-                father_name = COALESCE($9, father_name),
-                mother_name = COALESCE($10, mother_name),
-                blood_group = COALESCE($11, blood_group),
-                admission_date = COALESCE($12, admission_date),
+                admission_number = $3,
+                roll_number = COALESCE($4, roll_number),
+                current_class_id = $5,
+                current_section_id = $6,
+                gender = COALESCE($7, gender),
+                date_of_birth = COALESCE($8, date_of_birth),
+                emergency_phone = COALESCE($9, emergency_phone),
+                father_name = COALESCE($10, father_name),
+                mother_name = COALESCE($11, mother_name),
+                blood_group = COALESCE($12, blood_group),
+                admission_date = COALESCE($13, admission_date),
+                is_active = TRUE,
                 updated_at = CURRENT_TIMESTAMP
-              WHERE id = $13`,
+              WHERE id = $14`,
               [
                 firstName,
                 lastName,
+                admissionNumber,
                 rollNumber,
                 classId,
                 sectionId,
@@ -2471,7 +2507,31 @@ export class AdminRepository {
                 motherName,
                 bloodGroup,
                 admissionDate,
-                profile_id,
+                profileId,
+              ]
+            );
+          } else {
+            await client.query(
+              `INSERT INTO student_profiles (
+                user_id, admission_number, roll_number, first_name, last_name,
+                current_class_id, current_section_id, gender, date_of_birth, admission_date,
+                emergency_phone, father_name, mother_name, blood_group, is_active
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
+              [
+                userId,
+                admissionNumber,
+                rollNumber,
+                firstName,
+                lastName,
+                classId,
+                sectionId,
+                gender,
+                dob,
+                admissionDate,
+                emergencyPhone,
+                fatherName,
+                motherName,
+                bloodGroup,
               ]
             );
           }
@@ -2480,7 +2540,12 @@ export class AdminRepository {
           const passwordHash = await bcrypt.hash(password, 10);
           const userInsert = await client.query(
             `INSERT INTO users (school_id, identifier, phone, password_hash, is_active)
-             VALUES ($1, $2, $3, $4, TRUE) RETURNING id`,
+             VALUES ($1, $2, $3, $4, TRUE)
+             ON CONFLICT (identifier) DO UPDATE SET
+               school_id = EXCLUDED.school_id,
+               phone = COALESCE(EXCLUDED.phone, users.phone),
+               updated_at = CURRENT_TIMESTAMP
+             RETURNING id`,
             [schoolId, admissionNumber, safeUserPhone, passwordHash]
           );
           const newUserId = userInsert.rows[0].id;
@@ -2492,30 +2557,75 @@ export class AdminRepository {
             );
           }
 
-          await client.query(
-            `INSERT INTO student_profiles (
-              user_id, admission_number, roll_number, first_name, last_name,
-              current_class_id, current_section_id, gender, date_of_birth, admission_date,
-              emergency_phone, father_name, mother_name, blood_group, is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
-            [
-              newUserId,
-              admissionNumber,
-              rollNumber,
-              firstName,
-              lastName,
-              classId,
-              sectionId,
-              gender,
-              dob,
-              admissionDate,
-              emergencyPhone,
-              fatherName,
-              motherName,
-              bloodGroup,
-            ]
+          // Check if profile exists by user_id OR admission_number to prevent student_profiles duplicates
+          const profCheck = await client.query(
+            'SELECT id FROM student_profiles WHERE user_id = $1 OR LOWER(TRIM(admission_number)) = LOWER(TRIM($2)) LIMIT 1',
+            [newUserId, admissionNumber]
           );
-          createdCount++;
+
+          if (profCheck.rows.length > 0) {
+            await client.query(
+              `UPDATE student_profiles SET
+                first_name = $1,
+                last_name = $2,
+                admission_number = $3,
+                roll_number = COALESCE($4, roll_number),
+                current_class_id = $5,
+                current_section_id = $6,
+                gender = COALESCE($7, gender),
+                date_of_birth = COALESCE($8, date_of_birth),
+                emergency_phone = COALESCE($9, emergency_phone),
+                father_name = COALESCE($10, father_name),
+                mother_name = COALESCE($11, mother_name),
+                blood_group = COALESCE($12, blood_group),
+                admission_date = COALESCE($13, admission_date),
+                is_active = TRUE,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE id = $14`,
+              [
+                firstName,
+                lastName,
+                admissionNumber,
+                rollNumber,
+                classId,
+                sectionId,
+                gender,
+                dob,
+                emergencyPhone,
+                fatherName,
+                motherName,
+                bloodGroup,
+                admissionDate,
+                profCheck.rows[0].id,
+              ]
+            );
+            updatedCount++;
+          } else {
+            await client.query(
+              `INSERT INTO student_profiles (
+                user_id, admission_number, roll_number, first_name, last_name,
+                current_class_id, current_section_id, gender, date_of_birth, admission_date,
+                emergency_phone, father_name, mother_name, blood_group, is_active
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
+              [
+                newUserId,
+                admissionNumber,
+                rollNumber,
+                firstName,
+                lastName,
+                classId,
+                sectionId,
+                gender,
+                dob,
+                admissionDate,
+                emergencyPhone,
+                fatherName,
+                motherName,
+                bloodGroup,
+              ]
+            );
+            createdCount++;
+          }
         }
 
         const breakdownKey = `${rawClassName} - ${rawSectionName}`;
