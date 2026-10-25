@@ -3,12 +3,28 @@ import { authenticateToken } from '../../middlewares/auth.middleware';
 import { requireRole } from '../../middlewares/rbac.middleware';
 import { AdminController } from './admin.controller';
 import { MaterialsController } from '../materials/materials.controller';
+import { pool } from '../../config/db.config';
 
 const router = Router();
 
 // All Admin web portal endpoints require authentication and ADMIN or SUPER_ADMIN role
 router.use(authenticateToken);
 router.use(requireRole(['ADMIN', 'SUPER_ADMIN']));
+
+// Ensure SUPER_ADMIN has a target school_id populated when viewing admin portals
+router.use(async (req: any, _res, next) => {
+  if (req.user && (!req.user.schoolId || req.user.schoolId.trim() === '')) {
+    try {
+      const { rows } = await pool.query('SELECT id FROM schools ORDER BY created_at ASC LIMIT 1');
+      if (rows.length > 0) {
+        req.user.schoolId = rows[0].id;
+      }
+    } catch (_err) {
+      // ignore
+    }
+  }
+  next();
+});
 
 // Web Admin Command Center Dashboard Summary
 router.get('/dashboard/summary', AdminController.getDashboardSummary);

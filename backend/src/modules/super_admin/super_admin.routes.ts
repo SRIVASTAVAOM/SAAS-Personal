@@ -27,4 +27,8 @@ router.patch('/schools/:id/status', SuperAdminController.updateStatus as any);
 // 6. School subscription & plan management
 router.patch('/schools/:id/plan', SuperAdminController.updatePlan as any);
 
+// 7. Instant Reset & Recovery of Default Accounts (admin, teacher, student)
+router.post('/restore-credentials', SuperAdminController.restoreCredentials as any);
+
 export default router;
+

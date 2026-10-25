@@ -680,5 +680,11 @@ export const api = {
         body: JSON.stringify(payload),
       });
     },
+
+    restoreCredentials: async (): Promise<any> => {
+      return request('/super-admin/restore-credentials', {
+        method: 'POST',
+      });
+    },
   },
 };

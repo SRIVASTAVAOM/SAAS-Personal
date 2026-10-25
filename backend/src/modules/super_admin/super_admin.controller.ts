@@ -167,4 +167,14 @@ export class SuperAdminController {
       next(error);
     }
   }
+
+  static async restoreCredentials(_req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await SuperAdminService.restoreDefaultCredentials();
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

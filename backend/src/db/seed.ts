@@ -8,7 +8,7 @@ export async function runSeeds(): Promise<void> {
     await client.query('BEGIN');
 
     // 1. Roles
-    const roles = ['STUDENT', 'TEACHER', 'ACCOUNTANT', 'COORDINATOR', 'MANAGEMENT'];
+    const roles = ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN'];
     const roleMap: Record<string, string> = {};
     for (const roleName of roles) {
       const res = await client.query(
@@ -77,19 +77,34 @@ export async function runSeeds(): Promise<void> {
     const rawPassword = 'Password@123';
     const passwordHash = await bcrypt.hash(rawPassword, 12);
 
+    // 7a. Ensure Super Admin exists
+    const superAdminRes = await client.query(
+      `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+       VALUES ($1, 'superadmin', 'superadmin@saas.com', '+91 9999999999', $2, true)
+       ON CONFLICT (identifier) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_active = TRUE
+       RETURNING id;`,
+      [schoolId, passwordHash]
+    );
+    await client.query(
+      `INSERT INTO user_roles (user_id, role_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, role_id) DO NOTHING;`,
+      [superAdminRes.rows[0].id, roleMap['SUPER_ADMIN']]
+    );
+
     const testUsers = [
-      { identifier: 'student1', email: 'student1@apex.edu', phone: '9000000001', role: 'STUDENT', type: 'student' },
+      { identifier: 'admin', email: 'admin@apex.edu', phone: '9876543200', role: 'ADMIN', type: 'staff' },
+      { identifier: 'management1', email: 'management1@apex.edu', phone: '9000000005', role: 'ADMIN', type: 'staff' },
       { identifier: 'teacher1', email: 'teacher1@apex.edu', phone: '9000000002', role: 'TEACHER', type: 'staff' },
-      { identifier: 'accountant1', email: 'accountant1@apex.edu', phone: '9000000003', role: 'ACCOUNTANT', type: 'staff' },
-      { identifier: 'coordinator1', email: 'coordinator1@apex.edu', phone: '9000000004', role: 'COORDINATOR', type: 'staff' },
-      { identifier: 'management1', email: 'management1@apex.edu', phone: '9000000005', role: 'MANAGEMENT', type: 'staff' },
+      { identifier: 'student1', email: 'student1@apex.edu', phone: '9000000001', role: 'STUDENT', type: 'student' },
+      { identifier: 'student2', email: 'student2@apex.edu', phone: '9000000006', role: 'STUDENT', type: 'student' },
     ];
 
     for (const u of testUsers) {
       const userRes = await client.query(
         `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
          VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (identifier) DO UPDATE SET password_hash = EXCLUDED.password_hash
+         ON CONFLICT (identifier) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_active = TRUE
          RETURNING id;`,
         [schoolId, u.identifier, u.email, u.phone, passwordHash, true]
       );
@@ -109,12 +124,13 @@ export async function runSeeds(): Promise<void> {
           `INSERT INTO student_profiles (
             user_id, admission_number, roll_number, first_name, last_name,
             gender, date_of_birth, admission_date, current_class_id, current_section_id,
-            father_name, mother_name, emergency_phone, blood_group, medical_notes
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-           ON CONFLICT (user_id) DO NOTHING;`,
+            father_name, mother_name, emergency_phone, blood_group, medical_notes, is_active
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, TRUE)
+           ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE;`,
           [
-            userId, 'ADM2026001', '101', 'Aarav', 'Sharma',
-            'Male', '2010-05-15', '2026-04-01', classId, sectionId,
+            userId, u.identifier === 'student1' ? 'ADM2026001' : 'ADM2026002', u.identifier === 'student1' ? '101' : '102',
+            u.identifier === 'student1' ? 'Aarav' : 'Riya', u.identifier === 'student1' ? 'Sharma' : 'Patel',
+            u.identifier === 'student1' ? 'Male' : 'Female', '2010-05-15', '2026-04-01', classId, sectionId,
             'Rajesh Sharma', 'Sunita Sharma', u.phone, 'O+', 'No allergies'
           ]
         );
@@ -122,12 +138,13 @@ export async function runSeeds(): Promise<void> {
         const staffRes = await client.query(
           `INSERT INTO staff_profiles (
             user_id, employee_code, first_name, last_name, gender,
-            date_of_birth, qualification, joining_date, emergency_phone, phone, blood_group
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-           ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name, qualification = EXCLUDED.qualification
+            date_of_birth, qualification, joining_date, emergency_phone, phone, blood_group, is_active, login_password
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, 'Password@123')
+           ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name, qualification = EXCLUDED.qualification, is_active = TRUE, login_password = 'Password@123'
            RETURNING id;`,
           [
-            userId, `EMP-${u.identifier.toUpperCase()}`, u.role, 'Staff',
+            userId, `EMP-${u.identifier.toUpperCase()}`, u.identifier === 'admin' ? 'School' : (u.identifier === 'teacher1' ? 'Sunita' : 'Management'),
+            u.identifier === 'teacher1' ? 'Sharma' : 'Staff',
             'Other', '1988-08-20', 'M.Sc., B.Ed.', '2024-06-01', u.phone, u.phone, 'B+'
           ]
         );

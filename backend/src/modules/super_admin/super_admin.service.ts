@@ -364,4 +364,173 @@ export class SuperAdminService {
     }
     return rows[0];
   }
+
+  /**
+   * Restores and guarantees default demo login accounts (admin, management1, teacher1, student1, superadmin)
+   */
+  static async restoreDefaultCredentials() {
+    const rawPassword = 'Password@123';
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Reactivate all users and profiles
+      await client.query('UPDATE users SET is_active = TRUE;');
+      await client.query('UPDATE staff_profiles SET is_active = TRUE;');
+      await client.query('UPDATE student_profiles SET is_active = TRUE;');
+
+      // 2. Reset password hashes for default users
+      await client.query(
+        `UPDATE users SET password_hash = $1, is_active = TRUE
+         WHERE identifier IN ('admin', 'management1', 'teacher1', 'student1', 'student2', 'superadmin');`,
+        [passwordHash]
+      );
+
+      // 3. Ensure default school exists
+      let defaultSchoolId: string;
+      const schoolRes = await client.query('SELECT id FROM schools ORDER BY created_at ASC LIMIT 1');
+      if (schoolRes.rows.length === 0) {
+        const newSchool = await client.query(
+          `INSERT INTO schools (name, code, contact_email, contact_phone, address, status, plan)
+           VALUES ('Apex International School', 'APEX01', 'info@apexschool.edu', '+91 9876543210', '123 Education Lane, Knowledge Park', 'ACTIVE', 'PRO')
+           RETURNING id;`
+        );
+        defaultSchoolId = newSchool.rows[0].id;
+      } else {
+        defaultSchoolId = schoolRes.rows[0].id;
+      }
+
+      // Ensure ADMIN role
+      const adminRoleRes = await client.query(`SELECT id FROM roles WHERE name = 'ADMIN' LIMIT 1`);
+      const adminRoleId = adminRoleRes.rows[0]?.id;
+
+      // Ensure TEACHER role
+      const teacherRoleRes = await client.query(`SELECT id FROM roles WHERE name = 'TEACHER' LIMIT 1`);
+      const teacherRoleId = teacherRoleRes.rows[0]?.id;
+
+      // Ensure STUDENT role
+      const studentRoleRes = await client.query(`SELECT id FROM roles WHERE name = 'STUDENT' LIMIT 1`);
+      const studentRoleId = studentRoleRes.rows[0]?.id;
+
+      // Ensure admin exists
+      const adminCheck = await client.query(`SELECT id FROM users WHERE identifier = 'admin'`);
+      let adminUserId: string;
+      if (adminCheck.rows.length === 0) {
+        const ins = await client.query(
+          `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+           VALUES ($1, 'admin', 'admin@apex.edu', '+91 9876543200', $2, TRUE) RETURNING id`,
+          [defaultSchoolId, passwordHash]
+        );
+        adminUserId = ins.rows[0].id;
+      } else {
+        adminUserId = adminCheck.rows[0].id;
+      }
+      if (adminRoleId) {
+        await client.query(
+          `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [adminUserId, adminRoleId]
+        );
+      }
+      await client.query(
+        `INSERT INTO staff_profiles (user_id, employee_code, first_name, last_name, qualification, is_active, login_password)
+         VALUES ($1, 'EMP_ADMIN_001', 'School', 'Administrator', 'M.Ed, Administration', TRUE, 'Password@123')
+         ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, login_password = 'Password@123'`,
+        [adminUserId]
+      );
+
+      // Ensure management1 exists
+      const mgmtCheck = await client.query(`SELECT id FROM users WHERE identifier = 'management1'`);
+      let mgmtUserId: string;
+      if (mgmtCheck.rows.length === 0) {
+        const ins = await client.query(
+          `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+           VALUES ($1, 'management1', 'management1@apex.edu', '+91 9876543201', $2, TRUE) RETURNING id`,
+          [defaultSchoolId, passwordHash]
+        );
+        mgmtUserId = ins.rows[0].id;
+      } else {
+        mgmtUserId = mgmtCheck.rows[0].id;
+      }
+      if (adminRoleId) {
+        await client.query(
+          `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [mgmtUserId, adminRoleId]
+        );
+      }
+      await client.query(
+        `INSERT INTO staff_profiles (user_id, employee_code, first_name, last_name, qualification, is_active, login_password)
+         VALUES ($1, 'EMP-MANAGEMENT1', 'Management', 'Admin', 'M.B.A.', TRUE, 'Password@123')
+         ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, login_password = 'Password@123'`,
+        [mgmtUserId]
+      );
+
+      // Ensure teacher1 exists
+      const teacherCheck = await client.query(`SELECT id FROM users WHERE identifier = 'teacher1'`);
+      let teacherUserId: string;
+      if (teacherCheck.rows.length === 0) {
+        const ins = await client.query(
+          `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+           VALUES ($1, 'teacher1', 'teacher1@apex.edu', '+91 9000000002', $2, TRUE) RETURNING id`,
+          [defaultSchoolId, passwordHash]
+        );
+        teacherUserId = ins.rows[0].id;
+      } else {
+        teacherUserId = teacherCheck.rows[0].id;
+      }
+      if (teacherRoleId) {
+        await client.query(
+          `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [teacherUserId, teacherRoleId]
+        );
+      }
+      await client.query(
+        `INSERT INTO staff_profiles (user_id, employee_code, first_name, last_name, gender, qualification, joining_date, emergency_phone, phone, blood_group, is_active, login_password)
+         VALUES ($1, 'EMP-TEACHER1', 'Sunita', 'Sharma', 'Female', 'M.Sc., B.Ed.', '2024-06-01', '+91 9000000002', '+91 9000000002', 'B+', TRUE, 'Password@123')
+         ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, login_password = 'Password@123'`,
+        [teacherUserId]
+      );
+
+      // Ensure student1 exists
+      const studentCheck = await client.query(`SELECT id FROM users WHERE identifier = 'student1'`);
+      let studentUserId: string;
+      if (studentCheck.rows.length === 0) {
+        const ins = await client.query(
+          `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+           VALUES ($1, 'student1', 'student1@apex.edu', '+91 9000000001', $2, TRUE) RETURNING id`,
+          [defaultSchoolId, passwordHash]
+        );
+        studentUserId = ins.rows[0].id;
+      } else {
+        studentUserId = studentCheck.rows[0].id;
+      }
+      if (studentRoleId) {
+        await client.query(
+          `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [studentUserId, studentRoleId]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        success: true,
+        message: 'All default accounts successfully restored and reactivated.',
+        accounts: [
+          { role: 'SUPER_ADMIN', identifier: 'superadmin', password: 'Password@123', email: 'superadmin@saas.com' },
+          { role: 'ADMIN', identifier: 'admin', password: 'Password@123', email: 'admin@apex.edu' },
+          { role: 'ADMIN', identifier: 'management1', password: 'Password@123', email: 'management1@apex.edu' },
+          { role: 'TEACHER', identifier: 'teacher1', password: 'Password@123', email: 'teacher1@apex.edu' },
+          { role: 'STUDENT', identifier: 'student1', password: 'Password@123', email: 'student1@apex.edu' },
+          { role: 'STUDENT', identifier: 'student2', password: 'Password@123', email: 'student2@apex.edu' },
+        ],
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }

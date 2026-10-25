@@ -49,6 +49,26 @@ export default function SuperAdminPage() {
     password: string;
   } | null>(null);
 
+  // Restore Credentials State
+  const [restoring, setRestoring] = useState(false);
+  const [restoreSuccessModal, setRestoreSuccessModal] = useState<any[] | null>(null);
+
+  const handleRestoreCredentials = async () => {
+    if (!confirm('Reactivate all users and reset default demo credentials (admin, teacher, student)?')) {
+      return;
+    }
+    setRestoring(true);
+    try {
+      const res = await api.superAdmin.restoreCredentials();
+      setRestoreSuccessModal(res.accounts || []);
+      await loadData();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to restore credentials');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   // Onboard Form State
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -217,7 +237,16 @@ export default function SuperAdminPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={handleRestoreCredentials}
+              disabled={restoring}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-sm transition cursor-pointer"
+              title="Reset and reactivate default accounts: admin, teacher, student"
+            >
+              <ShieldCheck className={`w-3.5 h-3.5 ${restoring ? 'animate-spin' : ''}`} />
+              {restoring ? 'Restoring Accounts...' : 'Restore Demo Accounts'}
+            </button>
             <button
               onClick={loadData}
               disabled={refreshing}
@@ -908,6 +937,64 @@ export default function SuperAdminPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Success Modal */}
+      {restoreSuccessModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-emerald-700">
+                <Check className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 text-base">Default Accounts Restored!</h3>
+              </div>
+              <button
+                onClick={() => setRestoreSuccessModal(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mt-3">
+              All user accounts have been reactivated and default passwords have been reset to{' '}
+              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
+                Password@123
+              </span>
+              . You can now log into any of these accounts immediately:
+            </p>
+
+            <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden text-xs">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="p-2.5">Role</th>
+                    <th className="p-2.5">Login Identifier</th>
+                    <th className="p-2.5">Password</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {restoreSuccessModal.map((acc, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="p-2.5 font-bold text-indigo-600">{acc.role}</td>
+                      <td className="p-2.5 font-mono text-slate-800 font-semibold">{acc.identifier}</td>
+                      <td className="p-2.5 font-mono text-slate-600 font-semibold">{acc.password}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setRestoreSuccessModal(null)}
+                className="px-5 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-sm"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
