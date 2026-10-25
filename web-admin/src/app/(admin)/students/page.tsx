@@ -32,6 +32,79 @@ import {
 import { api } from '@/lib/api';
 import { ClassItem } from '@/lib/types';
 
+/**
+ * Robust date parser for client-side CSV processing.
+ * Converts DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, Excel numeric serials, etc.
+ * to PostgreSQL-compatible YYYY-MM-DD string, or null if invalid.
+ */
+function parseSafeDate(val: any): string | null {
+  if (val === null || val === undefined) return null;
+  const str = String(val).trim().replace(/^["']|["']$/g, '');
+  if (!str || str === '-' || str.toLowerCase() === 'n/a' || str.toLowerCase() === 'null') {
+    return null;
+  }
+
+  // 1. Check Excel serial date numbers (e.g. 40677 -> 2011-05-14)
+  if (/^\d{5}$/.test(str)) {
+    const serial = parseInt(str, 10);
+    if (serial > 20000 && serial < 60000) {
+      const excelEpoch = new Date(1899, 11, 30);
+      const d = new Date(excelEpoch.getTime() + serial * 86400000);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+    }
+  }
+
+  // 2. Check DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmyMatch) {
+    const p1 = parseInt(dmyMatch[1], 10);
+    const p2 = parseInt(dmyMatch[2], 10);
+    const year = parseInt(dmyMatch[3], 10);
+
+    let day = p1;
+    let month = p2;
+
+    // If month > 12 and day <= 12, user might have used MM-DD-YYYY
+    if (month > 12 && day <= 12) {
+      day = p2;
+      month = p1;
+    }
+
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. Check YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10);
+    const day = parseInt(ymdMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // 4. Fallback to JS Date parser
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    if (y >= 1900 && y <= 2100) {
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  return null;
+}
+
 export default function StudentsDirectoryPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -140,7 +213,8 @@ export default function StudentsDirectoryPage() {
             class_name: rowObj.class_name || rowObj.class || 'Grade 10',
             section_name: rowObj.section_name || rowObj.section || 'Section A',
             gender: (rowObj.gender || 'MALE').toUpperCase(),
-            dob: rowObj.dob || rowObj.date_of_birth || '',
+            dob: parseSafeDate(rowObj.dob || rowObj.date_of_birth) || '',
+            admission_date: parseSafeDate(rowObj.admission_date || rowObj.adm_date) || '',
             phone: rowObj.phone || '',
             emergency_phone: rowObj.emergency_phone || rowObj.phone || '',
             father_name: rowObj.father_name || rowObj.father || '',

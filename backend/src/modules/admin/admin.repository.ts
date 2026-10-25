@@ -249,6 +249,79 @@ export interface GreensheetResponse {
   };
 }
 
+/**
+ * Robust date parser for bulk CSV uploads and user input.
+ * Converts DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, YYYY-MM-DD, Excel serials, etc.
+ * to PostgreSQL-compatible YYYY-MM-DD, or null if invalid.
+ */
+export function parseSafeDate(val: any): string | null {
+  if (val === null || val === undefined) return null;
+  const str = String(val).trim().replace(/^["']|["']$/g, '');
+  if (!str || str === '-' || str.toLowerCase() === 'n/a' || str.toLowerCase() === 'null') {
+    return null;
+  }
+
+  // 1. Check Excel serial date numbers (e.g. 40677 -> 2011-05-14)
+  if (/^\d{5}$/.test(str)) {
+    const serial = parseInt(str, 10);
+    if (serial > 20000 && serial < 60000) {
+      const excelEpoch = new Date(1899, 11, 30);
+      const d = new Date(excelEpoch.getTime() + serial * 86400000);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+    }
+  }
+
+  // 2. Check DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmyMatch) {
+    const p1 = parseInt(dmyMatch[1], 10);
+    const p2 = parseInt(dmyMatch[2], 10);
+    const year = parseInt(dmyMatch[3], 10);
+
+    let day = p1;
+    let month = p2;
+
+    // If month > 12 and day <= 12, user might have used MM-DD-YYYY
+    if (month > 12 && day <= 12) {
+      day = p2;
+      month = p1;
+    }
+
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. Check YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10);
+    const day = parseInt(ymdMatch[3], 10);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  // 4. Fallback to JS Date parser
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    if (y >= 1900 && y <= 2100) {
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  return null;
+}
+
 export class AdminRepository {
   /**
    * 1. Get Live Command Center Dashboard Summary
@@ -1749,9 +1822,9 @@ export class AdminRepository {
           data.first_name.trim(),
           data.last_name ? data.last_name.trim() : '',
           data.gender || null,
-          data.date_of_birth || null,
+          parseSafeDate(data.date_of_birth),
           data.qualification || null,
-          data.joining_date || new Date().toISOString().split('T')[0],
+          parseSafeDate(data.joining_date) || new Date().toISOString().split('T')[0],
           data.emergency_phone || null,
           data.phone || null,
           data.blood_group || null,
@@ -2316,7 +2389,8 @@ export class AdminRepository {
         ).trim();
         const rollNumber = row.roll_no ? String(row.roll_no).trim() : (row.roll_number ? String(row.roll_number).trim() : null);
         const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
-        const dob = row.dob || row.date_of_birth || null;
+        const dob = parseSafeDate(row.dob || row.date_of_birth);
+        const admissionDate = parseSafeDate(row.admission_date || row.adm_date);
         const phone = row.phone ? String(row.phone).trim() : null;
         const emergencyPhone = row.emergency_phone ? String(row.emergency_phone).trim() : phone;
         const fatherName = row.father_name || row.father || null;
@@ -2381,8 +2455,9 @@ export class AdminRepository {
                 father_name = COALESCE($9, father_name),
                 mother_name = COALESCE($10, mother_name),
                 blood_group = COALESCE($11, blood_group),
+                admission_date = COALESCE($12, admission_date),
                 updated_at = CURRENT_TIMESTAMP
-              WHERE id = $12`,
+              WHERE id = $13`,
               [
                 firstName,
                 lastName,
@@ -2395,6 +2470,7 @@ export class AdminRepository {
                 fatherName,
                 motherName,
                 bloodGroup,
+                admissionDate,
                 profile_id,
               ]
             );
@@ -2419,9 +2495,9 @@ export class AdminRepository {
           await client.query(
             `INSERT INTO student_profiles (
               user_id, admission_number, roll_number, first_name, last_name,
-              current_class_id, current_section_id, gender, date_of_birth,
+              current_class_id, current_section_id, gender, date_of_birth, admission_date,
               emergency_phone, father_name, mother_name, blood_group, is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, TRUE)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
             [
               newUserId,
               admissionNumber,
@@ -2432,6 +2508,7 @@ export class AdminRepository {
               sectionId,
               gender,
               dob,
+              admissionDate,
               emergencyPhone,
               fatherName,
               motherName,
@@ -2485,7 +2562,7 @@ export class AdminRepository {
         const department = row.department || 'Academics';
         const designation = row.designation || 'Teacher';
         const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
-        const joiningDate = row.joining_date || new Date().toISOString().split('T')[0];
+        const joiningDate = parseSafeDate(row.joining_date) || new Date().toISOString().split('T')[0];
         const rawPassword = row.password || 'Staff@123';
         const roleName = (row.role || 'TEACHER').toUpperCase();
 
