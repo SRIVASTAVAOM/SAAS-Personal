@@ -1770,6 +1770,42 @@ export class AdminRepository {
         );
       }
 
+      // If assigned as Class Teacher of a Class & Section
+      if (data.class_id && data.section_id) {
+        if (data.is_class_teacher !== false) {
+          await client.query(
+            `DELETE FROM staff_assignments 
+             WHERE class_id = $1 AND section_id = $2 AND assignment_type = 'CLASS_TEACHER'`,
+            [data.class_id, data.section_id]
+          );
+          await client.query(
+            `INSERT INTO staff_assignments (staff_id, class_id, section_id, assignment_type)
+             VALUES ($1, $2, $3, 'CLASS_TEACHER')`,
+            [staffRes.rows[0].id, data.class_id, data.section_id]
+          );
+        }
+
+        // If assigned to a Subject for that Class & Section
+        if (data.subject_id) {
+          const ayRes = await client.query(
+            'SELECT id FROM academic_years WHERE school_id = $1 ORDER BY is_current DESC, created_at DESC LIMIT 1',
+            [schoolId]
+          );
+          if (ayRes.rows.length > 0) {
+            await client.query(
+              `DELETE FROM teacher_subject_allocations 
+               WHERE class_id = $1 AND section_id = $2 AND subject_id = $3`,
+              [data.class_id, data.section_id, data.subject_id]
+            );
+            await client.query(
+              `INSERT INTO teacher_subject_allocations (school_id, academic_year_id, class_id, section_id, subject_id, teacher_id)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [schoolId, ayRes.rows[0].id, data.class_id, data.section_id, data.subject_id, staffRes.rows[0].id]
+            );
+          }
+        }
+      }
+
       await client.query('COMMIT');
       return staffRes.rows[0];
     } catch (err) {
@@ -2489,12 +2525,13 @@ export class AdminRepository {
           );
         }
 
-        await client.query(
+        const staffRes = await client.query(
           `INSERT INTO staff_profiles (
             user_id, employee_code, first_name, last_name, gender,
             qualification, joining_date, phone, emergency_phone, department,
             designation, is_active, login_password
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)
+          RETURNING id`,
           [
             userId,
             empCode,
@@ -2510,6 +2547,76 @@ export class AdminRepository {
             rawPassword,
           ]
         );
+        const staffId = staffRes.rows[0].id;
+
+        // Auto-assign Class Teacher and/or Subject Teacher if class_name & section_name are given in CSV row
+        const rawClassName = (row.class_name || row.class || '').trim();
+        const rawSectionName = (row.section_name || row.section || '').trim();
+        const rawSubjectName = (row.subject_name || row.subject || '').trim();
+
+        if (rawClassName && rawSectionName) {
+          const clsRes = await client.query(
+            'SELECT id FROM classes WHERE school_id = $1 AND LOWER(TRIM(name)) = LOWER($2) LIMIT 1',
+            [schoolId, rawClassName]
+          );
+          if (clsRes.rows.length > 0) {
+            const classId = clsRes.rows[0].id;
+            const secRes = await client.query(
+              'SELECT id FROM sections WHERE class_id = $1 AND LOWER(TRIM(name)) = LOWER($2) LIMIT 1',
+              [classId, rawSectionName]
+            );
+            if (secRes.rows.length > 0) {
+              const sectionId = secRes.rows[0].id;
+
+              const isClassTeacher =
+                row.is_class_teacher === true ||
+                row.is_class_teacher === 'true' ||
+                row.is_class_teacher === 'TRUE' ||
+                row.is_class_teacher === '1' ||
+                row.role === 'CLASS_TEACHER';
+
+              if (isClassTeacher) {
+                await client.query(
+                  `DELETE FROM staff_assignments 
+                   WHERE class_id = $1 AND section_id = $2 AND assignment_type = 'CLASS_TEACHER'`,
+                  [classId, sectionId]
+                );
+                await client.query(
+                  `INSERT INTO staff_assignments (staff_id, class_id, section_id, assignment_type)
+                   VALUES ($1, $2, $3, 'CLASS_TEACHER')`,
+                  [staffId, classId, sectionId]
+                );
+              }
+
+              if (rawSubjectName) {
+                const subRes = await client.query(
+                  'SELECT id FROM subjects WHERE school_id = $1 AND LOWER(TRIM(name)) = LOWER($2) LIMIT 1',
+                  [schoolId, rawSubjectName]
+                );
+                if (subRes.rows.length > 0) {
+                  const subjectId = subRes.rows[0].id;
+                  const ayRes = await client.query(
+                    'SELECT id FROM academic_years WHERE school_id = $1 ORDER BY is_current DESC LIMIT 1',
+                    [schoolId]
+                  );
+                  if (ayRes.rows.length > 0) {
+                    await client.query(
+                      `DELETE FROM teacher_subject_allocations 
+                       WHERE class_id = $1 AND section_id = $2 AND subject_id = $3`,
+                      [classId, sectionId, subjectId]
+                    );
+                    await client.query(
+                      `INSERT INTO teacher_subject_allocations (school_id, academic_year_id, class_id, section_id, subject_id, teacher_id)
+                       VALUES ($1, $2, $3, $4, $5, $6)`,
+                      [schoolId, ayRes.rows[0].id, classId, sectionId, subjectId, staffId]
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+
         createdCount++;
       }
 

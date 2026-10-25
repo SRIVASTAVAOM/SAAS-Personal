@@ -33,6 +33,7 @@ import {
   Download,
   FileSpreadsheet,
   RefreshCw,
+  BookOpen,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
@@ -79,6 +80,10 @@ export default function StaffListPage() {
   const [viewingStaff, setViewingStaff] = useState<StaffItem | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<StaffItem | null>(null);
 
+  // Classes & Subjects metadata for allocation
+  const [classesList, setClassesList] = useState<any[]>([]);
+  const [subjectsList, setSubjectsList] = useState<any[]>([]);
+
   // Form states
   const [formData, setFormData] = useState({
     first_name: '',
@@ -95,7 +100,17 @@ export default function StaffListPage() {
     designation: '',
     blood_group: '',
     joining_date: new Date().toISOString().split('T')[0],
+    class_id: '',
+    section_id: '',
+    subject_id: '',
+    is_class_teacher: true,
   });
+
+  const selectedClassSections = useMemo(() => {
+    if (!formData.class_id) return [];
+    const cls = classesList.find((c) => (c.id || c.class_id) === formData.class_id);
+    return cls?.sections || [];
+  }, [formData.class_id, classesList]);
 
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -111,11 +126,11 @@ export default function StaffListPage() {
 
   const downloadStaffSampleTemplate = () => {
     const csvContent =
-      'employee_code,first_name,last_name,email,phone,qualification,department,designation,gender,role\n' +
-      'EMP001,Vikram,Sharma,vikram@school.edu,9876500001,M.Sc Mathematics,Mathematics,PGT Faculty,MALE,TEACHER\n' +
-      'EMP002,Priya,Verma,priya@school.edu,9876500002,M.Sc Physics,Science,TGT Faculty,FEMALE,TEACHER\n' +
-      'EMP003,Sunita,Joshi,sunita@school.edu,9876500003,M.A English,Languages,TGT Faculty,FEMALE,TEACHER\n' +
-      'EMP004,Rajesh,Gupta,rajesh@school.edu,9876500004,M.Com,Social Science,Senior Teacher,MALE,TEACHER';
+      'employee_code,first_name,last_name,email,phone,qualification,department,designation,gender,role,class_name,section_name,subject_name,is_class_teacher\n' +
+      'EMP001,Vikram,Sharma,vikram@school.edu,9876500001,M.Sc Mathematics,Mathematics,PGT Faculty,MALE,TEACHER,Grade 10,Section A,Mathematics,true\n' +
+      'EMP002,Priya,Verma,priya@school.edu,9876500002,M.Sc Physics,Science,TGT Faculty,FEMALE,TEACHER,Grade 10,Section A,Science,false\n' +
+      'EMP003,Sunita,Joshi,sunita@school.edu,9876500003,M.A English,Languages,TGT Faculty,FEMALE,TEACHER,Grade 9,Section B,English,true\n' +
+      'EMP004,Rajesh,Gupta,rajesh@school.edu,9876500004,M.Com,Social Science,Senior Teacher,MALE,TEACHER,Grade 10,Section A,Social Science,false';
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -167,6 +182,13 @@ export default function StaffListPage() {
             designation: rowObj.designation || 'Teacher',
             gender: (rowObj.gender || 'MALE').toUpperCase(),
             role: (rowObj.role || 'TEACHER').toUpperCase(),
+            class_name: rowObj.class_name || rowObj.class || '',
+            section_name: rowObj.section_name || rowObj.section || '',
+            subject_name: rowObj.subject_name || rowObj.subject || '',
+            is_class_teacher:
+              rowObj.is_class_teacher === 'true' ||
+              rowObj.is_class_teacher === 'TRUE' ||
+              rowObj.is_class_teacher === '1',
           });
         }
 
@@ -211,8 +233,22 @@ export default function StaffListPage() {
     }
   };
 
+  const loadMetadata = async () => {
+    try {
+      const [clsRes, subRes] = await Promise.all([
+        api.academics.getClasses().catch(() => []),
+        api.academics.getSubjects().catch(() => []),
+      ]);
+      setClassesList(clsRes || []);
+      setSubjectsList(subRes || []);
+    } catch {
+      // non-fatal
+    }
+  };
+
   useEffect(() => {
     fetchStaff();
+    loadMetadata();
   }, []);
 
   // Filtered staff list
@@ -278,10 +314,13 @@ export default function StaffListPage() {
       designation: 'Subject Teacher',
       blood_group: '',
       joining_date: new Date().toISOString().split('T')[0],
+      class_id: '',
+      section_id: '',
+      subject_id: '',
+      is_class_teacher: true,
     });
     setErrorMessage(null);
     setSuccessMessage(null);
-    setIsAddModalOpen(true);
   };
 
   // Open Edit Modal
@@ -302,6 +341,10 @@ export default function StaffListPage() {
       designation: staff.designation || '',
       blood_group: staff.blood_group || '',
       joining_date: staff.joining_date || new Date().toISOString().split('T')[0],
+      class_id: '',
+      section_id: '',
+      subject_id: '',
+      is_class_teacher: false,
     });
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -434,6 +477,13 @@ export default function StaffListPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <a
+            href="/academics/allocations"
+            className="px-4 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 hover:text-white rounded-xl font-bold text-xs flex items-center gap-2 border border-indigo-400/30 shadow-xs transition"
+          >
+            <BookOpen className="w-4 h-4 text-indigo-400" />
+            <span>Class &amp; Subject Allocations Hub</span>
+          </a>
           <button
             onClick={() => {
               setBulkStaffError(null);
@@ -1258,12 +1308,105 @@ export default function StaffListPage() {
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                    className="w-full text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
                   >
-                    <option value="TEACHER">TEACHER</option>
-                    <option value="ADMIN">ADMIN</option>
+                    <option value="TEACHER">TEACHER (Faculty)</option>
+                    <option value="ADMIN">ADMIN (School Administration)</option>
                   </select>
                 </div>
+
+                {/* Academic Class & Subject Allocation for TEACHER */}
+                {formData.role === 'TEACHER' && (
+                  <div className="col-span-1 sm:col-span-2 p-4 bg-indigo-50/70 border border-indigo-200/80 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                        <Sparkles className="w-4 h-4 text-indigo-600" />
+                        <span>Class Teacher &amp; Subject Allocation (Optional)</span>
+                      </div>
+                      <span className="text-[10px] text-indigo-700 bg-indigo-100 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                        Live Auto-Assign
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Assign this teacher directly to a specific Class, Section, and Primary Subject.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      {/* Class */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Assign Class
+                        </label>
+                        <select
+                          value={formData.class_id}
+                          onChange={(e) => setFormData({ ...formData, class_id: e.target.value, section_id: '' })}
+                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                        >
+                          <option value="">-- No Class Selected --</option>
+                          {classesList.map((cls) => (
+                            <option key={cls.id || cls.class_id} value={cls.id || cls.class_id}>
+                              {cls.name || cls.class_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Section */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Assign Section
+                        </label>
+                        <select
+                          value={formData.section_id}
+                          disabled={!formData.class_id}
+                          onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
+                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-800 disabled:opacity-50"
+                        >
+                          <option value="">-- No Section --</option>
+                          {selectedClassSections.map((sec: any) => (
+                            <option key={sec.id} value={sec.id}>
+                              {sec.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Subject */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Teaching Subject
+                        </label>
+                        <select
+                          value={formData.subject_id}
+                          onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
+                          className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                        >
+                          <option value="">-- No Subject Assigned --</option>
+                          {subjectsList.map((sub: any) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.name} ({sub.code || 'SUB'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {formData.class_id && formData.section_id && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-indigo-100">
+                        <input
+                          type="checkbox"
+                          id="isClassTeacherCheckbox"
+                          checked={formData.is_class_teacher}
+                          onChange={(e) => setFormData({ ...formData, is_class_teacher: e.target.checked })}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                        />
+                        <label htmlFor="isClassTeacherCheckbox" className="text-xs text-slate-800 font-medium cursor-pointer">
+                          Designate as official <strong>Class Teacher</strong> for this section
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Email */}
                 <div>
@@ -1596,7 +1739,7 @@ export default function StaffListPage() {
                     Step 1: Download Official CSV Template
                   </h4>
                   <p className="text-[11px] text-indigo-800/80 mt-0.5">
-                    Pre-formatted template with all columns (Employee Code, Name, Email, Phone, Qualification, Department, Designation).
+                    Pre-formatted template with faculty info, role, plus optional <strong>Class, Section, Subject &amp; Class Teacher</strong> columns.
                   </p>
                 </div>
                 <button
@@ -1679,25 +1822,47 @@ export default function StaffListPage() {
                   </div>
                   <div className="border border-slate-200 rounded-xl overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold">
+                      <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold whitespace-nowrap">
                         <tr>
                           <th className="px-3 py-2">Emp Code</th>
                           <th className="px-3 py-2">Name</th>
-                          <th className="px-3 py-2">Department</th>
                           <th className="px-3 py-2">Designation</th>
+                          <th className="px-3 py-2">Class / Sec</th>
+                          <th className="px-3 py-2">Subject</th>
+                          <th className="px-3 py-2">Class Teacher</th>
                           <th className="px-3 py-2">Phone</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 whitespace-nowrap">
                         {staffCsvPreview.slice(0, 5).map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
                             <td className="px-3 py-2 font-mono font-semibold text-slate-800">{row.employee_code || 'AUTO'}</td>
                             <td className="px-3 py-2 font-medium text-slate-900">{row.first_name} {row.last_name}</td>
-                            <td className="px-3 py-2 text-slate-600">{row.department || '—'}</td>
                             <td className="px-3 py-2">
                               <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-[10px]">
                                 {row.designation || 'Teacher'}
                               </span>
+                            </td>
+                            <td className="px-3 py-2 font-medium text-slate-700">
+                              {row.class_name ? `${row.class_name} ${row.section_name ? `(${row.section_name})` : ''}` : <span className="text-slate-400 text-[11px]">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700 font-medium">
+                              {row.subject_name ? (
+                                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold">
+                                  {row.subject_name}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {row.is_class_teacher ? (
+                                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[10px]">
+                                  Yes
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[10px]">No</span>
+                              )}
                             </td>
                             <td className="px-3 py-2 font-mono text-slate-600">{row.phone || '—'}</td>
                           </tr>
