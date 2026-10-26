@@ -215,6 +215,13 @@ export const api = {
       return request<any[]>(`/admin/students${qs}`);
     },
 
+    createStudent: async (payload: any): Promise<any> => {
+      return request<any>('/admin/students', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
     bulkUploadStudents: async (students: any[]): Promise<any> => {
       return request<any>('/admin/students/bulk-upload', {
         method: 'POST',

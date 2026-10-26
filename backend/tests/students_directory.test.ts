@@ -76,4 +76,68 @@ describe('Admin Student Directory & Multi-Select Integration Tests', () => {
     expect(res.body.data.emergency_phone).toBe('9876543299');
     expect(res.body.data.medical_notes).toBe('Updated medical notes test');
   });
+
+  describe('POST /api/v1/admin/students (Single Student Admission Form)', () => {
+    const testAdmNo = `ADM-TEST-${Date.now().toString().slice(-6)}`;
+
+    it('should successfully admit a new student with generated credentials', async () => {
+      const admissionData = {
+        first_name: 'Aarav',
+        last_name: 'Sharma',
+        admission_number: testAdmNo,
+        roll_number: '55',
+        phone: '9876500001',
+        emergency_phone: '9876500002',
+        father_name: 'Ramesh Sharma',
+        mother_name: 'Sunita Sharma',
+        gender: 'Male',
+        dob: '2015-05-15',
+        blood_group: 'B+',
+        address: '42 Lotus Enclave, New Delhi',
+        caste: 'General',
+        religion: 'Hindu',
+        current_class_id: testClassId || null,
+        password: 'Student@123',
+      };
+
+      const res = await request(app)
+        .post('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(admissionData);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
+      expect(res.body.data.first_name).toBe('Aarav');
+      expect(res.body.data.admission_number).toBe(testAdmNo);
+      expect(res.body.data.father_name).toBe('Ramesh Sharma');
+      expect(res.body.data.password).toBe('Student@123');
+    });
+
+    it('should reject student admission when first_name is missing', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          admission_number: 'ADM-FAIL-01',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should reject student admission with duplicate admission_number', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          first_name: 'Duplicate',
+          admission_number: testAdmNo,
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toMatch(/already exists|already registered|already in use/i);
+    });
+  });
 });

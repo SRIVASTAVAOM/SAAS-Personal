@@ -1806,6 +1806,198 @@ export class AdminRepository {
   }
 
   /**
+   * 10b. Student Management: Create Single Student (New Admission Form)
+   */
+  static async createStudent(schoolId: string, data: any): Promise<any> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const admissionNumber = (data.admission_number || data.admission_no || data.identifier || '').toString().trim();
+      if (!admissionNumber) {
+        const err: any = new Error('Admission number is required.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      // Check collision in users and student_profiles
+      const userCheck = await client.query(
+        'SELECT id FROM users WHERE LOWER(TRIM(identifier)) = LOWER(TRIM($1))',
+        [admissionNumber]
+      );
+      if (userCheck.rows.length > 0) {
+        const err: any = new Error(`A student or user with Admission Number '${admissionNumber}' already exists.`);
+        err.statusCode = 400;
+        throw err;
+      }
+
+      const profCheck = await client.query(
+        'SELECT id FROM student_profiles WHERE LOWER(TRIM(admission_number)) = LOWER(TRIM($1))',
+        [admissionNumber]
+      );
+      if (profCheck.rows.length > 0) {
+        const err: any = new Error(`A student profile with Admission Number '${admissionNumber}' already exists.`);
+        err.statusCode = 400;
+        throw err;
+      }
+
+      const firstName = (data.first_name || data.name || 'Student').toString().trim();
+      const lastName = (data.last_name || '').toString().trim();
+      const rollNumber = data.roll_number ? String(data.roll_number).trim() : null;
+      const classId = data.current_class_id || data.class_id || null;
+      const sectionId = data.current_section_id || data.section_id || null;
+      const gender = data.gender ? String(data.gender).trim().toUpperCase() : 'MALE';
+      const dob = parseSafeDate(data.date_of_birth || data.dob);
+      const admissionDate = parseSafeDate(data.admission_date || data.do_adm) || new Date().toISOString().split('T')[0];
+      const phone = data.phone ? String(data.phone).trim() : null;
+      const emergencyPhone = data.emergency_phone
+        ? String(data.emergency_phone).trim()
+        : data.fat_mobile
+        ? String(data.fat_mobile).trim()
+        : phone;
+      const fatherName = data.father_name || data.fat_name || null;
+      const motherName = data.mother_name || data.mot_name || null;
+      const bloodGroup = data.blood_group || null;
+      const medicalNotes = data.medical_notes || null;
+      const password = data.password || 'Student@123';
+      const address = data.address || null;
+      const caste = data.caste || data.category || null;
+      const religion = data.religion || null;
+      const nationality = data.nationality || 'Indian';
+      const studentAadhar = data.student_aadhar || null;
+      const aadharFather = data.aadhar_father || null;
+      const aadharMother = data.aadhar_mother || null;
+      const fatherPan = data.father_pan || null;
+      const panMother = data.pan_mother || null;
+
+      // Safe phone for users table to avoid unique constraint collision
+      let safeUserPhone = phone;
+      if (safeUserPhone) {
+        const phoneCheck = await client.query('SELECT id FROM users WHERE phone = $1', [safeUserPhone]);
+        if (phoneCheck.rows.length > 0) {
+          safeUserPhone = null; // Stored in emergency_phone on student_profiles instead
+        }
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const userRes = await client.query(
+        `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
+         VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id`,
+        [schoolId, admissionNumber, data.email ? data.email.trim().toLowerCase() : null, safeUserPhone, passwordHash]
+      );
+      const userId = userRes.rows[0].id;
+
+      // Assign STUDENT role
+      const studentRoleRes = await client.query("SELECT id FROM roles WHERE name = 'STUDENT' LIMIT 1");
+      if (studentRoleRes.rows.length > 0) {
+        await client.query(
+          'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [userId, studentRoleRes.rows[0].id]
+        );
+      }
+
+      // Preserve any custom extra fields
+      const extraData: Record<string, any> = data.extra_data && typeof data.extra_data === 'object' ? { ...data.extra_data } : {};
+      if (data.fat_occu) extraData.fat_occu = data.fat_occu;
+      if (data.mot_occ) extraData.mot_occ = data.mot_occ;
+      if (data.fat_income) extraData.fat_income = data.fat_income;
+      if (data.mot_income) extraData.mot_income = data.mot_income;
+      if (data.height) extraData.height = data.height;
+      if (data.weight) extraData.weight = data.weight;
+      if (data.house) extraData.house = data.house;
+      if (data.stream) extraData.stream = data.stream;
+
+      const profileRes = await client.query(
+        `INSERT INTO student_profiles (
+          user_id, admission_number, roll_number, first_name, last_name,
+          current_class_id, current_section_id, gender, date_of_birth, admission_date,
+          emergency_phone, father_name, mother_name, blood_group, medical_notes, is_active, login_password,
+          address, caste, religion, nationality, student_aadhar, aadhar_father, aadhar_mother,
+          father_pan, pan_mother, extra_data
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15, TRUE, $16,
+          $17, $18, $19, $20, $21, $22, $23,
+          $24, $25, $26::jsonb
+        ) RETURNING id`,
+        [
+          userId,
+          admissionNumber,
+          rollNumber,
+          firstName,
+          lastName,
+          classId,
+          sectionId,
+          gender,
+          dob,
+          admissionDate,
+          emergencyPhone,
+          fatherName,
+          motherName,
+          bloodGroup,
+          medicalNotes,
+          password,
+          address,
+          caste,
+          religion,
+          nationality,
+          studentAadhar,
+          aadharFather,
+          aadharMother,
+          fatherPan,
+          panMother,
+          JSON.stringify(extraData),
+        ]
+      );
+      const profileId = profileRes.rows[0].id;
+
+      await client.query('COMMIT');
+
+      // Fetch class & section names for response
+      let className = null;
+      let sectionName = null;
+      if (classId) {
+        const clsRes = await pool.query('SELECT name FROM classes WHERE id = $1', [classId]);
+        className = clsRes.rows[0]?.name || null;
+      }
+      if (sectionId) {
+        const secRes = await pool.query('SELECT name FROM sections WHERE id = $1', [sectionId]);
+        sectionName = secRes.rows[0]?.name || null;
+      }
+
+      return {
+        id: profileId,
+        user_id: userId,
+        admission_number: admissionNumber,
+        identifier: admissionNumber,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: `${firstName} ${lastName}`.trim(),
+        roll_number: rollNumber,
+        class_id: classId,
+        class_name: className,
+        section_id: sectionId,
+        section_name: sectionName,
+        phone: phone,
+        emergency_phone: emergencyPhone,
+        father_name: fatherName,
+        mother_name: motherName,
+        gender: gender,
+        date_of_birth: dob,
+        admission_date: admissionDate,
+        blood_group: bloodGroup,
+        password: password,
+        login_password: password,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * 11. Staff Management: Create Staff
    */
   static async createStaff(schoolId: string, data: any): Promise<any> {

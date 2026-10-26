@@ -146,6 +146,15 @@ export class AdminService {
     return AdminRepository.resetStudentPassword(user.schoolId, studentId, customPassword);
   }
 
+  static async createStudent(user: TokenPayload, data: any): Promise<any> {
+    if (!data.first_name || (!data.admission_number && !data.admission_no && !data.identifier)) {
+      const error: any = new Error('First name and Admission number are required for student admission');
+      error.statusCode = 400;
+      throw error;
+    }
+    return AdminRepository.createStudent(user.schoolId, data);
+  }
+
   // Staff Management
   static async getAllStaff(user: TokenPayload, search?: string, isActive?: boolean): Promise<any[]> {
     return AdminRepository.getAllStaff(user.schoolId, search, isActive);

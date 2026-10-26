@@ -329,6 +329,23 @@ export class AdminController {
   }
 
   /**
+   * POST /api/v1/admin/students (New Admission Form)
+   */
+  static async createStudent(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const created = await AdminService.createStudent(user, req.body);
+      res.status(201).json({ success: true, message: 'Student admission successfully created', data: created });
+    } catch (error: any) {
+      res.status(error.statusCode || 400).json({
+        success: false,
+        message: error.message,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /api/v1/admin/staff
    */
   static async getAllStaff(req: Request, res: Response): Promise<void> {

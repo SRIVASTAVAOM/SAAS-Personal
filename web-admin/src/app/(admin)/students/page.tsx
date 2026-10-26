@@ -32,6 +32,9 @@ import {
   EyeOff,
   RotateCcw,
   KeyRound,
+  UserPlus,
+  MapPin,
+  HeartPulse,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ClassItem } from '@/lib/types';
@@ -157,6 +160,50 @@ export default function StudentsDirectoryPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Admission Form State
+  const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
+  const [admissionSubmitting, setAdmissionSubmitting] = useState(false);
+  const [admissionError, setAdmissionError] = useState<string | null>(null);
+  const [admissionSuccessData, setAdmissionSuccessData] = useState<any | null>(null);
+
+  const initialAdmissionForm = {
+    admission_number: '',
+    first_name: '',
+    last_name: '',
+    current_class_id: '',
+    current_section_id: '',
+    roll_number: '',
+    admission_date: new Date().toISOString().split('T')[0],
+    gender: 'MALE',
+    date_of_birth: '',
+    blood_group: '',
+    phone: '',
+    emergency_phone: '',
+    father_name: '',
+    mother_name: '',
+    fat_occu: '',
+    fat_income: '',
+    mot_occ: '',
+    email: '',
+    address: '',
+    caste: '',
+    religion: 'Hindu',
+    nationality: 'Indian',
+    student_aadhar: '',
+    password: 'Student@123',
+    medical_notes: '',
+  };
+  const [admissionForm, setAdmissionForm] = useState(initialAdmissionForm);
+
+  const generateRandomAdmissionNo = () => {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    setAdmissionForm((prev) => ({
+      ...prev,
+      admission_number: `STU${year}${rand}`,
+    }));
+  };
 
   // Bulk Upload State
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -479,6 +526,55 @@ export default function StudentsDirectoryPage() {
     }
   };
 
+  // Submit New Student Admission
+  const handleAdmissionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!admissionForm.first_name.trim()) {
+      setAdmissionError('Please enter Student First Name.');
+      return;
+    }
+    if (!admissionForm.admission_number.trim()) {
+      setAdmissionError('Please enter or generate an Admission Number.');
+      return;
+    }
+    if (!admissionForm.current_class_id) {
+      setAdmissionError('Please select a Class for the student.');
+      return;
+    }
+
+    try {
+      setAdmissionSubmitting(true);
+      setAdmissionError(null);
+      const res = await api.admin.createStudent({
+        ...admissionForm,
+        first_name: admissionForm.first_name.trim(),
+        last_name: admissionForm.last_name.trim(),
+        admission_number: admissionForm.admission_number.trim(),
+        roll_number: admissionForm.roll_number.trim() || null,
+        phone: admissionForm.phone.trim() || null,
+        emergency_phone: admissionForm.emergency_phone.trim() || admissionForm.phone.trim() || null,
+        father_name: admissionForm.father_name.trim() || null,
+        mother_name: admissionForm.mother_name.trim() || null,
+        email: admissionForm.email.trim() || null,
+        address: admissionForm.address.trim() || null,
+        caste: admissionForm.caste.trim() || null,
+        student_aadhar: admissionForm.student_aadhar.trim() || null,
+        password: admissionForm.password.trim() || 'Student@123',
+      });
+
+      const created = res.data || res;
+      setAdmissionSuccessData(created);
+      setIsAdmissionModalOpen(false);
+      setAdmissionForm(initialAdmissionForm);
+      showToast(`Admission confirmed for ${created.full_name || created.first_name}!`);
+      setStudents((prev) => [created, ...prev]);
+    } catch (err: any) {
+      setAdmissionError(err?.message || 'Failed to complete student admission');
+    } finally {
+      setAdmissionSubmitting(false);
+    }
+  };
+
   // Close dropdowns on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -572,6 +668,13 @@ export default function StudentsDirectoryPage() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [classes, students]);
+
+  // Admission Form Available Sections
+  const admissionClassSections = useMemo(() => {
+    if (!admissionForm.current_class_id) return [];
+    const cls = allClasses.find((c) => c.id === admissionForm.current_class_id);
+    return cls ? cls.sections : [];
+  }, [allClasses, admissionForm.current_class_id]);
 
   // Compute available sections based on selected classes (or across all classes if none selected)
   const availableSections = useMemo(() => {
@@ -832,14 +935,16 @@ export default function StudentsDirectoryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={exportCredentialsCSV}
-            title="Download Login ID and Passwords for all visible students"
-            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+            onClick={() => {
+              setAdmissionError(null);
+              setIsAdmissionModalOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-900/20 transition cursor-pointer flex items-center gap-2 text-xs font-bold"
           >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>Export Credentials (CSV)</span>
+            <UserPlus className="w-4 h-4" />
+            <span>+ New Student Admission</span>
           </button>
           <button
             onClick={() => {
@@ -849,10 +954,18 @@ export default function StudentsDirectoryPage() {
               setCsvFileName('');
               setIsBulkModalOpen(true);
             }}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-900/20 transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs transition cursor-pointer flex items-center gap-2 text-xs font-bold"
           >
-            <Upload className="w-4 h-4" />
-            <span>Bulk Upload Students (CSV)</span>
+            <Upload className="w-4 h-4 text-indigo-600" />
+            <span>Bulk Upload (CSV)</span>
+          </button>
+          <button
+            onClick={exportCredentialsCSV}
+            title="Download Login ID and Passwords for all visible students"
+            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            <span>Export Credentials</span>
           </button>
           <button
             onClick={loadData}
@@ -860,7 +973,7 @@ export default function StudentsDirectoryPage() {
             className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-2xs transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
-            <span>Sync Records</span>
+            <span>Sync</span>
           </button>
         </div>
       </div>
@@ -1910,6 +2023,662 @@ export default function StudentsDirectoryPage() {
                     <span>Import {csvPreview.length > 0 ? `(${csvPreview.length}) Students` : ''}</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* NEW STUDENT ADMISSION FORM MODAL                            */}
+      {/* ============================================================ */}
+      {isAdmissionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 my-6">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/70 via-white to-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Student Admission Form
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                      New Enrollment
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Enroll a new student into the school database and generate mobile app credentials.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdmissionModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form Content */}
+            <form onSubmit={handleAdmissionSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Error Alert */}
+              {admissionError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-center gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="font-medium">{admissionError}</span>
+                </div>
+              )}
+
+              {/* SECTION 1: Academic Enrollment */}
+              <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-700">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>1. Academic Enrollment</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Class, Section &amp; Identification</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Admission Number */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700">
+                        Admission No *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={generateRandomAdmissionNo}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Auto-ID</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. STU202601"
+                      value={admissionForm.admission_number}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, admission_number: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    />
+                  </div>
+
+                  {/* Class */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Class / Grade *
+                    </label>
+                    <select
+                      required
+                      value={admissionForm.current_class_id}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({
+                          ...prev,
+                          current_class_id: e.target.value,
+                          current_section_id: '',
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    >
+                      <option value="">-- Select Class --</option>
+                      {allClasses.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Section */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Section
+                    </label>
+                    <select
+                      value={admissionForm.current_section_id}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, current_section_id: e.target.value }))
+                      }
+                      disabled={!admissionForm.current_class_id}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">-- Select Section --</option>
+                      {admissionClassSections.map((sec) => (
+                        <option key={sec.id} value={sec.id}>
+                          {sec.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Roll Number */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Roll Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1"
+                      value={admissionForm.roll_number}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, roll_number: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    />
+                  </div>
+
+                  {/* Admission Date */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Date of Admission
+                    </label>
+                    <input
+                      type="date"
+                      value={admissionForm.admission_date}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, admission_date: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    />
+                  </div>
+
+                  {/* Initial App Password */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Default App Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={admissionForm.password}
+                        onChange={(e) =>
+                          setAdmissionForm((prev) => ({ ...prev, password: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                      />
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: Student Personal Info */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    <span>2. Student Personal Information</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Bio Data &amp; Identity</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* First Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Aarav"
+                      value={admissionForm.first_name}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, first_name: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Last Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sharma"
+                      value={admissionForm.last_name}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, last_name: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Gender */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Gender
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
+                      {['MALE', 'FEMALE', 'OTHER'].map((g) => (
+                        <button
+                          type="button"
+                          key={g}
+                          onClick={() => setAdmissionForm((prev) => ({ ...prev, gender: g }))}
+                          className={`py-1 text-center rounded-lg text-xs font-bold transition cursor-pointer ${
+                            admissionForm.gender === g
+                              ? 'bg-white text-indigo-700 shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {g === 'MALE' ? 'Male' : g === 'FEMALE' ? 'Female' : 'Other'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      value={admissionForm.date_of_birth}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, date_of_birth: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Blood Group */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Blood Group
+                    </label>
+                    <select
+                      value={admissionForm.blood_group}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, blood_group: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    >
+                      <option value="">-- Select Blood Group --</option>
+                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((bg) => (
+                        <option key={bg} value={bg}>
+                          {bg}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Student Aadhaar */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Student Aadhaar Number
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={12}
+                      placeholder="12 digit Aadhaar"
+                      value={admissionForm.student_aadhar}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, student_aadhar: e.target.value.replace(/\D/g, '') }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Parent & Contact Details */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span>3. Parent &amp; Contact Details</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Communication &amp; Guardian Info</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Father's Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Father&apos;s Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rajesh Sharma"
+                      value={admissionForm.father_name}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, father_name: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Father Occupation */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Father Occupation
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Business / Service"
+                      value={admissionForm.fat_occu}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, fat_occu: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Mother's Name */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Mother&apos;s Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sunita Sharma"
+                      value={admissionForm.mother_name}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, mother_name: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Registered Parent Mobile */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Parent Mobile (App Login) *
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="10 digit phone"
+                      value={admissionForm.phone}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({
+                          ...prev,
+                          phone: e.target.value.replace(/\D/g, ''),
+                          emergency_phone: prev.emergency_phone || e.target.value.replace(/\D/g, ''),
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Alternate Phone */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Alternate / Emergency Phone
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      placeholder="Alternate phone"
+                      value={admissionForm.emergency_phone}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, emergency_phone: e.target.value.replace(/\D/g, '') }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="parent@example.com"
+                      value={admissionForm.email}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, email: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: Address & Other Details */}
+              <div className="p-5 rounded-2xl bg-white border border-slate-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <span>4. Residential Address &amp; Background</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Demographics &amp; Health</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Address */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Residential Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="House No, Street, Colony, City, Pincode"
+                      value={admissionForm.address}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, address: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Category / Caste */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Category / Caste
+                    </label>
+                    <select
+                      value={admissionForm.caste}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, caste: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                    >
+                      <option value="">-- Select Category --</option>
+                      <option value="General">General</option>
+                      <option value="OBC">OBC</option>
+                      <option value="SC">SC</option>
+                      <option value="ST">ST</option>
+                      <option value="EWS">EWS</option>
+                    </select>
+                  </div>
+
+                  {/* Religion */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Religion
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hindu / Muslim / Sikh / Christian"
+                      value={admissionForm.religion}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, religion: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+
+                  {/* Medical Notes */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Medical Notes / Allergies (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Asthma, Peanuts allergy, or Nil"
+                      value={admissionForm.medical_notes}
+                      onChange={(e) =>
+                        setAdmissionForm((prev) => ({ ...prev, medical_notes: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAdmissionModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={admissionSubmitting}
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-indigo-600/20 transition cursor-pointer"
+                >
+                  {admissionSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Creating Admission &amp; Enrolling...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirm Admission &amp; Issue Credentials</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* ADMISSION CONFIRMED / CREDENTIALS DIALOG                     */}
+      {/* ============================================================ */}
+      {admissionSuccessData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150 p-6 space-y-5">
+            {/* Success Icon & Header */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Admission Confirmed Successfully!
+              </h3>
+              <p className="text-xs text-slate-500">
+                The student has been enrolled into the school database and is immediately ready for mobile app login.
+              </p>
+            </div>
+
+            {/* Student Card Summary */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60">
+                <span className="text-slate-500">Student Name:</span>
+                <span className="font-bold text-slate-900">{admissionSuccessData.full_name || admissionSuccessData.first_name}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60">
+                <span className="text-slate-500">Class &amp; Section:</span>
+                <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
+                  {admissionSuccessData.class_name || 'Class Assigned'} {admissionSuccessData.section_name ? `- ${admissionSuccessData.section_name}` : ''}
+                </span>
+              </div>
+              {admissionSuccessData.phone && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">Parent Mobile:</span>
+                  <span className="font-mono text-slate-700">{admissionSuccessData.phone}</span>
+                </div>
+              )}
+            </div>
+
+            {/* App Login Credentials Box */}
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                <KeyRound className="w-4 h-4 text-indigo-600" />
+                <span>Mobile App Login Credentials</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Username */}
+                <div className="p-3 bg-white rounded-xl border border-indigo-100 space-y-1">
+                  <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                    Username / Login ID
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-slate-800">
+                      {admissionSuccessData.admission_number}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(admissionSuccessData.admission_number);
+                        showToast('Username copied to clipboard!');
+                      }}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                      title="Copy Username"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="p-3 bg-white rounded-xl border border-indigo-100 space-y-1">
+                  <span className="text-[10px] text-slate-400 font-semibold block uppercase">
+                    Initial Password
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-slate-800">
+                      {admissionSuccessData.password || 'Student@123'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(admissionSuccessData.password || 'Student@123');
+                        showToast('Password copied to clipboard!');
+                      }}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                      title="Copy Password"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                Parents can download the School App, type this Admission No &amp; Password, and login immediately.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const slipText = `SCHOOL ADMISSION SLIP\nName: ${admissionSuccessData.full_name}\nAdmission No: ${admissionSuccessData.admission_number}\nClass: ${admissionSuccessData.class_name || ''} - ${admissionSuccessData.section_name || ''}\nApp Login ID: ${admissionSuccessData.admission_number}\nDefault Password: ${admissionSuccessData.password || 'Student@123'}\nDownload App & Login.`;
+                  navigator.clipboard.writeText(slipText);
+                  showToast('Admission slip copied to clipboard!');
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Slip</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdmissionSuccessData(null)}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-xs cursor-pointer text-center"
+              >
+                Done &amp; View Student
               </button>
             </div>
           </div>

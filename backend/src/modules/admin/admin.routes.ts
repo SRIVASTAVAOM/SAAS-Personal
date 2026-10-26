@@ -47,6 +47,7 @@ router.delete('/timetable/substitutions/:id', AdminController.deleteSubstitution
 
 // Student Directory & Profile Endpoints
 router.get('/students', AdminController.getStudentsList);
+router.post('/students', AdminController.createStudent);
 router.post('/students/bulk-upload', AdminController.bulkUploadStudents);
 router.get('/students/:id', AdminController.getStudentDetails);
 router.patch('/students/:id', AdminController.updateStudent);
