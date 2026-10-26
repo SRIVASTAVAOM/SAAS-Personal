@@ -147,8 +147,10 @@ export class AdminService {
   }
 
   static async createStudent(user: TokenPayload, data: any): Promise<any> {
-    if (!data.first_name || (!data.admission_number && !data.admission_no && !data.identifier)) {
-      const error: any = new Error('First name and Admission number are required for student admission');
+    const hasName = data.first_name || data.stu_name || data.name || data.full_name;
+    const hasAdmNo = data.admission_number || data.admission_no || data.adm_no || data.adm_no_sch || data.reg_no || data.username || data.identifier;
+    if (!hasName || !hasAdmNo) {
+      const error: any = new Error('Student name and Admission number are required for student admission');
       error.statusCode = 400;
       throw error;
     }

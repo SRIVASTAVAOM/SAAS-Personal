@@ -35,6 +35,12 @@ import {
   UserPlus,
   MapPin,
   HeartPulse,
+  BookOpen,
+  Briefcase,
+  Award,
+  FileText,
+  Layers,
+  Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ClassItem } from '@/lib/types';
@@ -161,6 +167,9 @@ export default function StudentsDirectoryPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Active View Tab on Students Page ('directory' | 'admission' | 'bulk')
+  const [activeTab, setActiveTab] = useState<'directory' | 'admission' | 'bulk'>('directory');
+
   // Admission Form State
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
   const [admissionSubmitting, setAdmissionSubmitting] = useState(false);
@@ -168,31 +177,116 @@ export default function StudentsDirectoryPage() {
   const [admissionSuccessData, setAdmissionSuccessData] = useState<any | null>(null);
 
   const initialAdmissionForm = {
-    admission_number: '',
-    first_name: '',
-    last_name: '',
+    // 1. Academic & Enrollment Details (18 fields)
     current_class_id: '',
+    custom_class_name: '',
     current_section_id: '',
+    custom_section_name: '',
+    admission_number: '',
     roll_number: '',
     admission_date: new Date().toISOString().split('T')[0],
-    gender: 'MALE',
+    session: '2026-2027',
+    type: 'Regular',
+    new_old: 'New',
+    adm_class: '',
+    adm_category: 'General',
+    stream: 'General',
+    house: '',
+    reg_no: '',
+    enq_no: '',
+    adm_no_old: '',
+    adm_no_sch: '',
+    fee_cat: 'Standard',
+    fee_type: 'Quarterly',
+    allow_discount: 'No',
+    is_shown: 'Yes',
+
+    // 2. Student Identity & Personal Information (13 fields)
+    first_name: '',
+    last_name: '',
+    stu_name_hindi: '',
     date_of_birth: '',
+    gender: 'MALE',
     blood_group: '',
+    student_aadhar: '',
+    sssn: '',
+    lang: 'Hindi',
     phone: '',
     emergency_phone: '',
+    mobile2: '',
+    email: '',
+    password: 'Student@123',
+    height: '',
+    height2: '',
+    weight: '',
+    weight2: '',
+    medical_notes: '',
+
+    // 3. Father Details (10 fields)
     father_name: '',
-    mother_name: '',
+    fat_mobile: '',
+    fat_mobile2: '',
     fat_occu: '',
     fat_income: '',
+    fat_qual: '',
+    aadhar_father: '',
+    father_pan: '',
+    fat_email: '',
+    father_nationality: 'Indian',
+
+    // 4. Mother Details (10 fields)
+    mother_name: '',
+    mot_mobile: '',
+    mot_mobile2: '',
     mot_occ: '',
-    email: '',
+    mot_income: '',
+    mot_qual: '',
+    aadhar_mother: '',
+    pan_mother: '',
+    mot_email: '',
+    mother_nationality: 'Indian',
+
+    // 5. Guardian Details (8 fields)
+    guard_name: '',
+    guard_relation: '',
+    guard_no: '',
+    guard_no2: '',
+    guard_occ: '',
+    guard_income: '',
+    guard_qual: '',
+    guard_email: '',
+
+    // 6. Address & Demographics (8 fields)
     address: '',
-    caste: '',
+    address_co: '',
+    mobile_co: '',
+    mobile2_co: '',
+    caste: 'General',
+    cast_cert_no: '',
     religion: 'Hindu',
     nationality: 'Indian',
-    student_aadhar: '',
-    password: 'Student@123',
-    medical_notes: '',
+
+    // 7. Previous School History & Transfer Certificate (17 fields)
+    school1_name: '',
+    school1_class: '',
+    school1_session: '',
+    school1_curri: 'CBSE',
+    school1_sub: 'All',
+    school2_name: '',
+    school2_class: '',
+    school2_session: '',
+    school2_curri: '',
+    school2_sub: '',
+    school3_name: '',
+    school3_class: '',
+    school3_session: '',
+    school3_curri: '',
+    school3_sub: '',
+    tc_issue: 'No',
+    photo_stu: '',
+    photo_fat: '',
+    photo_mot: '',
+    photo_guard: '',
   };
   const [admissionForm, setAdmissionForm] = useState(initialAdmissionForm);
 
@@ -529,17 +623,44 @@ export default function StudentsDirectoryPage() {
   // Submit New Student Admission
   const handleAdmissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!admissionForm.first_name.trim()) {
+    const studentName = (admissionForm.first_name || '').trim();
+    if (!studentName) {
       setAdmissionError('Please enter Student First Name.');
       return;
     }
-    if (!admissionForm.admission_number.trim()) {
+    const admissionNumber = (admissionForm.admission_number || '').trim();
+    if (!admissionNumber) {
       setAdmissionError('Please enter or generate an Admission Number.');
       return;
     }
-    if (!admissionForm.current_class_id) {
-      setAdmissionError('Please select a Class for the student.');
+
+    // Resolve Class
+    let finalClass = '';
+    let finalClassId: string | null = null;
+    if (admissionForm.current_class_id === '__custom__') {
+      if (!admissionForm.custom_class_name.trim()) {
+        setAdmissionError('Please enter the custom class name (e.g. Class 7).');
+        return;
+      }
+      finalClass = admissionForm.custom_class_name.trim();
+    } else if (admissionForm.current_class_id) {
+      finalClassId = admissionForm.current_class_id;
+      const cls = allClasses.find((c) => c.id === admissionForm.current_class_id);
+      finalClass = cls ? cls.name : '';
+    } else {
+      setAdmissionError('Please select or enter a Class for the student.');
       return;
+    }
+
+    // Resolve Section
+    let finalSection = '';
+    let finalSectionId: string | null = null;
+    if (admissionForm.current_section_id === '__custom__') {
+      finalSection = admissionForm.custom_section_name.trim();
+    } else if (admissionForm.current_section_id) {
+      finalSectionId = admissionForm.current_section_id;
+      const sec = admissionClassSections.find((s: any) => s.id === admissionForm.current_section_id);
+      finalSection = sec ? sec.name : '';
     }
 
     try {
@@ -547,15 +668,29 @@ export default function StudentsDirectoryPage() {
       setAdmissionError(null);
       const res = await api.admin.createStudent({
         ...admissionForm,
-        first_name: admissionForm.first_name.trim(),
+        first_name: studentName,
         last_name: admissionForm.last_name.trim(),
-        admission_number: admissionForm.admission_number.trim(),
+        admission_number: admissionNumber,
+        adm_no: admissionNumber,
+        class_id: finalClassId,
+        current_class_id: finalClassId,
+        class: finalClass,
+        adm_class: finalClass,
+        section_id: finalSectionId,
+        current_section_id: finalSectionId,
+        sec: finalSection,
+        section: finalSection,
         roll_number: admissionForm.roll_number.trim() || null,
-        phone: admissionForm.phone.trim() || null,
-        emergency_phone: admissionForm.emergency_phone.trim() || admissionForm.phone.trim() || null,
+        roll_no: admissionForm.roll_number.trim() || null,
+        phone: admissionForm.phone.trim() || admissionForm.fat_mobile.trim() || null,
+        mobile: admissionForm.phone.trim() || admissionForm.fat_mobile.trim() || null,
+        emergency_phone: admissionForm.fat_mobile.trim() || admissionForm.phone.trim() || null,
         father_name: admissionForm.father_name.trim() || null,
+        fat_name: admissionForm.father_name.trim() || null,
         mother_name: admissionForm.mother_name.trim() || null,
+        mot_name: admissionForm.mother_name.trim() || null,
         email: admissionForm.email.trim() || null,
+        stu_email: admissionForm.email.trim() || null,
         address: admissionForm.address.trim() || null,
         caste: admissionForm.caste.trim() || null,
         student_aadhar: admissionForm.student_aadhar.trim() || null,
@@ -567,7 +702,15 @@ export default function StudentsDirectoryPage() {
       setIsAdmissionModalOpen(false);
       setAdmissionForm(initialAdmissionForm);
       showToast(`Admission confirmed for ${created.full_name || created.first_name}!`);
-      setStudents((prev) => [created, ...prev]);
+
+      // Refresh live server state
+      await loadData();
+
+      // Automatically focus on this student's class (e.g. Class 7) so they show right there with classmates!
+      if (created.class_id) {
+        setSelectedClassIds([created.class_id]);
+      }
+      setActiveTab('directory');
     } catch (err: any) {
       setAdmissionError(err?.message || 'Failed to complete student admission');
     } finally {
@@ -671,7 +814,7 @@ export default function StudentsDirectoryPage() {
 
   // Admission Form Available Sections
   const admissionClassSections = useMemo(() => {
-    if (!admissionForm.current_class_id) return [];
+    if (!admissionForm.current_class_id || admissionForm.current_class_id === '__custom__') return [];
     const cls = allClasses.find((c) => c.id === admissionForm.current_class_id);
     return cls ? cls.sections : [];
   }, [allClasses, admissionForm.current_class_id]);
@@ -939,9 +1082,14 @@ export default function StudentsDirectoryPage() {
           <button
             onClick={() => {
               setAdmissionError(null);
-              setIsAdmissionModalOpen(true);
+              setActiveTab('admission');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-900/20 transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+            className={`px-4 py-2.5 rounded-xl transition cursor-pointer flex items-center gap-2 text-xs font-bold ${
+              activeTab === 'admission'
+                ? 'bg-indigo-700 text-white ring-2 ring-indigo-400 shadow-md'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-900/20'
+            }`}
           >
             <UserPlus className="w-4 h-4" />
             <span>+ New Student Admission</span>
@@ -950,11 +1098,14 @@ export default function StudentsDirectoryPage() {
             onClick={() => {
               setBulkError(null);
               setBulkSuccess(null);
-              setCsvPreview([]);
-              setCsvFileName('');
-              setIsBulkModalOpen(true);
+              setActiveTab('bulk');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+            className={`px-3.5 py-2.5 rounded-xl border transition cursor-pointer flex items-center gap-2 text-xs font-bold ${
+              activeTab === 'bulk'
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs'
+            }`}
           >
             <Upload className="w-4 h-4 text-indigo-600" />
             <span>Bulk Upload (CSV)</span>
@@ -1018,8 +1169,81 @@ export default function StudentsDirectoryPage() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Page Navigation Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center bg-white p-1.5 rounded-2xl border border-slate-200 shadow-2xs gap-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab('directory')}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+            activeTab === 'directory'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Enrolled Students Directory</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeTab === 'directory' ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {totalStudents}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setAdmissionError(null);
+            setActiveTab('admission');
+          }}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+            activeTab === 'admission'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>New Student Admission Form</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+              activeTab === 'admission' ? 'bg-indigo-700 text-white' : 'bg-emerald-100 text-emerald-800'
+            }`}
+          >
+            All 94 ERP Fields
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setBulkError(null);
+            setBulkSuccess(null);
+            setActiveTab('bulk');
+          }}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
+            activeTab === 'bulk'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          <span>Bulk Upload (CSV / Excel)</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+              activeTab === 'bulk' ? 'bg-indigo-700 text-white' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            Batch Import
+          </span>
+        </button>
+      </div>
+
+      {/* VIEW TAB 1: DIRECTORY */}
+      {activeTab === 'directory' && (
+        <div className="space-y-4">
+          {/* Filter and Search Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Multi-select Filters & Pills */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Class Multi-Select Dropdown */}
@@ -1425,6 +1649,1380 @@ export default function StudentsDirectoryPage() {
           </div>
         )}
       </div>
+    </div>
+  )}
+
+      {/* ========================================================================= */}
+      {/* VIEW TAB 2: IN-PAGE COMPLETE 94-FIELD ADMISSION FORM                      */}
+      {/* ========================================================================= */}
+      {activeTab === 'admission' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Hero Banner */}
+          <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="relative z-10 max-w-3xl space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold text-indigo-100 border border-white/20">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>School ERP Student Admission • Live Synchronization</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                New Student Admission Form
+              </h2>
+              <p className="text-indigo-100 text-xs sm:text-sm leading-relaxed">
+                Fill student academic enrollment, class assignment, parent details, demographics, and all 94 legacy ERP fields. Upon confirmation, the student will be instantly enrolled in the live database and login credentials will be generated automatically.
+              </p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 relative z-10">
+              <div className="text-xs text-indigo-200">
+                Enrolling in Session: <strong className="text-white">{admissionForm.session || '2026-2027'}</strong> | Initial Password: <code className="bg-white/20 px-1.5 py-0.5 rounded text-white font-mono">Student@123</code>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('directory')}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>View Directory</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('bulk')}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Bulk Upload (CSV)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Banner */}
+          {admissionError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-center gap-3 shadow-xs">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              <span className="font-semibold">{admissionError}</span>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleAdmissionSubmit} className="space-y-6">
+            {/* 1. ACADEMIC & ENROLLMENT (18 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <GraduationCap className="w-5 h-5" />
+                  <span>1. Academic Enrollment &amp; Class Allocation</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  18 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Admission Number */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">Admission No / ID *</label>
+                    <button
+                      type="button"
+                      onClick={generateRandomAdmissionNo}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. STU202601"
+                    value={admissionForm.admission_number}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, admission_number: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Class */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Class / Grade *</label>
+                  <select
+                    required
+                    value={admissionForm.current_class_id}
+                    onChange={(e) =>
+                      setAdmissionForm((prev) => ({
+                        ...prev,
+                        current_class_id: e.target.value,
+                        current_section_id: '',
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="">-- Select Class --</option>
+                    {allClasses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="__custom__">+ Enter Custom Class (e.g. Class 7)</option>
+                  </select>
+                  {admissionForm.current_class_id === '__custom__' && (
+                    <input
+                      type="text"
+                      placeholder="Type Class Name (e.g. Class 7)"
+                      value={admissionForm.custom_class_name}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, custom_class_name: e.target.value }))}
+                      className="mt-1.5 w-full px-3 py-1.5 rounded-xl border border-indigo-300 text-xs font-semibold bg-indigo-50/50 text-indigo-900"
+                    />
+                  )}
+                </div>
+
+                {/* Section */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Section</label>
+                  <select
+                    value={admissionForm.current_section_id}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, current_section_id: e.target.value }))}
+                    disabled={!admissionForm.current_class_id || admissionForm.current_class_id === '__custom__'}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="">-- Select Section --</option>
+                    {admissionClassSections.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                    <option value="__custom__">+ Enter Custom Section (e.g. Section B)</option>
+                  </select>
+                  {(admissionForm.current_section_id === '__custom__' || admissionForm.current_class_id === '__custom__') && (
+                    <input
+                      type="text"
+                      placeholder="Type Section (e.g. Section A)"
+                      value={admissionForm.custom_section_name}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, custom_section_name: e.target.value }))}
+                      className="mt-1.5 w-full px-3 py-1.5 rounded-xl border border-indigo-300 text-xs font-semibold bg-indigo-50/50 text-indigo-900"
+                    />
+                  )}
+                </div>
+
+                {/* Roll Number */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1"
+                    value={admissionForm.roll_number}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, roll_number: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Admission Date */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Admission (do_adm)</label>
+                  <input
+                    type="date"
+                    value={admissionForm.admission_date}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, admission_date: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Session */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Session</label>
+                  <input
+                    type="text"
+                    placeholder="2026-2027"
+                    value={admissionForm.session}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, session: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Enrollment Type */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Student Type</label>
+                  <select
+                    value={admissionForm.type}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, type: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="Regular">Regular</option>
+                    <option value="Private">Private</option>
+                    <option value="Distance">Distance</option>
+                  </select>
+                </div>
+
+                {/* Admission Status (new_old) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status (new_old)</label>
+                  <select
+                    value={admissionForm.new_old}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, new_old: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="New">New Admission</option>
+                    <option value="Old">Existing / Promoted</option>
+                  </select>
+                </div>
+
+                {/* Stream */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Stream</label>
+                  <select
+                    value={admissionForm.stream}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, stream: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="General">General</option>
+                    <option value="Science">Science</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="Arts">Arts</option>
+                  </select>
+                </div>
+
+                {/* House */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">House</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Red House"
+                    value={admissionForm.house}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, house: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Registration No */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Registration No (reg_no)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. REG-001"
+                    value={admissionForm.reg_no}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, reg_no: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Enquiry No */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Enquiry No (enq_no)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ENQ202601"
+                    value={admissionForm.enq_no}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, enq_no: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Old Admission No */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Old Adm No (adm_no_old)</label>
+                  <input
+                    type="text"
+                    placeholder="Previous Adm No"
+                    value={admissionForm.adm_no_old}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, adm_no_old: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* School Adm No */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">School Adm No (adm_no_sch)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SCH-101"
+                    value={admissionForm.adm_no_sch}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, adm_no_sch: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Fee Category */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Fee Category (fee_cat)</label>
+                  <select
+                    value={admissionForm.fee_cat}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fee_cat: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Concession">Concession</option>
+                    <option value="RTE">RTE / Free</option>
+                    <option value="Staff Ward">Staff Ward</option>
+                  </select>
+                </div>
+
+                {/* Fee Type / Frequency */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Fee Frequency (fee_type)</label>
+                  <select
+                    value={admissionForm.fee_type}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fee_type: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="Monthly">Monthly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Half-Yearly">Half-Yearly</option>
+                    <option value="Annual">Annual</option>
+                  </select>
+                </div>
+
+                {/* Allow Discount */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Allow Discount</label>
+                  <select
+                    value={admissionForm.allow_discount}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, allow_discount: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+
+                {/* Public Portal Visibility */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Portal Visibility (is_shown)</label>
+                  <select
+                    value={admissionForm.is_shown}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, is_shown: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="Yes">Yes (Visible)</option>
+                    <option value="No">No (Hidden)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. STUDENT PERSONAL & IDENTIFICATION (13 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <User className="w-5 h-5" />
+                  <span>2. Student Identity &amp; Personal Profile</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  13 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* First Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Aarav"
+                    value={admissionForm.first_name}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, first_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Last Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sharma"
+                    value={admissionForm.last_name}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, last_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Name in Hindi */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Name in Hindi (देवनागरी)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. आरव शर्मा"
+                    value={admissionForm.stu_name_hindi}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, stu_name_hindi: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Date of Birth */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth (dob)</label>
+                  <input
+                    type="date"
+                    value={admissionForm.date_of_birth}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                  <select
+                    value={admissionForm.gender}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, gender: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+
+                {/* Blood Group */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Blood Group</label>
+                  <select
+                    value={admissionForm.blood_group}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, blood_group: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="">-- Blood Group --</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                {/* Student Aadhar */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Student Aadhar (12 Digits)</label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    placeholder="e.g. 998877665544"
+                    value={admissionForm.student_aadhar}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, student_aadhar: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* SSSN */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">SSSN Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SSSN-99881"
+                    value={admissionForm.sssn}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, sssn: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Language */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother Tongue / Language</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Hindi"
+                    value={admissionForm.lang}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, lang: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Primary Student Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Student Mobile (mobile)</label>
+                  <input
+                    type="tel"
+                    placeholder="10-digit mobile"
+                    value={admissionForm.phone}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Student Alternate Mobile */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Alt Mobile (mobile2)</label>
+                  <input
+                    type="tel"
+                    placeholder="Alternate number"
+                    value={admissionForm.mobile2}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mobile2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Student Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Student Email (stu_email)</label>
+                  <input
+                    type="email"
+                    placeholder="student@school.edu"
+                    value={admissionForm.email}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Initial App Password */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Initial Password</label>
+                  <input
+                    type="text"
+                    value={admissionForm.password}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. FATHER'S COMPLETE PROFILE (10 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <Briefcase className="w-5 h-5" />
+                  <span>3. Father's Details</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  10 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Father Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Name (fat_name)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rajesh Sharma"
+                    value={admissionForm.father_name}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, father_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Mobile */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Mobile (fat_mobile)</label>
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp mobile"
+                    value={admissionForm.fat_mobile}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_mobile: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Alt Mobile */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father's Alt Mobile (fat_mobile2)</label>
+                  <input
+                    type="tel"
+                    placeholder="Alternate contact"
+                    value={admissionForm.fat_mobile2}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_mobile2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Occupation */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Occupation (fat_occu)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Business, Engineer"
+                    value={admissionForm.fat_occu}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_occu: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Income */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Annual Income (fat_income)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 750000"
+                    value={admissionForm.fat_income}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_income: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Qualification */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Qualification (fat_qual)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Post Graduate"
+                    value={admissionForm.fat_qual}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_qual: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Aadhar */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father Aadhar (aadhar_father)</label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    placeholder="12-digit Aadhar"
+                    value={admissionForm.aadhar_father}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, aadhar_father: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father PAN */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father PAN (father_pan)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ABCDE1234F"
+                    value={admissionForm.father_pan}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, father_pan: e.target.value.toUpperCase() }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Father Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Father Email (fat_email)</label>
+                  <input
+                    type="email"
+                    placeholder="father@gmail.com"
+                    value={admissionForm.fat_email}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, fat_email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 4. MOTHER'S COMPLETE PROFILE (10 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <User className="w-5 h-5" />
+                  <span>4. Mother's Details</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  10 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Mother Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother's Name (mot_name)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sunita Sharma"
+                    value={admissionForm.mother_name}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mother_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Mobile */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother's Mobile (mot_mobile)</label>
+                  <input
+                    type="tel"
+                    placeholder="WhatsApp mobile"
+                    value={admissionForm.mot_mobile}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_mobile: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Alt Mobile */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother's Alt Mobile (mot_mobile2)</label>
+                  <input
+                    type="tel"
+                    placeholder="Alternate number"
+                    value={admissionForm.mot_mobile2}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_mobile2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Occupation */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Occupation (mot_occ)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Teacher, Homemaker"
+                    value={admissionForm.mot_occ}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_occ: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Income */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Annual Income (mot_income)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 450000"
+                    value={admissionForm.mot_income}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_income: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Qualification */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Qualification (mot_qual)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Graduate"
+                    value={admissionForm.mot_qual}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_qual: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Aadhar */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother Aadhar (aadhar_mother)</label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    placeholder="12-digit Aadhar"
+                    value={admissionForm.aadhar_mother}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, aadhar_mother: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother PAN */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother PAN (pan_mother)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. XYZPM1234K"
+                    value={admissionForm.pan_mother}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, pan_mother: e.target.value.toUpperCase() }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Mother Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mother Email (mot_email)</label>
+                  <input
+                    type="email"
+                    placeholder="mother@gmail.com"
+                    value={admissionForm.mot_email}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, mot_email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 5. GUARDIAN DETAILS (8 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>5. Local Guardian Details (If Applicable)</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  8 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Guardian Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian Name (guard_name)</label>
+                  <input
+                    type="text"
+                    placeholder="Local guardian"
+                    value={admissionForm.guard_name}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Relation */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Relation (guard_relation)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Uncle, Grandparent"
+                    value={admissionForm.guard_relation}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_relation: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian Contact (guard_no)</label>
+                  <input
+                    type="tel"
+                    placeholder="Phone number"
+                    value={admissionForm.guard_no}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_no: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Alt Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Alt Contact (guard_no2)</label>
+                  <input
+                    type="tel"
+                    placeholder="Alternate number"
+                    value={admissionForm.guard_no2}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_no2: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Occupation */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Occupation (guard_occ)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Advocate"
+                    value={admissionForm.guard_occ}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_occ: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Income */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Annual Income (guard_income)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 500000"
+                    value={admissionForm.guard_income}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_income: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Qualification */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Qualification (guard_qual)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Graduate"
+                    value={admissionForm.guard_qual}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_qual: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Guardian Email */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian Email (guard_email)</label>
+                  <input
+                    type="email"
+                    placeholder="guardian@gmail.com"
+                    value={admissionForm.guard_email}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, guard_email: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 6. ADDRESS, DEMOGRAPHICS & HEALTH (8 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <MapPin className="w-5 h-5" />
+                  <span>6. Residential Address, Demographics &amp; Health</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  10 ERP Fields
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Permanent Address */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Permanent Address (address)</label>
+                  <input
+                    type="text"
+                    placeholder="Full residential address"
+                    value={admissionForm.address}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, address: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Correspondence Address */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Correspondence Address (address_co)</label>
+                  <input
+                    type="text"
+                    placeholder="Correspondence / Mailing address"
+                    value={admissionForm.address_co}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, address_co: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Caste Category */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Caste / Category (category)</label>
+                  <select
+                    value={admissionForm.caste}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, caste: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="General">General</option>
+                    <option value="OBC">OBC</option>
+                    <option value="SC">SC</option>
+                    <option value="ST">ST</option>
+                    <option value="Minority">Minority</option>
+                  </select>
+                </div>
+
+                {/* Caste Certificate No */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Caste Cert No (cast_cert_no)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CC-2024-998"
+                    value={admissionForm.cast_cert_no}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, cast_cert_no: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Religion */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Religion</label>
+                  <select
+                    value={admissionForm.religion}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, religion: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="Hindu">Hindu</option>
+                    <option value="Muslim">Muslim</option>
+                    <option value="Sikh">Sikh</option>
+                    <option value="Christian">Christian</option>
+                    <option value="Jain">Jain</option>
+                    <option value="Buddhist">Buddhist</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Nationality */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nationality</label>
+                  <input
+                    type="text"
+                    placeholder="Indian"
+                    value={admissionForm.nationality}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Height */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Height (cm) (height)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 152"
+                    value={admissionForm.height}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, height: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Weight */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Weight (kg) (weight)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 48"
+                    value={admissionForm.weight}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, weight: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+
+                {/* Medical Notes */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Medical Notes &amp; Allergies</label>
+                  <input
+                    type="text"
+                    placeholder="Any health condition or special care required"
+                    value={admissionForm.medical_notes}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, medical_notes: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 7. PREVIOUS SCHOOL HISTORY & TRANSFER CERTIFICATE (17 Fields) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm uppercase tracking-wide">
+                  <Building2 className="w-5 h-5" />
+                  <span>7. Previous School History &amp; Transfer Documents</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full">
+                  17 ERP Fields
+                </span>
+              </div>
+
+              {/* School 1 */}
+              <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">1</span>
+                  <span>Previous School 1 (Latest)</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">School Name (school1_name)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. St. Xavier School"
+                      value={admissionForm.school1_name}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school1_name: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Class Passed (school1_class)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Grade 9"
+                      value={admissionForm.school1_class}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school1_class: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Session (school1_session)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2023-2024"
+                      value={admissionForm.school1_session}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school1_session: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Board (school1_curri)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. CBSE / ICSE"
+                      value={admissionForm.school1_curri}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school1_curri: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Subjects (school1_sub)</label>
+                    <input
+                      type="text"
+                      placeholder="All / Core"
+                      value={admissionForm.school1_sub}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school1_sub: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* School 2 */}
+              <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-600 text-white flex items-center justify-center text-[10px]">2</span>
+                  <span>Previous School 2</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">School Name (school2_name)</label>
+                    <input
+                      type="text"
+                      placeholder="DPS Mathura"
+                      value={admissionForm.school2_name}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school2_name: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Class Passed (school2_class)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Grade 8"
+                      value={admissionForm.school2_class}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school2_class: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Session (school2_session)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 2022-2023"
+                      value={admissionForm.school2_session}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school2_session: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Board (school2_curri)</label>
+                    <input
+                      type="text"
+                      placeholder="CBSE"
+                      value={admissionForm.school2_curri}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school2_curri: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Subjects (school2_sub)</label>
+                    <input
+                      type="text"
+                      placeholder="All"
+                      value={admissionForm.school2_sub}
+                      onChange={(e) => setAdmissionForm((prev) => ({ ...prev, school2_sub: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* TC and Transfer options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Transfer Certificate (tc_issue)</label>
+                  <select
+                    value={admissionForm.tc_issue}
+                    onChange={(e) => setAdmissionForm((prev) => ({ ...prev, tc_issue: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  >
+                    <option value="No">No / Pending</option>
+                    <option value="Yes">Yes (Submitted)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky Submission Bar */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 sticky bottom-4 z-20">
+              <div className="text-xs text-slate-500 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>All 94 fields will be safely stored and linked to student profile in PostgreSQL.</span>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setAdmissionForm(initialAdmissionForm)}
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition cursor-pointer"
+                >
+                  Reset Form
+                </button>
+                <button
+                  type="submit"
+                  disabled={admissionSubmitting}
+                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-900/20 transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {admissionSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Confirming Admission...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Confirm Admission &amp; Issue Credentials</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW TAB 3: IN-PAGE BULK UPLOAD WORKSPACE                                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'bulk' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Bulk Hero Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="relative z-10 max-w-3xl space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-indigo-200 border border-white/15">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Bulk Import Engine • 94 Standard Columns</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Bulk Upload Students via CSV / Excel
+              </h2>
+              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                Import your entire school roster in seconds. Classes &amp; Sections are automatically detected and created, student accounts are provisioned, and login credentials are generated instantly.
+              </p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 relative z-10">
+              <span className="text-xs text-slate-400">
+                Supports standard headers: <code>id, adm_no, stu_name, class, sec, mobile, dob, fat_name...</code>
+              </span>
+              <button
+                type="button"
+                onClick={downloadSampleTemplate}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-2"
+              >
+                <Download className="w-4 h-4 text-white" />
+                <span>Download 94-Column Sample CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bulk Workspace Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl p-8 text-center transition bg-slate-50/50 hover:bg-indigo-50/20">
+              <input
+                type="file"
+                accept=".csv"
+                id="in-page-bulk-file"
+                onChange={handleCsvFileChange}
+                className="hidden"
+              />
+              <label htmlFor="in-page-bulk-file" className="cursor-pointer block space-y-3">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shadow-xs">
+                  <Upload className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {csvFileName ? `Loaded: ${csvFileName}` : 'Click or Drag & Drop your CSV file here'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {csvPreview.length > 0
+                      ? `${csvPreview.length} students parsed and ready for enrollment`
+                      : 'File must contain headers matching school ERP specifications'}
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {bulkError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-semibold">{bulkError}</span>
+              </div>
+            )}
+
+            {bulkSuccess && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Bulk Upload Completed Successfully!</span>
+                </div>
+                <p>
+                  Total Processed: <strong>{bulkSuccess.total || csvPreview.length}</strong> | Created: <strong>{bulkSuccess.created}</strong> | Updated: <strong>{bulkSuccess.updated}</strong>
+                </p>
+                {bulkSuccess.breakdown && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {Object.entries(bulkSuccess.breakdown).map(([cls, count]) => (
+                      <span key={cls} className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-semibold">
+                        {cls}: {count as any}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CSV Preview Table */}
+            {csvPreview.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                    Preview Data ({csvPreview.length} rows detected)
+                  </span>
+                  <span className="text-xs text-slate-500">Showing first 5 preview rows</span>
+                </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-72">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 sticky top-0">
+                      <tr>
+                        <th className="p-2.5">#</th>
+                        <th className="p-2.5">Name</th>
+                        <th className="p-2.5">Adm No</th>
+                        <th className="p-2.5">Class</th>
+                        <th className="p-2.5">Section</th>
+                        <th className="p-2.5">Father</th>
+                        <th className="p-2.5">Phone</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {csvPreview.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-mono text-slate-400">{idx + 1}</td>
+                          <td className="p-2.5 font-semibold text-slate-800">{row.stu_name || row.name || row.first_name}</td>
+                          <td className="p-2.5 font-mono text-slate-700">{row.adm_no || row.admission_number || row.id}</td>
+                          <td className="p-2.5">{row.class || row.adm_class || 'Class 7'}</td>
+                          <td className="p-2.5">{row.sec || row.section || 'A'}</td>
+                          <td className="p-2.5">{row.fat_name || row.father_name || '—'}</td>
+                          <td className="p-2.5 font-mono">{row.mobile || row.phone || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCsvPreview([]);
+                      setCsvFileName('');
+                      setBulkSuccess(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Clear File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteBulkUpload}
+                    disabled={bulkUploading || csvPreview.length === 0}
+                    className="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {bulkUploading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Enrolling Students...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Upload &amp; Enroll All {csvPreview.length} Students</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* 360-degree Student Details Slide-over / Modal (VIEW) */}
       {selectedStudent && (

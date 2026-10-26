@@ -126,18 +126,42 @@ describe('Admin Student Directory & Multi-Select Integration Tests', () => {
       expect(res.body.success).toBe(false);
     });
 
-    it('should reject student admission with duplicate admission_number', async () => {
+    it('should dynamically create and resolve class (e.g. Class 7) and store 94 ERP fields', async () => {
+      const dynamicAdmNo = `ADM-C7-${Date.now().toString().slice(-6)}`;
       const res = await request(app)
         .post('/api/v1/admin/students')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          first_name: 'Duplicate',
-          admission_number: testAdmNo,
+          stu_name: 'Kabir Verma',
+          adm_no: dynamicAdmNo,
+          class: 'Class 7',
+          sec: 'Section B',
+          fat_name: 'Manish Verma',
+          fat_occu: 'Chartered Accountant',
+          fat_income: '1200000',
+          mot_name: 'Priya Verma',
+          mot_occ: 'Professor',
+          house: 'Green House',
+          stream: 'General',
+          lang: 'Hindi',
+          cast_cert_no: 'CC-9988-77',
+          school1_name: 'St. Paul School',
+          school1_class: 'Class 6',
+          tc_issue: 'Yes',
+          fee_cat: 'Standard',
+          session: '2026-2027',
+          student_aadhar: '998877665544',
+          mobile: '9876543321',
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.message).toMatch(/already exists|already registered|already in use/i);
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.admission_number).toBe(dynamicAdmNo);
+      expect(res.body.data.class_name).toBe('Class 7');
+      expect(res.body.data.section_name).toBe('Section B');
+      expect(res.body.data.extra_data.fat_occu).toBe('Chartered Accountant');
+      expect(res.body.data.extra_data.school1_name).toBe('St. Paul School');
     });
   });
 });
+

@@ -1813,7 +1813,16 @@ export class AdminRepository {
     try {
       await client.query('BEGIN');
 
-      const admissionNumber = (data.admission_number || data.admission_no || data.identifier || '').toString().trim();
+      const admissionNumber = (
+        data.admission_number ||
+        data.admission_no ||
+        data.adm_no ||
+        data.adm_no_sch ||
+        data.reg_no ||
+        data.username ||
+        data.identifier ||
+        ''
+      ).toString().trim();
       if (!admissionNumber) {
         const err: any = new Error('Admission number is required.');
         err.statusCode = 400;
@@ -1841,19 +1850,30 @@ export class AdminRepository {
         throw err;
       }
 
-      const firstName = (data.first_name || data.name || 'Student').toString().trim();
-      const lastName = (data.last_name || '').toString().trim();
-      const rollNumber = data.roll_number ? String(data.roll_number).trim() : null;
-      const classId = data.current_class_id || data.class_id || null;
-      const sectionId = data.current_section_id || data.section_id || null;
+      let firstName = (data.first_name || '').toString().trim();
+      let lastName = (data.last_name || '').toString().trim();
+      if (!firstName && data.stu_name) {
+        const parts = data.stu_name.toString().trim().split(/\s+/);
+        firstName = parts[0] || 'Student';
+        lastName = parts.slice(1).join(' ');
+      } else if (!firstName && data.name) {
+        const parts = data.name.toString().trim().split(/\s+/);
+        firstName = parts[0] || 'Student';
+        lastName = parts.slice(1).join(' ');
+      }
+      if (!firstName) firstName = 'Student';
+
+      const rollNumber = data.roll_no ? String(data.roll_no).trim() : (data.roll_number ? String(data.roll_number).trim() : null);
       const gender = data.gender ? String(data.gender).trim().toUpperCase() : 'MALE';
       const dob = parseSafeDate(data.date_of_birth || data.dob);
       const admissionDate = parseSafeDate(data.admission_date || data.do_adm) || new Date().toISOString().split('T')[0];
-      const phone = data.phone ? String(data.phone).trim() : null;
+      const phone = data.mobile ? String(data.mobile).trim() : (data.phone ? String(data.phone).trim() : null);
       const emergencyPhone = data.emergency_phone
         ? String(data.emergency_phone).trim()
         : data.fat_mobile
         ? String(data.fat_mobile).trim()
+        : data.mobile2
+        ? String(data.mobile2).trim()
         : phone;
       const fatherName = data.father_name || data.fat_name || null;
       const motherName = data.mother_name || data.mot_name || null;
@@ -1863,12 +1883,90 @@ export class AdminRepository {
       const address = data.address || null;
       const caste = data.caste || data.category || null;
       const religion = data.religion || null;
-      const nationality = data.nationality || 'Indian';
+      const nationality = data.nationality || data.father_nationality || 'Indian';
       const studentAadhar = data.student_aadhar || null;
       const aadharFather = data.aadhar_father || null;
       const aadharMother = data.aadhar_mother || null;
       const fatherPan = data.father_pan || null;
-      const panMother = data.pan_mother || null;
+      const panMother = data.pan_mother || data.pan_mot || null;
+
+      // Dynamic Class & Section Resolution (supports UUID or Class Name like "Class 7", "7th")
+      let resolvedClassId: string | null = null;
+      let resolvedClassName: string | null = null;
+
+      const rawClass = (data.current_class_id || data.class_id || data.class || data.adm_class || data.class_name || '').toString().trim();
+      if (rawClass) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawClass);
+        if (isUuid) {
+          const clsRes = await client.query('SELECT id, name FROM classes WHERE id = $1 AND school_id = $2', [rawClass, schoolId]);
+          if (clsRes.rows.length > 0) {
+            resolvedClassId = clsRes.rows[0].id;
+            resolvedClassName = clsRes.rows[0].name;
+          }
+        }
+        if (!resolvedClassId) {
+          const clsRes = await client.query(
+            'SELECT id, name FROM classes WHERE school_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))',
+            [schoolId, rawClass]
+          );
+          if (clsRes.rows.length > 0) {
+            resolvedClassId = clsRes.rows[0].id;
+            resolvedClassName = clsRes.rows[0].name;
+          } else {
+            let wingRes = await client.query(
+              'SELECT id FROM wings WHERE school_id = $1 ORDER BY created_at ASC LIMIT 1',
+              [schoolId]
+            );
+            let wingId = wingRes.rows[0]?.id;
+            if (!wingId) {
+              const newWing = await client.query(
+                'INSERT INTO wings (school_id, name) VALUES ($1, $2) RETURNING id',
+                [schoolId, 'Main Wing']
+              );
+              wingId = newWing.rows[0].id;
+            }
+            const newClass = await client.query(
+              'INSERT INTO classes (school_id, wing_id, name) VALUES ($1, $2, $3) ON CONFLICT (school_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id, name',
+              [schoolId, wingId, rawClass]
+            );
+            resolvedClassId = newClass.rows[0].id;
+            resolvedClassName = newClass.rows[0].name;
+          }
+        }
+      }
+
+      // Resolve Section
+      let resolvedSectionId: string | null = null;
+      let resolvedSectionName: string | null = null;
+
+      const rawSection = (data.current_section_id || data.section_id || data.sec || data.section || data.section_name || '').toString().trim();
+      if (resolvedClassId && rawSection) {
+        const isSecUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawSection);
+        if (isSecUuid) {
+          const secRes = await client.query('SELECT id, name FROM sections WHERE id = $1 AND class_id = $2', [rawSection, resolvedClassId]);
+          if (secRes.rows.length > 0) {
+            resolvedSectionId = secRes.rows[0].id;
+            resolvedSectionName = secRes.rows[0].name;
+          }
+        }
+        if (!resolvedSectionId) {
+          const secRes = await client.query(
+            'SELECT id, name FROM sections WHERE class_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))',
+            [resolvedClassId, rawSection]
+          );
+          if (secRes.rows.length > 0) {
+            resolvedSectionId = secRes.rows[0].id;
+            resolvedSectionName = secRes.rows[0].name;
+          } else {
+            const newSec = await client.query(
+              'INSERT INTO sections (class_id, name) VALUES ($1, $2) RETURNING id, name',
+              [resolvedClassId, rawSection]
+            );
+            resolvedSectionId = newSec.rows[0].id;
+            resolvedSectionName = newSec.rows[0].name;
+          }
+        }
+      }
 
       // Safe phone for users table to avoid unique constraint collision
       let safeUserPhone = phone;
@@ -1883,7 +1981,7 @@ export class AdminRepository {
       const userRes = await client.query(
         `INSERT INTO users (school_id, identifier, email, phone, password_hash, is_active)
          VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id`,
-        [schoolId, admissionNumber, data.email ? data.email.trim().toLowerCase() : null, safeUserPhone, passwordHash]
+        [schoolId, admissionNumber, data.email || data.stu_email ? (data.email || data.stu_email).trim().toLowerCase() : null, safeUserPhone, passwordHash]
       );
       const userId = userRes.rows[0].id;
 
@@ -1896,16 +1994,13 @@ export class AdminRepository {
         );
       }
 
-      // Preserve any custom extra fields
+      // Preserve ALL 94 legacy ERP fields into extra_data
       const extraData: Record<string, any> = data.extra_data && typeof data.extra_data === 'object' ? { ...data.extra_data } : {};
-      if (data.fat_occu) extraData.fat_occu = data.fat_occu;
-      if (data.mot_occ) extraData.mot_occ = data.mot_occ;
-      if (data.fat_income) extraData.fat_income = data.fat_income;
-      if (data.mot_income) extraData.mot_income = data.mot_income;
-      if (data.height) extraData.height = data.height;
-      if (data.weight) extraData.weight = data.weight;
-      if (data.house) extraData.house = data.house;
-      if (data.stream) extraData.stream = data.stream;
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined && v !== null && v !== '' && k !== 'password' && k !== 'extra_data') {
+          extraData[k] = v;
+        }
+      }
 
       const profileRes = await client.query(
         `INSERT INTO student_profiles (
@@ -1926,8 +2021,8 @@ export class AdminRepository {
           rollNumber,
           firstName,
           lastName,
-          classId,
-          sectionId,
+          resolvedClassId,
+          resolvedSectionId,
           gender,
           dob,
           admissionDate,
@@ -1953,18 +2048,6 @@ export class AdminRepository {
 
       await client.query('COMMIT');
 
-      // Fetch class & section names for response
-      let className = null;
-      let sectionName = null;
-      if (classId) {
-        const clsRes = await pool.query('SELECT name FROM classes WHERE id = $1', [classId]);
-        className = clsRes.rows[0]?.name || null;
-      }
-      if (sectionId) {
-        const secRes = await pool.query('SELECT name FROM sections WHERE id = $1', [sectionId]);
-        sectionName = secRes.rows[0]?.name || null;
-      }
-
       return {
         id: profileId,
         user_id: userId,
@@ -1974,21 +2057,27 @@ export class AdminRepository {
         last_name: lastName,
         full_name: `${firstName} ${lastName}`.trim(),
         roll_number: rollNumber,
-        class_id: classId,
-        class_name: className,
-        section_id: sectionId,
-        section_name: sectionName,
+        class_id: resolvedClassId,
+        class_name: resolvedClassName,
+        section_id: resolvedSectionId,
+        section_name: resolvedSectionName,
         phone: phone,
         emergency_phone: emergencyPhone,
         father_name: fatherName,
         mother_name: motherName,
         gender: gender,
         date_of_birth: dob,
+        dob: dob,
         admission_date: admissionDate,
-        blood_group: bloodGroup,
+        address: address,
+        caste: caste,
+        religion: religion,
+        student_aadhar: studentAadhar,
         password: password,
-        login_password: password,
+        extra_data: extraData,
       };
+
+
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
