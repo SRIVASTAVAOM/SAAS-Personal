@@ -28,6 +28,10 @@ import {
   Sparkles,
   Upload,
   Download,
+  Copy,
+  EyeOff,
+  RotateCcw,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { ClassItem } from '@/lib/types';
@@ -146,8 +150,13 @@ export default function StudentsDirectoryPage() {
     blood_group: '',
     medical_notes: '',
   });
-  const [editSaving, setEditSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Student Credentials State
+  const [showStudentPassword, setShowStudentPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   // Bulk Upload State
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -173,6 +182,72 @@ export default function StudentsDirectoryPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Export visible/filtered students credentials to CSV
+  const exportCredentialsCSV = () => {
+    const listToExport = filteredStudents.length > 0 ? filteredStudents : students;
+    if (!listToExport || listToExport.length === 0) {
+      alert('No students available to export.');
+      return;
+    }
+    const headers = [
+      'Admission No (Login ID)',
+      'Student Name',
+      'Class',
+      'Section',
+      'Roll No',
+      'Registered Parent Phone',
+      'Initial Password',
+      'App Login Instructions',
+    ];
+    const rows = listToExport.map((st) => [
+      `"${st.admission_number || st.identifier || ''}"`,
+      `"${st.first_name || ''} ${st.last_name || ''}"`.trim(),
+      `"${st.class_name || ''}"`,
+      `"${st.section_name || ''}"`,
+      `"${st.roll_number || ''}"`,
+      `"${st.emergency_phone || st.phone || ''}"`,
+      `"${st.password || 'Student@123'}"`,
+      `"Download School App -> Enter Admission No as Identifier and Password -> Login"`,
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `students_login_credentials_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Reset Student Password (Admin Reset Desk)
+  const handleResetStudentPassword = async (studentId: string) => {
+    if (!confirm('Are you sure you want to reset this student password to default (Student@123)?')) {
+      return;
+    }
+    setResettingPassword(true);
+    try {
+      const res = await api.admin.resetStudentPassword(studentId, 'Student@123');
+      if (res?.success) {
+        showToast('Student password has been reset to Student@123 successfully!');
+        if (selectedStudent && selectedStudent.id === studentId) {
+          setSelectedStudent((prev: any) => ({
+            ...prev,
+            password: 'Student@123',
+            login_password: 'Student@123',
+          }));
+        }
+        setStudents((prev) =>
+          prev.map((s) => (s.id === studentId ? { ...s, password: 'Student@123', login_password: 'Student@123' } : s))
+        );
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -617,6 +692,14 @@ export default function StudentsDirectoryPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={exportCredentialsCSV}
+            title="Download Login ID and Passwords for all visible students"
+            className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 shadow-2xs transition cursor-pointer flex items-center gap-2 text-xs font-bold"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            <span>Export Credentials (CSV)</span>
+          </button>
           <button
             onClick={() => {
               setBulkError(null);
@@ -1127,14 +1210,75 @@ export default function StudentsDirectoryPage() {
                 <div className="text-slate-500">Roll No: {selectedStudent.roll_number || 'N/A'}</div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-                <span className="text-slate-400 font-medium">App Login Username</span>
-                <div className="font-mono font-bold text-indigo-700 text-sm">
-                  {selectedStudent.identifier}
+              <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-indigo-900 font-bold flex items-center gap-1.5 text-xs">
+                    <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                    App Login Credentials
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    selectedStudent.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {selectedStudent.is_active ? 'Active' : 'Deactivated'}
+                  </span>
                 </div>
-                <div className="text-slate-500">
-                  Account: {selectedStudent.is_active ? 'Active' : 'Deactivated'}
+
+                <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-indigo-100/80">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">User ID / Username</span>
+                    <span className="font-mono font-bold text-slate-800 text-xs">{selectedStudent.identifier}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedStudent.identifier);
+                      setCopiedField('id');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }}
+                    title="Copy Username"
+                    className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                  >
+                    {copiedField === 'id' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
+
+                <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-indigo-100/80">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Password</span>
+                    <span className="font-mono font-bold text-slate-800 text-xs">
+                      {showStudentPassword ? (selectedStudent.password || selectedStudent.login_password || 'Student@123') : '••••••••••••'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setShowStudentPassword(!showStudentPassword)}
+                      title={showStudentPassword ? 'Hide Password' : 'Show Password'}
+                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                    >
+                      {showStudentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedStudent.password || selectedStudent.login_password || 'Student@123');
+                        setCopiedField('pw');
+                        setTimeout(() => setCopiedField(null), 2000);
+                      }}
+                      title="Copy Password"
+                      className="p-1 text-slate-400 hover:text-indigo-600 rounded transition cursor-pointer"
+                    >
+                      {copiedField === 'pw' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={resettingPassword}
+                  onClick={() => handleResetStudentPassword(selectedStudent.id)}
+                  className="w-full py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                >
+                  <RotateCcw className={`w-3 h-3 ${resettingPassword ? 'animate-spin' : ''}`} />
+                  <span>{resettingPassword ? 'Resetting Password…' : 'Reset to Default (Student@123)'}</span>
+                </button>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">

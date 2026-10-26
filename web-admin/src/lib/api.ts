@@ -233,6 +233,20 @@ export const api = {
       });
     },
 
+    resetStudentPassword: async (id: string, password?: string): Promise<any> => {
+      return request<any>(`/admin/students/${encodeURIComponent(id)}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+    },
+
+    resetStaffPassword: async (id: string, password?: string): Promise<any> => {
+      return request<any>(`/admin/staff/${encodeURIComponent(id)}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+    },
+
     // Staff Directory & Management
     getAllStaff: async (search?: string, isActive?: boolean): Promise<any[]> => {
       const params = new URLSearchParams();

@@ -6,6 +6,8 @@ import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
 import '../bloc/profile_state.dart';
 import '../models/student_profile_model.dart';
+import '../../auth/presentation/change_password_dialog.dart';
+import '../../auth/repositories/auth_repository.dart';
 
 class StudentProfileView extends StatelessWidget {
   const StudentProfileView({super.key});
@@ -212,6 +214,47 @@ class StudentProfileView extends StatelessWidget {
             _buildRow('Contact Email', p.schoolEmail ?? 'info@apexschool.edu'),
             _buildRow('Campus Address', p.schoolAddress ?? '123 Education Lane, Knowledge Park'),
           ],
+        ),
+        const SizedBox(height: 16),
+
+        // Account Security & Change Password
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Account Security',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryText,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Change your password anytime to protect your personal account.',
+                style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final authRepo = context.read<AuthRepository>();
+                    ChangePasswordDialog.show(context, authRepo);
+                  },
+                  icon: const Icon(Icons.key, size: 16),
+                  label: const Text('Change Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

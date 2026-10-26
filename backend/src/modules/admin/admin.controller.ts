@@ -314,6 +314,21 @@ export class AdminController {
   }
 
   /**
+   * POST /api/v1/admin/students/:id/reset-password
+   */
+  static async resetStudentPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { password } = req.body;
+      const result = await AdminService.resetStudentPassword(user, id, password);
+      res.status(200).json({ success: true, message: 'Student password reset successfully', data: result });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
    * GET /api/v1/admin/staff
    */
   static async getAllStaff(req: Request, res: Response): Promise<void> {
@@ -352,6 +367,21 @@ export class AdminController {
       const { id } = req.params;
       const updated = await AdminService.updateStaff(user, id, req.body);
       res.status(200).json({ success: true, message: 'Staff updated successfully', data: updated });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/v1/admin/staff/:id/reset-password
+   */
+  static async resetStaffPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const user = (req as any).user;
+      const { id } = req.params;
+      const { password } = req.body;
+      const result = await AdminService.resetStaffPassword(user, id, password);
+      res.status(200).json({ success: true, message: 'Staff password reset successfully', data: result });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }

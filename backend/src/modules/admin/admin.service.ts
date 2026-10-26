@@ -142,6 +142,10 @@ export class AdminService {
     return updated;
   }
 
+  static async resetStudentPassword(user: TokenPayload, studentId: string, customPassword?: string): Promise<any> {
+    return AdminRepository.resetStudentPassword(user.schoolId, studentId, customPassword);
+  }
+
   // Staff Management
   static async getAllStaff(user: TokenPayload, search?: string, isActive?: boolean): Promise<any[]> {
     return AdminRepository.getAllStaff(user.schoolId, search, isActive);
@@ -158,6 +162,10 @@ export class AdminService {
 
   static async updateStaff(user: TokenPayload, staffId: string, data: any): Promise<any> {
     return AdminRepository.updateStaff(user.schoolId, staffId, data);
+  }
+
+  static async resetStaffPassword(user: TokenPayload, staffId: string, customPassword?: string): Promise<any> {
+    return AdminRepository.resetStaffPassword(user.schoolId, staffId, customPassword);
   }
 
   static async deleteStaff(user: TokenPayload, staffId: string): Promise<any> {

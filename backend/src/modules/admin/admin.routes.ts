@@ -50,12 +50,14 @@ router.get('/students', AdminController.getStudentsList);
 router.post('/students/bulk-upload', AdminController.bulkUploadStudents);
 router.get('/students/:id', AdminController.getStudentDetails);
 router.patch('/students/:id', AdminController.updateStudent);
+router.post('/students/:id/reset-password', AdminController.resetStudentPassword);
 
 // Staff Directory & Management Endpoints (CRUD)
 router.get('/staff', AdminController.getAllStaff);
 router.post('/staff', AdminController.createStaff);
 router.post('/staff/bulk-upload', AdminController.bulkUploadStaff);
 router.patch('/staff/:id', AdminController.updateStaff);
+router.post('/staff/:id/reset-password', AdminController.resetStaffPassword);
 router.delete('/staff/:id', AdminController.deleteStaff);
 
 // Academic Class Teacher & Subject Teacher Allocation Hub

@@ -44,6 +44,13 @@ class ApiEndpoints {
   // Auth Endpoints
   static String get login => '$baseUrl/auth/login';
   static String get me => '$baseUrl/auth/me';
+  static String get forgotPasswordRequirements =>
+      '$baseUrl/auth/forgot-password/requirements';
+  static String get forgotPasswordVerify =>
+      '$baseUrl/auth/forgot-password/verify';
+  static String get forgotPasswordReset =>
+      '$baseUrl/auth/forgot-password/reset';
+  static String get changePassword => '$baseUrl/auth/change-password';
 
   // Academics Endpoints
   static String get subjects => '$baseUrl/academics/subjects';

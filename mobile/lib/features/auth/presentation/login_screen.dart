@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'forgot_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,32 @@ class _LoginScreenState extends State<LoginScreen> {
               password: _passwordController.text,
             ),
           );
+    }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final authRepo = context.read<AuthBloc>().authRepository;
+    final updatedIdentifier = await showDialog<String>(
+      context: context,
+      builder: (_) => ForgotPasswordDialog(
+        authRepository: authRepo,
+        initialIdentifier: _identifierController.text.trim(),
+      ),
+    );
+
+    if (updatedIdentifier != null && updatedIdentifier.isNotEmpty && mounted) {
+      _identifierController.text = updatedIdentifier;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Password reset successfully! Please sign in with your new password.',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.0)),
+        ),
+      );
     }
   }
 
@@ -204,7 +231,30 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 8),
+
+                          // Forgot Password
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              key: const Key('forgotPasswordButton'),
+                              onPressed: isLoading ? null : _showForgotPasswordDialog,
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'Forgot Password?',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.indigo600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
 
                           // Sign In Button
                           ElevatedButton(

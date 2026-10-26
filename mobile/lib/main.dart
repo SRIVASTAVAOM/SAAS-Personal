@@ -61,6 +61,7 @@ void main() async {
 
   runApp(SchoolErpApp(
     authBloc: authBloc,
+    authRepository: authRepository,
     appRouter: appRouter,
     dioClient: dioClient,
     academicsRepository: academicsRepository,
@@ -78,6 +79,7 @@ void main() async {
 
 class SchoolErpApp extends StatelessWidget {
   final AuthBloc authBloc;
+  final AuthRepository authRepository;
   final AppRouter appRouter;
   final DioClient dioClient;
   final AcademicsRepository academicsRepository;
@@ -94,6 +96,7 @@ class SchoolErpApp extends StatelessWidget {
   const SchoolErpApp({
     super.key,
     required this.authBloc,
+    required this.authRepository,
     required this.appRouter,
     required this.dioClient,
     required this.academicsRepository,
@@ -112,6 +115,7 @@ class SchoolErpApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiRepositoryProvider(
       providers: [
+        RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: dioClient),
         RepositoryProvider.value(value: academicsRepository),
         RepositoryProvider.value(value: profileRepository),

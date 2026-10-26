@@ -1515,6 +1515,7 @@ export class AdminRepository {
         sp.father_name,
         sp.mother_name,
         sp.emergency_phone,
+        COALESCE(sp.login_password, 'Student@123') AS password,
         u.identifier,
         u.email,
         u.phone,
@@ -1704,6 +1705,51 @@ export class AdminRepository {
     }
 
     return await this.getStudentDetails(schoolId, studentId);
+  }
+
+  /**
+   * 9c. Reset Student Password (Admin Reset Desk)
+   */
+  static async resetStudentPassword(schoolId: string, studentId: string, customPassword?: string): Promise<any> {
+    const checkQuery = `
+      SELECT sp.id, sp.user_id, u.identifier, sp.first_name, sp.last_name
+      FROM student_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      WHERE sp.id = $1 AND u.school_id = $2;
+    `;
+    const checkRes = await pool.query(checkQuery, [studentId, schoolId]);
+    if (checkRes.rows.length === 0) {
+      throw new Error('STUDENT_NOT_FOUND');
+    }
+    const student = checkRes.rows[0];
+    const passwordToSet = (customPassword && customPassword.trim()) ? customPassword.trim() : 'Student@123';
+    const hash = await bcrypt.hash(passwordToSet, 10);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        hash,
+        student.user_id,
+      ]);
+      await client.query('UPDATE student_profiles SET login_password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        passwordToSet,
+        student.id,
+      ]);
+      await client.query('COMMIT');
+      return {
+        success: true,
+        message: 'Student password reset successfully',
+        studentId: student.id,
+        identifier: student.identifier,
+        newPassword: passwordToSet,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**
@@ -1977,6 +2023,51 @@ export class AdminRepository {
 
       await client.query('COMMIT');
       return { success: true, message: 'Staff profile updated successfully' };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 12b. Reset Staff Password (Admin Reset Desk)
+   */
+  static async resetStaffPassword(schoolId: string, staffId: string, customPassword?: string): Promise<any> {
+    const checkQuery = `
+      SELECT sp.id, sp.user_id, u.identifier, sp.first_name, sp.last_name
+      FROM staff_profiles sp
+      JOIN users u ON sp.user_id = u.id
+      WHERE sp.id = $1 AND u.school_id = $2;
+    `;
+    const checkRes = await pool.query(checkQuery, [staffId, schoolId]);
+    if (checkRes.rows.length === 0) {
+      throw new Error('STAFF_NOT_FOUND');
+    }
+    const staff = checkRes.rows[0];
+    const passwordToSet = (customPassword && customPassword.trim()) ? customPassword.trim() : 'Staff@123';
+    const hash = await bcrypt.hash(passwordToSet, 10);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        hash,
+        staff.user_id,
+      ]);
+      await client.query('UPDATE staff_profiles SET login_password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        passwordToSet,
+        staff.id,
+      ]);
+      await client.query('COMMIT');
+      return {
+        success: true,
+        message: 'Staff password reset successfully',
+        staffId: staff.id,
+        identifier: staff.identifier,
+        newPassword: passwordToSet,
+      };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -2515,8 +2606,8 @@ export class AdminRepository {
               `INSERT INTO student_profiles (
                 user_id, admission_number, roll_number, first_name, last_name,
                 current_class_id, current_section_id, gender, date_of_birth, admission_date,
-                emergency_phone, father_name, mother_name, blood_group, is_active
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
+                emergency_phone, father_name, mother_name, blood_group, is_active, login_password
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, $15)`,
               [
                 userId,
                 admissionNumber,
@@ -2532,6 +2623,7 @@ export class AdminRepository {
                 fatherName,
                 motherName,
                 bloodGroup,
+                password,
               ]
             );
           }
@@ -2605,8 +2697,8 @@ export class AdminRepository {
               `INSERT INTO student_profiles (
                 user_id, admission_number, roll_number, first_name, last_name,
                 current_class_id, current_section_id, gender, date_of_birth, admission_date,
-                emergency_phone, father_name, mother_name, blood_group, is_active
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE)`,
+                emergency_phone, father_name, mother_name, blood_group, is_active, login_password
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, $15)`,
               [
                 newUserId,
                 admissionNumber,
@@ -2622,6 +2714,7 @@ export class AdminRepository {
                 fatherName,
                 motherName,
                 bloodGroup,
+                password,
               ]
             );
             createdCount++;

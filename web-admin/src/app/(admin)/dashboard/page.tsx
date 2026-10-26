@@ -220,7 +220,7 @@ export default function DashboardPage() {
     return `${d}-${m}-${y}`;
   }, [data?.date]);
 
-  // Distinct classes and sections from data
+  // Distinct classes and sections from data for each and every class
   const distinctClasses = useMemo(() => {
     if (!data?.sections) return [];
     const map = new Map<string, string>();
@@ -564,22 +564,20 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setActiveFeeView('TODAY')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition ${
-                  activeFeeView === 'TODAY'
-                    ? 'bg-white text-blue-700 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`px-2.5 py-1 rounded-md font-semibold transition ${activeFeeView === 'TODAY'
+                  ? 'bg-white text-blue-700 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
               >
                 Today ({formattedToday})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveFeeView('MONTHLY')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition ${
-                  activeFeeView === 'MONTHLY'
-                    ? 'bg-white text-blue-700 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`px-2.5 py-1 rounded-md font-semibold transition ${activeFeeView === 'MONTHLY'
+                  ? 'bg-white text-blue-700 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
               >
                 This Month ({monthlyCollection.month.split(' ')[0]})
               </button>
@@ -1047,11 +1045,10 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setInspectorTab('STUDENT')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                inspectorTab === 'STUDENT'
-                  ? 'bg-white text-slate-950 shadow-sm'
-                  : 'text-white/80 hover:text-white hover:bg-white/5'
-              }`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${inspectorTab === 'STUDENT'
+                ? 'bg-white text-slate-950 shadow-sm'
+                : 'text-white/80 hover:text-white hover:bg-white/5'
+                }`}
             >
               <Users className="w-3.5 h-3.5" />
               Student 360° ({studentsList.length})
@@ -1059,11 +1056,10 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setInspectorTab('TEACHER')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                inspectorTab === 'TEACHER'
-                  ? 'bg-white text-slate-950 shadow-sm'
-                  : 'text-white/80 hover:text-white hover:bg-white/5'
-              }`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${inspectorTab === 'TEACHER'
+                ? 'bg-white text-slate-950 shadow-sm'
+                : 'text-white/80 hover:text-white hover:bg-white/5'
+                }`}
             >
               <GraduationCap className="w-3.5 h-3.5" />
               Teacher 360° ({teachersList.length})
@@ -1216,13 +1212,12 @@ export default function DashboardPage() {
                   {/* Badges: Attendance Today + Fee Balance */}
                   <div className="flex items-center gap-2 self-start sm:self-center">
                     {/* Today Attendance Badge */}
-                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${
-                      studentInspection.attendance?.status === 'PRESENT'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : studentInspection.attendance?.status === 'ABSENT'
+                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${studentInspection.attendance?.status === 'PRESENT'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : studentInspection.attendance?.status === 'ABSENT'
                         ? 'bg-rose-50 text-rose-800 border-rose-200'
                         : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}>
+                      }`}>
                       {studentInspection.attendance?.status === 'PRESENT' ? (
                         <>
                           <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -1242,11 +1237,10 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Fee Balance Badge */}
-                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${
-                      (studentInspection.fees?.due || 0) === 0
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-rose-50 text-rose-800 border-rose-200'
-                    }`}>
+                    <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold ${(studentInspection.fees?.due || 0) === 0
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                      }`}>
                       <IndianRupee className="w-3.5 h-3.5" />
                       <span>
                         {(studentInspection.fees?.due || 0) === 0 ? 'Fees Fully Paid' : `₹ ${(studentInspection.fees?.due || 0).toLocaleString('en-IN')} Due`}
@@ -1396,7 +1390,7 @@ export default function DashboardPage() {
                           {studentInspection.today_schedule.map((slot: any, idx: number) => (
                             <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1 rounded-md border border-slate-200/70 text-[11px]">
                               <span className="font-semibold text-slate-700">{slot.subject_name}</span>
-                              <span className="text-slate-400 font-mono text-[10px]">{slot.start_time?.slice(0,5)} - {slot.end_time?.slice(0,5)}</span>
+                              <span className="text-slate-400 font-mono text-[10px]">{slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}</span>
                             </div>
                           ))}
                         </div>
@@ -1560,7 +1554,7 @@ export default function DashboardPage() {
                               <p className="text-[10px] text-slate-500 font-medium">{cls.class_name} - {cls.section_name}</p>
                             </div>
                             <span className="font-mono text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
-                              {cls.start_time?.slice(0,5)} - {cls.end_time?.slice(0,5)}
+                              {cls.start_time?.slice(0, 5)} - {cls.end_time?.slice(0, 5)}
                             </span>
                           </div>
                         ))}
@@ -1940,20 +1934,18 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100">
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        sec.attendance_status === 'GREEN'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${sec.attendance_status === 'GREEN'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-rose-100 text-rose-800'
+                        }`}
                     >
                       {sec.attendance_status === 'GREEN' ? 'Att Marked' : 'Att Pending'}
                     </span>
                     <span
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        sec.homework_status === 'GREEN'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${sec.homework_status === 'GREEN'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-amber-100 text-amber-800'
+                        }`}
                     >
                       {sec.homework_status === 'GREEN' ? 'HW Set' : 'HW Due'}
                     </span>
@@ -1995,22 +1987,20 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 p-1 bg-slate-200 rounded-xl w-full sm:w-auto">
                 <button
                   onClick={() => setAttendanceModalTab('PRESENT')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                    attendanceModalTab === 'PRESENT'
-                      ? 'bg-white text-emerald-800 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${attendanceModalTab === 'PRESENT'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                   Present ({modalPresentList.length})
                 </button>
                 <button
                   onClick={() => setAttendanceModalTab('ABSENT')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                    attendanceModalTab === 'ABSENT'
-                      ? 'bg-white text-rose-800 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${attendanceModalTab === 'ABSENT'
+                    ? 'bg-white text-rose-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                   Absent ({modalAbsentList.length})
@@ -2062,11 +2052,10 @@ export default function DashboardPage() {
                         </td>
                         <td className="py-2 px-3 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              st.status === 'PRESENT'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.status === 'PRESENT'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-rose-100 text-rose-800'
+                              }`}
                           >
                             {st.status}
                           </span>

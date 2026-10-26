@@ -296,6 +296,45 @@ export default function StaffListPage() {
     }));
   };
 
+  // Export Staff Credentials CSV
+  const exportStaffCredentialsCSV = () => {
+    if (!staffList || staffList.length === 0) {
+      alert('No staff members available to export.');
+      return;
+    }
+    const headers = [
+      'Employee Code (Login ID)',
+      'Staff Name',
+      'Role',
+      'Department',
+      'Designation',
+      'Email',
+      'Phone',
+      'Password',
+      'App Login Instructions',
+    ];
+    const rows = staffList.map((st) => [
+      `"${st.employee_code || st.identifier || ''}"`,
+      `"${st.staff_name || `${st.first_name} ${st.last_name}`}"`.trim(),
+      `"${st.role || 'TEACHER'}"`,
+      `"${st.department || 'Academics'}"`,
+      `"${st.designation || 'Teacher'}"`,
+      `"${st.email || ''}"`,
+      `"${st.phone || ''}"`,
+      `"${st.password || 'Staff@123'}"`,
+      `"Use Employee Code or Email as Identifier and Password to login in App / Portal"`,
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `staff_login_credentials_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Open Add Modal
   const handleOpenAddModal = () => {
     const randomSuffix = Math.floor(100 + Math.random() * 900);
@@ -484,6 +523,14 @@ export default function StaffListPage() {
             <BookOpen className="w-4 h-4 text-indigo-400" />
             <span>Class &amp; Subject Allocations Hub</span>
           </a>
+          <button
+            onClick={exportStaffCredentialsCSV}
+            title="Download Login ID and Passwords for all staff"
+            className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-xs flex items-center gap-2 border border-white/20 shadow-xs transition cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Export Credentials (CSV)</span>
+          </button>
           <button
             onClick={() => {
               setBulkStaffError(null);
