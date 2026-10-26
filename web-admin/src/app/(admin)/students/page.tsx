@@ -166,14 +166,66 @@ export default function StudentsDirectoryPage() {
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<any | null>(null);
 
-  const downloadSampleTemplate = () => {
-    const csvContent =
-      'admission_no,roll_no,first_name,last_name,class_name,section_name,gender,dob,phone,emergency_phone,father_name,mother_name,blood_group\n' +
-      'STU202601,1,Aarav,Sharma,Grade 10,Section A,MALE,2011-05-14,9876543201,9876543201,Rajesh Sharma,Sunita Sharma,O+\n' +
-      'STU202602,2,Diya,Verma,Grade 10,Section A,FEMALE,2011-08-22,9876543202,9876543202,Amit Verma,Pooja Verma,B+\n' +
-      'STU202603,1,Rohan,Kumar,Grade 9,Section B,MALE,2012-01-10,9876543203,9876543203,Suresh Kumar,Meena Kumar,A+\n' +
-      'STU202604,2,Ananya,Patel,Grade 9,Section B,FEMALE,2012-03-18,9876543204,9876543204,Vikram Patel,Rekha Patel,AB+';
+  const BULK_STUDENT_COLUMNS = [
+    'id', 'enq_no', 'adm_no', 'adm_no_old', 'adm_no_sch', 'reg_no', 'type',
+    'stu_name', 'stu_name_hindi', 'username', 'password', 'fat_name', 'fat_occu',
+    'fat_income', 'mot_name', 'mot_occ', 'guard_occ', 'mot_income', 'guard_income',
+    'height', 'weight', 'lang', 'cast_cert_no', 'father_pan', 'fat_qual', 'mot_qual',
+    'guard_qual', 'guard_name', 'guard_relation', 'guard_no', 'guard_no2', 'house',
+    'stream', 'adm_class', 'adm_category', 'class', 'sec', 'gender', 'religion',
+    'nationality', 'category', 'address', 'address_co', 'mobile', 'mobile2',
+    'mobile_co', 'mobile2_co', 'roll_no', 'sssn', 'dob', 'do_adm', 'new_old',
+    'school1_name', 'school1_class', 'school1_session', 'school1_curri', 'school1_sub',
+    'school2_name', 'school2_class', 'school2_session', 'school2_curri', 'school2_sub',
+    'school3_name', 'school3_class', 'school3_session', 'school3_curri', 'school3_sub',
+    'photo_stu', 'photo_fat', 'photo_mot', 'photo_guard', 'allow_discount', 'is_shown',
+    'tc_issue', 'fee_cat', 'session', 'student_aadhar', 'aadhar_mother', 'pan_mother',
+    'caste', 'fee_type', 'stu_email', 'weight2', 'height2', 'fat_email', 'mot_email',
+    'guard_email', 'father_nationality', 'mother_nationality', 'aadhar_father',
+    'fat_mobile', 'fat_mobile2', 'mot_mobile', 'mot_mobile2'
+  ];
 
+  const downloadSampleTemplate = () => {
+    const headers = BULK_STUDENT_COLUMNS.join(',');
+    const sampleRow1 = [
+      '1', 'ENQ202601', 'STU202601', '', 'SCH-101', 'REG-001', 'Regular',
+      'Aarav Sharma', 'आरव शर्मा', 'STU202601', 'Student@123', 'Rajesh Sharma', 'Business',
+      '750000', 'Sunita Sharma', 'Teacher', 'Business', '450000', '0',
+      '152', '48', 'Hindi', 'CC-2024-998', 'ABCDE1234F', 'Post Graduate', 'Graduate',
+      'Graduate', 'Rajesh Sharma', 'Father', '9876543201', '9876543205', 'Red House',
+      'Science', 'Grade 10', 'General', 'Grade 10', 'Section A', 'MALE', 'Hindu',
+      'Indian', 'General', '123 Civil Lines Delhi', '123 Civil Lines Delhi', '9876543201', '9876543205',
+      '9876543201', '9876543205', '1', 'SSSN-99881', '2011-05-14', '2024-04-01', 'New',
+      'St. Xavier School', 'Grade 9', '2023-2024', 'CBSE', 'All',
+      'DPS Mathura', 'Grade 8', '2022-2023', 'CBSE', 'All',
+      '', '', '', '', '',
+      '', '', '', '', 'Yes', 'Yes',
+      'No', 'Standard', '2026-2027', '998877665544', '112233445566', 'XYZPM1234K',
+      'General', 'Quarterly', 'aarav.student@school.edu', '48', '152', 'rajesh.sharma@gmail.com', 'sunita.sharma@gmail.com',
+      'rajesh.sharma@gmail.com', 'Indian', 'Indian', '554433221100',
+      '9876543201', '9876543205', '9876543202', '9876543206'
+    ].map((v) => (v.includes(',') ? `"${v}"` : v)).join(',');
+
+    const sampleRow2 = [
+      '2', 'ENQ202602', 'STU202602', '', 'SCH-102', 'REG-002', 'Regular',
+      'Diya Verma', 'दिया वर्मा', 'STU202602', 'Student@123', 'Amit Verma', 'Engineer',
+      '950000', 'Pooja Verma', 'Doctor', 'Doctor', '850000', '0',
+      '148', '42', 'Hindi', 'CC-2024-999', 'FGHIJ5678K', 'Post Graduate', 'Doctorate',
+      'Graduate', 'Amit Verma', 'Father', '9876543202', '9876543207', 'Blue House',
+      'Commerce', 'Grade 10', 'OBC', 'Grade 10', 'Section A', 'FEMALE', 'Hindu',
+      'Indian', 'OBC', '45 Park Street Delhi', '45 Park Street Delhi', '9876543202', '9876543207',
+      '9876543202', '9876543207', '2', 'SSSN-99882', '2011-08-22', '2024-04-01', 'New',
+      'Modern Academy', 'Grade 9', '2023-2024', 'CBSE', 'All',
+      '', '', '', '', '',
+      '', '', '', '', '',
+      '', '', '', '', 'Yes', 'Yes',
+      'No', 'Standard', '2026-2027', '887766554433', '223344556677', 'PQRPM5678L',
+      'OBC', 'Quarterly', 'diya.verma@school.edu', '42', '148', 'amit.verma@gmail.com', 'pooja.verma@gmail.com',
+      'amit.verma@gmail.com', 'Indian', 'Indian', '665544332211',
+      '9876543202', '9876543207', '9876543203', '9876543208'
+    ].map((v) => (v.includes(',') ? `"${v}"` : v)).join(',');
+
+    const csvContent = `${headers}\n${sampleRow1}\n${sampleRow2}`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -267,13 +319,44 @@ export default function StudentsDirectoryPage() {
           throw new Error('CSV must contain a header row and at least 1 data row.');
         }
 
-        const headers = lines[0].split(',').map((h) =>
+        // Auto-detect delimiter: comma vs tab vs semicolon
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes('\t') && firstLine.split('\t').length > firstLine.split(',').length) {
+          delimiter = '\t';
+        } else if (firstLine.includes(';') && firstLine.split(';').length > firstLine.split(',').length) {
+          delimiter = ';';
+        }
+
+        const parseRow = (line: string): string[] => {
+          if (delimiter === '\t') {
+            return line.split('\t').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+          }
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"' || char === "'") {
+              inQuotes = !inQuotes;
+            } else if (char === delimiter && !inQuotes) {
+              values.push(current.trim().replace(/^["']|["']$/g, ''));
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim().replace(/^["']|["']$/g, ''));
+          return values;
+        };
+
+        const headers = parseRow(lines[0]).map((h) =>
           h.trim().toLowerCase().replace(/['"]/g, '').replace(/[\s\.\-_]+/g, '_').replace(/^_+|_+$/g, '')
         );
         const parsed: any[] = [];
 
         for (let i = 1; i < lines.length; i++) {
-          const rowValues = lines[i].split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+          const rowValues = parseRow(lines[i]);
           if (rowValues.length < 2 || rowValues.every((v) => !v)) continue;
 
           const rowObj: any = {};
@@ -281,32 +364,91 @@ export default function StudentsDirectoryPage() {
             rowObj[hdr] = rowValues[idx] || '';
           });
 
-          // Normalize fields with wide alias support
+          // Resolve full name / first & last name
+          let firstName = rowObj.first_name || rowObj.firstname || '';
+          let lastName = rowObj.last_name || rowObj.lastname || '';
+          if (!firstName && (rowObj.stu_name || rowObj.stuname || rowObj.name || rowObj.student_name)) {
+            const rawName = (rowObj.stu_name || rowObj.stuname || rowObj.name || rowObj.student_name).trim();
+            const parts = rawName.split(/\s+/);
+            firstName = parts[0] || 'Student';
+            lastName = parts.slice(1).join(' ');
+          }
+          if (!firstName) firstName = 'Student';
+
+          const admNo =
+            rowObj.adm_no ||
+            rowObj.admno ||
+            rowObj.adm_no_sch ||
+            rowObj.reg_no ||
+            rowObj.admission_no ||
+            rowObj.admission_number ||
+            rowObj.admissionno ||
+            rowObj.id ||
+            '';
+
+          const className =
+            rowObj.class ||
+            rowObj.adm_class ||
+            rowObj.class_name ||
+            rowObj.classname ||
+            rowObj.grade ||
+            'Grade 10';
+
+          const secName =
+            rowObj.sec ||
+            rowObj.section ||
+            rowObj.section_name ||
+            rowObj.sec_name ||
+            'Section A';
+
+          const phone =
+            rowObj.mobile ||
+            rowObj.fat_mobile ||
+            rowObj.phone ||
+            rowObj.contact ||
+            '';
+
+          const emergencyPhone =
+            rowObj.emergency_phone ||
+            rowObj.fat_mobile ||
+            rowObj.mobile2 ||
+            rowObj.mot_mobile ||
+            phone;
+
           parsed.push({
-            admission_no:
-              rowObj.admission_no ||
-              rowObj.admission_number ||
-              rowObj.admissionno ||
-              rowObj.adm_no ||
-              rowObj.admno ||
-              rowObj.reg_no ||
-              rowObj.registration_no ||
-              rowObj.student_id ||
-              rowObj.id ||
-              '',
+            ...rowObj, // preserves all 94 original fields!
+            admission_no: admNo,
+            adm_no: admNo,
             roll_no: rowObj.roll_no || rowObj.roll_number || rowObj.rollno || '',
-            first_name: rowObj.first_name || rowObj.firstname || rowObj.name || rowObj.student_name || 'Student',
-            last_name: rowObj.last_name || rowObj.lastname || '',
-            class_name: rowObj.class_name || rowObj.class || rowObj.classname || rowObj.grade || 'Grade 10',
-            section_name: rowObj.section_name || rowObj.section || rowObj.sec || 'Section A',
+            first_name: firstName,
+            last_name: lastName,
+            stu_name: rowObj.stu_name || `${firstName} ${lastName}`.trim(),
+            class_name: className,
+            class: className,
+            section_name: secName,
+            sec: secName,
             gender: (rowObj.gender || 'MALE').toUpperCase(),
             dob: parseSafeDate(rowObj.dob || rowObj.date_of_birth || rowObj.birth_date || rowObj.birthdate) || '',
-            admission_date: parseSafeDate(rowObj.admission_date || rowObj.adm_date || rowObj.joining_date) || '',
-            phone: rowObj.phone || rowObj.mobile || rowObj.contact || '',
-            emergency_phone: rowObj.emergency_phone || rowObj.phone || rowObj.mobile || '',
-            father_name: rowObj.father_name || rowObj.father || rowObj.fathername || '',
-            mother_name: rowObj.mother_name || rowObj.mother || rowObj.mothername || '',
+            do_adm: parseSafeDate(rowObj.do_adm || rowObj.admission_date || rowObj.adm_date) || '',
+            admission_date: parseSafeDate(rowObj.do_adm || rowObj.admission_date || rowObj.adm_date) || '',
+            phone: phone,
+            mobile: phone,
+            emergency_phone: emergencyPhone,
+            father_name: rowObj.fat_name || rowObj.father_name || rowObj.father || '',
+            fat_name: rowObj.fat_name || rowObj.father_name || rowObj.father || '',
+            mother_name: rowObj.mot_name || rowObj.mother_name || rowObj.mother || '',
+            mot_name: rowObj.mot_name || rowObj.mother_name || rowObj.mother || '',
             blood_group: rowObj.blood_group || rowObj.bloodgroup || '',
+            password: rowObj.password || 'Student@123',
+            address: rowObj.address || rowObj.address_co || '',
+            caste: rowObj.caste || rowObj.category || '',
+            religion: rowObj.religion || '',
+            nationality: rowObj.nationality || rowObj.father_nationality || 'Indian',
+            student_aadhar: rowObj.student_aadhar || '',
+            aadhar_father: rowObj.aadhar_father || '',
+            aadhar_mother: rowObj.aadhar_mother || '',
+            father_pan: rowObj.father_pan || '',
+            pan_mother: rowObj.pan_mother || '',
           });
         }
 
@@ -319,7 +461,6 @@ export default function StudentsDirectoryPage() {
         setBulkError(err?.message || 'Failed to parse CSV file');
       }
     };
-    reader.readAsText(file);
   };
 
   const handleExecuteBulkUpload = async () => {

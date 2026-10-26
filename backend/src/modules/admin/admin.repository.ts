@@ -2471,18 +2471,32 @@ export class AdminRepository {
       let rowIdx = 0;
       for (const row of students) {
         rowIdx++;
-        const rawClassName = (row.class_name || row.class || 'Grade 10').toString().trim();
-        const rawSectionName = (row.section_name || row.section || 'Section A').toString().trim();
-        const firstName = (row.first_name || row.name || 'Student').toString().trim();
-        const lastName = (row.last_name || '').toString().trim();
+        const rawClassName = (row.class_name || row.class || row.adm_class || 'Grade 10').toString().trim();
+        const rawSectionName = (row.section_name || row.section || row.sec || 'Section A').toString().trim();
         
+        // Name parsing: support stu_name (e.g. "Aarav Sharma")
+        let firstName = (row.first_name || '').toString().trim();
+        let lastName = (row.last_name || '').toString().trim();
+        if (!firstName && row.stu_name) {
+          const parts = row.stu_name.toString().trim().split(/\s+/);
+          firstName = parts[0] || 'Student';
+          lastName = parts.slice(1).join(' ');
+        } else if (!firstName && row.name) {
+          const parts = row.name.toString().trim().split(/\s+/);
+          firstName = parts[0] || 'Student';
+          lastName = parts.slice(1).join(' ');
+        }
+        if (!firstName) firstName = 'Student';
+
         // Clean and ensure collision-free admission number
         let rawAdm = (
+          row.adm_no ||
+          row.adm_no_sch ||
+          row.reg_no ||
           row.admission_no ||
           row.admission_number ||
-          row.adm_no ||
+          row.id ||
           row['admission no'] ||
-          row['admission number'] ||
           row['adm no'] ||
           ''
         ).toString().trim();
@@ -2495,13 +2509,38 @@ export class AdminRepository {
         const rollNumber = row.roll_no ? String(row.roll_no).trim() : (row.roll_number ? String(row.roll_number).trim() : null);
         const gender = row.gender ? String(row.gender).trim().toUpperCase() : 'MALE';
         const dob = parseSafeDate(row.dob || row.date_of_birth);
-        const admissionDate = parseSafeDate(row.admission_date || row.adm_date);
-        const phone = row.phone ? String(row.phone).trim() : null;
-        const emergencyPhone = row.emergency_phone ? String(row.emergency_phone).trim() : phone;
-        const fatherName = row.father_name || row.father || null;
-        const motherName = row.mother_name || row.mother || null;
+        const admissionDate = parseSafeDate(row.do_adm || row.admission_date || row.adm_date);
+        const phone = row.mobile ? String(row.mobile).trim() : (row.phone ? String(row.phone).trim() : null);
+        const emergencyPhone = row.emergency_phone
+          ? String(row.emergency_phone).trim()
+          : row.fat_mobile
+          ? String(row.fat_mobile).trim()
+          : row.mot_mobile
+          ? String(row.mot_mobile).trim()
+          : phone;
+        const fatherName = row.fat_name || row.father_name || row.father || null;
+        const motherName = row.mot_name || row.mother_name || row.mother || null;
         const bloodGroup = row.blood_group || null;
         const password = row.password || 'Student@123';
+
+        // Additional legacy ERP profile fields
+        const address = row.address || row.address_co || null;
+        const caste = row.caste || row.category || null;
+        const religion = row.religion || null;
+        const nationality = row.nationality || row.father_nationality || 'Indian';
+        const studentAadhar = row.student_aadhar || null;
+        const aadharFather = row.aadhar_father || null;
+        const aadharMother = row.aadhar_mother || null;
+        const fatherPan = row.father_pan || null;
+        const panMother = row.pan_mother || null;
+
+        // Build comprehensive extra_data preserving ALL 94 columns
+        const extraData: Record<string, any> = row.extra_data && typeof row.extra_data === 'object' ? { ...row.extra_data } : {};
+        for (const [k, v] of Object.entries(row)) {
+          if (v !== undefined && v !== null && v !== '' && k !== 'password' && k !== 'extra_data') {
+            extraData[k] = v;
+          }
+        }
 
         // 1. Resolve Class
         const classKey = rawClassName.toLowerCase();
@@ -2581,6 +2620,16 @@ export class AdminRepository {
                 mother_name = COALESCE($11, mother_name),
                 blood_group = COALESCE($12, blood_group),
                 admission_date = COALESCE($13, admission_date),
+                address = COALESCE($15, address),
+                caste = COALESCE($16, caste),
+                religion = COALESCE($17, religion),
+                nationality = COALESCE($18, nationality),
+                student_aadhar = COALESCE($19, student_aadhar),
+                aadhar_father = COALESCE($20, aadhar_father),
+                aadhar_mother = COALESCE($21, aadhar_mother),
+                father_pan = COALESCE($22, father_pan),
+                pan_mother = COALESCE($23, pan_mother),
+                extra_data = COALESCE(extra_data, '{}'::jsonb) || $24::jsonb,
                 is_active = TRUE,
                 updated_at = CURRENT_TIMESTAMP
               WHERE id = $14`,
@@ -2599,6 +2648,16 @@ export class AdminRepository {
                 bloodGroup,
                 admissionDate,
                 profileId,
+                address,
+                caste,
+                religion,
+                nationality,
+                studentAadhar,
+                aadharFather,
+                aadharMother,
+                fatherPan,
+                panMother,
+                JSON.stringify(extraData),
               ]
             );
           } else {
@@ -2606,8 +2665,15 @@ export class AdminRepository {
               `INSERT INTO student_profiles (
                 user_id, admission_number, roll_number, first_name, last_name,
                 current_class_id, current_section_id, gender, date_of_birth, admission_date,
-                emergency_phone, father_name, mother_name, blood_group, is_active, login_password
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, $15)`,
+                emergency_phone, father_name, mother_name, blood_group, is_active, login_password,
+                address, caste, religion, nationality, student_aadhar, aadhar_father, aadhar_mother,
+                father_pan, pan_mother, extra_data
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, TRUE, $15,
+                $16, $17, $18, $19, $20, $21, $22,
+                $23, $24, $25::jsonb
+              )`,
               [
                 userId,
                 admissionNumber,
@@ -2624,6 +2690,16 @@ export class AdminRepository {
                 motherName,
                 bloodGroup,
                 password,
+                address,
+                caste,
+                religion,
+                nationality,
+                studentAadhar,
+                aadharFather,
+                aadharMother,
+                fatherPan,
+                panMother,
+                JSON.stringify(extraData),
               ]
             );
           }
@@ -2671,6 +2747,16 @@ export class AdminRepository {
                 mother_name = COALESCE($11, mother_name),
                 blood_group = COALESCE($12, blood_group),
                 admission_date = COALESCE($13, admission_date),
+                address = COALESCE($15, address),
+                caste = COALESCE($16, caste),
+                religion = COALESCE($17, religion),
+                nationality = COALESCE($18, nationality),
+                student_aadhar = COALESCE($19, student_aadhar),
+                aadhar_father = COALESCE($20, aadhar_father),
+                aadhar_mother = COALESCE($21, aadhar_mother),
+                father_pan = COALESCE($22, father_pan),
+                pan_mother = COALESCE($23, pan_mother),
+                extra_data = COALESCE(extra_data, '{}'::jsonb) || $24::jsonb,
                 is_active = TRUE,
                 updated_at = CURRENT_TIMESTAMP
               WHERE id = $14`,
@@ -2689,6 +2775,16 @@ export class AdminRepository {
                 bloodGroup,
                 admissionDate,
                 profCheck.rows[0].id,
+                address,
+                caste,
+                religion,
+                nationality,
+                studentAadhar,
+                aadharFather,
+                aadharMother,
+                fatherPan,
+                panMother,
+                JSON.stringify(extraData),
               ]
             );
             updatedCount++;
@@ -2697,8 +2793,15 @@ export class AdminRepository {
               `INSERT INTO student_profiles (
                 user_id, admission_number, roll_number, first_name, last_name,
                 current_class_id, current_section_id, gender, date_of_birth, admission_date,
-                emergency_phone, father_name, mother_name, blood_group, is_active, login_password
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, TRUE, $15)`,
+                emergency_phone, father_name, mother_name, blood_group, is_active, login_password,
+                address, caste, religion, nationality, student_aadhar, aadhar_father, aadhar_mother,
+                father_pan, pan_mother, extra_data
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, TRUE, $15,
+                $16, $17, $18, $19, $20, $21, $22,
+                $23, $24, $25::jsonb
+              )`,
               [
                 newUserId,
                 admissionNumber,
@@ -2715,6 +2818,16 @@ export class AdminRepository {
                 motherName,
                 bloodGroup,
                 password,
+                address,
+                caste,
+                religion,
+                nationality,
+                studentAadhar,
+                aadharFather,
+                aadharMother,
+                fatherPan,
+                panMother,
+                JSON.stringify(extraData),
               ]
             );
             createdCount++;
