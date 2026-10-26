@@ -119,7 +119,7 @@ Expected response:
 ```
 
 ### 2. Log in to Web Admin:
-Visit your Vercel URL (e.g., `https://saas-personal.vercel.app/login`) and test with seeded credentials:
+Visit your live Vercel URL (e.g. from your [Vercel Dashboard](https://vercel.com/dashboard) under project `web-admin` -> `https://web-admin-*.vercel.app/login`) and test with seeded credentials:
 
 | Role | Username / Identifier | Password | Access Scope |
 | :--- | :--- | :--- | :--- |
