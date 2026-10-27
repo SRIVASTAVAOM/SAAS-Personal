@@ -118,6 +118,12 @@ function parseSafeDate(val: any): string | null {
   return null;
 }
 
+function formatSectionName(name?: string | null): string {
+  if (!name) return 'Section';
+  const clean = name.trim();
+  return clean.toLowerCase().startsWith('section') ? clean : `Section ${clean}`;
+}
+
 export default function StudentsDirectoryPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -819,20 +825,21 @@ export default function StudentsDirectoryPage() {
     return cls ? cls.sections : [];
   }, [allClasses, admissionForm.current_class_id]);
 
-  // Compute available sections based on selected classes (or across all classes if none selected)
+  // Compute available sections based on selected classes (only show sections of selected classes)
   const availableSections = useMemo(() => {
-    const secMap = new Map<string, { id: string; name: string; className: string }>();
+    if (selectedClassIds.length === 0) {
+      return [];
+    }
 
-    const targetClasses = selectedClassIds.length > 0
-      ? allClasses.filter((c) => selectedClassIds.includes(c.id))
-      : allClasses;
+    const secMap = new Map<string, { id: string; name: string; className: string }>();
+    const targetClasses = allClasses.filter((c) => selectedClassIds.includes(c.id));
 
     targetClasses.forEach((c) => {
       c.sections.forEach((sec) => {
         if (!secMap.has(sec.id)) {
           secMap.set(sec.id, {
             id: sec.id,
-            name: sec.name,
+            name: formatSectionName(sec.name),
             className: c.name,
           });
         }
@@ -841,6 +848,14 @@ export default function StudentsDirectoryPage() {
 
     return Array.from(secMap.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   }, [allClasses, selectedClassIds]);
+
+  // Clean up selected sections that no longer belong to selected classes
+  useEffect(() => {
+    if (selectedSectionIds.length > 0) {
+      const validSectionIds = new Set(availableSections.map((s) => s.id));
+      setSelectedSectionIds((prev) => prev.filter((id) => validSectionIds.has(id)));
+    }
+  }, [availableSections]);
 
   // Multi-select toggle helper for classes
   const toggleClassSelect = (classId: string) => {
@@ -1354,14 +1369,18 @@ export default function StudentsDirectoryPage() {
                 setIsClassDropdownOpen(false);
               }}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition cursor-pointer ${
-                selectedSectionIds.length > 0
+                selectedClassIds.length === 0
+                  ? 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'
+                  : selectedSectionIds.length > 0
                   ? 'border-indigo-300 bg-indigo-50/60 text-indigo-700'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <Filter className="w-3.5 h-3.5 text-indigo-600" />
+              <Filter className={`w-3.5 h-3.5 ${selectedSectionIds.length > 0 ? 'text-indigo-600' : 'text-slate-400'}`} />
               <span>
-                {selectedSectionIds.length === 0
+                {selectedClassIds.length === 0
+                  ? 'Sections (Select Class First)'
+                  : selectedSectionIds.length === 0
                   ? 'All Sections'
                   : selectedSectionIds.length === 1
                   ? availableSections.find((s) => s.id === selectedSectionIds[0])?.name || '1 Section'
@@ -1371,25 +1390,32 @@ export default function StudentsDirectoryPage() {
             </button>
 
             {isSectionDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-40 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-40 space-y-2 animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-center justify-between px-2 pt-1 pb-1 border-b border-slate-100">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Filter by Section
                   </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={selectAllSections}
-                      className="text-[11px] text-indigo-600 hover:underline font-semibold cursor-pointer"
-                    >
-                      {selectedSectionIds.length === availableSections.length ? 'Clear All' : 'Select All'}
-                    </button>
-                  </div>
+                  {availableSections.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllSections}
+                        className="text-[11px] text-indigo-600 hover:underline font-semibold cursor-pointer"
+                      >
+                        {selectedSectionIds.length === availableSections.length ? 'Clear All' : 'Select All'}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-                  {availableSections.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-slate-400">No sections available</div>
+                  {selectedClassIds.length === 0 ? (
+                    <div className="p-4 text-center space-y-1">
+                      <p className="text-xs font-semibold text-slate-700">Please select a class first</p>
+                      <p className="text-[11px] text-slate-400">Sections will appear for the chosen class</p>
+                    </div>
+                  ) : availableSections.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-400">No sections available for this class</div>
                   ) : (
                     availableSections.map((s) => {
                       const isSelected = selectedSectionIds.includes(s.id);
@@ -1419,7 +1445,14 @@ export default function StudentsDirectoryPage() {
                             >
                               {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                             </div>
-                            <span>Section {s.name}</span>
+                            <span className="font-medium text-slate-800">
+                              {s.name}
+                              {selectedClassIds.length > 1 && (
+                                <span className="text-[10px] text-slate-400 ml-1.5 font-normal">
+                                  ({s.className})
+                                </span>
+                              )}
+                            </span>
                           </div>
                           <span className="text-[10px] text-slate-400 font-medium">
                             ({studentCount})
@@ -1585,7 +1618,7 @@ export default function StudentsDirectoryPage() {
                       </td>
 
                       <td className="p-3.5 font-semibold text-slate-800">
-                        {s.class_name ? `${s.class_name} (${s.section_name || 'A'})` : 'Unassigned'}
+                        {s.class_name ? `${s.class_name} (${formatSectionName(s.section_name)})` : 'Unassigned'}
                       </td>
 
                       <td className="p-3.5 text-slate-600">{s.father_name || '—'}</td>
@@ -3312,7 +3345,7 @@ export default function StudentsDirectoryPage() {
                     <option value="">Select Section</option>
                     {editFormSections.map((s) => (
                       <option key={s.id} value={s.id}>
-                        Section {s.name}
+                        {formatSectionName(s.name)}
                       </option>
                     ))}
                   </select>
