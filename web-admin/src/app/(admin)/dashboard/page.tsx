@@ -60,7 +60,7 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('CURRENT');
   const [selectedSession, setSelectedSession] = useState<string>('2025-26');
   const [selectedDate, setSelectedDate] = useState<string>('2026-10-25');
-  const [activeFeeView, setActiveFeeView] = useState<'TODAY' | 'MONTHLY'>('TODAY');
+  const [activeFeeView, setActiveFeeView] = useState<'TODAY' | 'MONTHLY' | 'MATRIX'>('TODAY');
 
   // Attendance inspection modal
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
@@ -330,6 +330,11 @@ export default function DashboardPage() {
     };
   }, [data?.fee_overview, totalStudents]);
 
+  // Real academic 12-month matrix from database
+  const monthlyMatrix = useMemo(() => {
+    return data?.monthly_matrix || [];
+  }, [data?.monthly_matrix]);
+
   // Recent Activities
   const recentActivities = useMemo(() => {
     if (data?.recent_activities && data.recent_activities.length > 0) {
@@ -530,21 +535,21 @@ export default function DashboardPage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. MIDDLE SECTION: FEE COLLECTION (DAY-WISE & MONTHLY OVERVIEW)            */}
+      {/* 2. MIDDLE SECTION: FEE COLLECTION & INSTITUTIONAL FINANCIAL LEDGER          */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-4">
-        {/* Header Strip: Title, Live Database Sync Badge & Quick Controls */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+        {/* Header Strip: Title, Live Database Sync Badge & Mode Navigation */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
               <IndianRupee className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-slate-900 text-base tracking-tight">
-                  Fee Collect Day wise
+                  Fee Collection &amp; Financial Ledger
                 </h3>
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -553,31 +558,44 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium">
-                Real-time Day-wise & Monthly Institutional Collection Ledger
+                Day-wise counter inflow, Month-by-month academic dues, and payment registers
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* View Mode Toggle: Day-wise vs Monthly */}
-            <div className="inline-flex p-0.5 bg-slate-100 rounded-lg border border-slate-200/80 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle: Day-wise vs Month Matrix vs Monthly */}
+            <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 text-xs">
               <button
                 type="button"
                 onClick={() => setActiveFeeView('TODAY')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition ${activeFeeView === 'TODAY'
-                  ? 'bg-white text-blue-700 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                  activeFeeView === 'TODAY'
+                    ? 'bg-white text-indigo-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                Today ({formattedToday})
+                ⚡ Today ({formattedToday})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFeeView('MATRIX')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                  activeFeeView === 'MATRIX'
+                    ? 'bg-white text-indigo-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📅 Academic Month Matrix (12 Months)
               </button>
               <button
                 type="button"
                 onClick={() => setActiveFeeView('MONTHLY')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition ${activeFeeView === 'MONTHLY'
-                  ? 'bg-white text-blue-700 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                  activeFeeView === 'MONTHLY'
+                    ? 'bg-white text-indigo-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
                 This Month ({monthlyCollection.month.split(' ')[0]})
               </button>
@@ -588,13 +606,13 @@ export default function DashboardPage() {
               <select
                 value={selectedSession}
                 onChange={(e) => setSelectedSession(e.target.value)}
-                className="pl-7 pr-7 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-7 pr-7 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="2025-26">2025-26</option>
                 <option value="2026-27">2026-27</option>
                 <option value="2024-25">2024-25</option>
               </select>
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
@@ -603,237 +621,345 @@ export default function DashboardPage() {
               onClick={() => fetchSummary()}
               disabled={loading}
               title="Refresh Live Data"
-              className="p-1.5 text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg transition disabled:opacity-50"
+              className="p-1.5 text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg transition disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* PRIMARY FINANCIAL BANNER: EXACT MATCH TO USER'S HANDWRITTEN DIAGRAM */}
-        <div className="relative overflow-hidden rounded-xl border-2 border-rose-200/80 bg-gradient-to-r from-rose-50/40 via-amber-50/30 to-blue-50/40 p-4 shadow-xs">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 divide-y md:divide-y-0 md:divide-x divide-rose-200/60">
-            {/* Top Line 1: Day-wise Total Amount Received */}
-            <div className="flex flex-col justify-between pr-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                  Total amount Received (Today)
-                </span>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded">
-                  Day wise
-                </span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight tabular-nums">
-                  {loading ? '…' : `₹ ${dailyCollection.totalReceived.toLocaleString('en-IN')}`}
-                </span>
-                <span className="text-xs font-semibold text-emerald-700">
-                  ({dailyCollection.receivedCount} receipt{dailyCollection.receivedCount === 1 ? '' : 's'})
-                </span>
-              </div>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                Real-time collection received on {formattedToday}
+        {/* 4 HIGH-IMPACT FINANCIAL CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Today's Collection (Day-wise) */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Today's Inflow (Day-wise)
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                {dailyCollection.receivedCount} receipt{dailyCollection.receivedCount === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+                {loading ? '…' : `₹ ${dailyCollection.totalReceived.toLocaleString('en-IN')}`}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Cash: ₹{dailyCollection.byMode.cash.amount.toLocaleString('en-IN')} | Digital: ₹{(dailyCollection.byMode.online.amount + dailyCollection.byMode.upi.amount).toLocaleString('en-IN')}
               </p>
             </div>
+          </div>
 
-            {/* Top Line 2: Total Received this month */}
-            <div className="flex flex-col justify-between md:px-4 pt-3 md:pt-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
-                  Total Received this month
-                </span>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded">
-                  {monthlyCollection.month}
-                </span>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight tabular-nums">
-                  {loading ? '…' : `₹ ${monthlyCollection.totalReceived.toLocaleString('en-IN')}`}
-                </span>
-                <span className="text-xs font-semibold text-blue-700">
-                  ({monthlyCollection.receivedCount} receipt{monthlyCollection.receivedCount === 1 ? '' : 's'})
-                </span>
-              </div>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                Cumulative receipts for {monthlyCollection.month}
+          {/* Card 2: This Month's Collection */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Month: {monthlyCollection.month}
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded">
+                {monthlyCollection.receivedCount} receipt{monthlyCollection.receivedCount === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-blue-900 tracking-tight tabular-nums">
+                {loading ? '…' : `₹ ${monthlyCollection.totalReceived.toLocaleString('en-IN')}`}
+              </p>
+              <p className="text-[11px] text-blue-600 font-medium mt-0.5">
+                Cumulative receipts this month
               </p>
             </div>
+          </div>
 
-            {/* Line 3: Amount Created Today (Invoiced) */}
-            <div className="flex flex-col justify-between md:pl-4 pt-3 md:pt-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>
-                  Amount Created Today
-                </span>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 bg-purple-100 text-purple-800 rounded">
-                  Invoiced / Due
-                </span>
+          {/* Card 3: Total Pending Dues (Outstanding) */}
+          <div
+            onClick={() => router.push('/fees')}
+            className="bg-white p-4 rounded-xl border border-rose-200 shadow-xs flex flex-col justify-between space-y-2 cursor-pointer hover:border-rose-400 transition group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                Pending Institutional Dues
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded">
+                {feeMetrics.duePercentage}% Due
+              </span>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-rose-700 tracking-tight tabular-nums">
+                {loading ? '…' : `₹ ${feeMetrics.dueFee.toLocaleString('en-IN')}`}
+              </p>
+              <p className="text-[11px] text-rose-500 font-semibold mt-0.5 flex items-center gap-1 group-hover:underline">
+                Outstanding balance across students →
+              </p>
+            </div>
+          </div>
+
+          {/* Card 4: Overall Institutional Recovery */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                Total School Fee Recovery
+              </span>
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                {feeMetrics.paidPercentage}% Collected
+              </span>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-slate-900 tracking-tight tabular-nums">
+                {loading ? '…' : `₹ ${feeMetrics.paidFee.toLocaleString('en-IN')}`}
+              </p>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                <div
+                  className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, feeMetrics.paidPercentage)}%` }}
+                />
               </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black text-purple-900 tracking-tight tabular-nums">
-                  {loading ? '…' : `₹ ${dailyCollection.totalCreated.toLocaleString('en-IN')}`}
-                </span>
-                <span className="text-xs font-semibold text-purple-700">
-                  ({dailyCollection.createdCount} head{dailyCollection.createdCount === 1 ? '' : 's'})
-                </span>
-              </div>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                New dues created on {formattedToday}
+              <p className="text-[11px] text-slate-400 mt-1">
+                of ₹{feeMetrics.totalFee.toLocaleString('en-IN')} total scheduled
               </p>
             </div>
           </div>
         </div>
 
-        {/* BOTTOM MODE BOXES: EXACT MATCH TO [ Cash - 50 ] , [ online ] , [ Cheque ] , [ upi ] , [ Live ] */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-              Mode Breakdown ({activeFeeView === 'TODAY' ? 'Today' : monthlyCollection.month})
-            </span>
-            <span className="text-[10px] text-slate-400 font-medium">
-              Click any mode tile to filter Daily Transactions report
-            </span>
+        {/* VIEW 1: ACADEMIC MONTH-BY-MONTH MATRIX (12 MONTHS GRID) */}
+        {activeFeeView === 'MATRIX' && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  Academic Session Month-wise Fees Breakdown (April – March)
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Scheduled fees, collected payments, and pending dues for each academic month
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/fees')}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+              >
+                Open Fee Management &amp; Collect →
+              </button>
+            </div>
+
+            {monthlyMatrix.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 rounded-xl">
+                Loading academic monthly matrix...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {monthlyMatrix.map((m) => {
+                  const statusConfig = {
+                    PAID: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: '✓ Fully Paid' },
+                    PARTIAL: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: '⏳ Ongoing / Partial' },
+                    OVERDUE: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', label: '⚠️ Overdue Dues' },
+                    UPCOMING: { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', label: '⚪ Upcoming' },
+                  }[m.status];
+
+                  return (
+                    <div
+                      key={m.month_key}
+                      className="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs hover:shadow-sm transition flex flex-col justify-between space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div>
+                          <span className="font-extrabold text-slate-900 text-sm">
+                            {m.month_name}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-400 ml-1.5">
+                            {m.year}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
+                          {statusConfig.label}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Scheduled Fee:</span>
+                          <span className="font-bold text-slate-900 tabular-nums">
+                            ₹ {m.scheduled_amount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-emerald-700">
+                          <span>Collected:</span>
+                          <span className="font-bold tabular-nums">
+                            ₹ {m.collected_amount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-rose-600">
+                          <span>Remaining Due:</span>
+                          <span className="font-bold tabular-nums">
+                            ₹ {m.pending_amount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="pt-1">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Collection Rate</span>
+                            <span className="font-bold text-slate-700">{m.collection_percentage}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                m.collection_percentage >= 100
+                                  ? 'bg-emerald-500'
+                                  : m.collection_percentage > 50
+                                  ? 'bg-indigo-600'
+                                  : 'bg-amber-500'
+                              }`}
+                              style={{ width: `${Math.min(100, m.collection_percentage)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">
+                          {m.receipts_count} receipt{m.receipts_count === 1 ? '' : 's'}
+                        </span>
+                        {m.defaulters_count > 0 ? (
+                          <span className="text-rose-600 font-semibold">
+                            {m.defaulters_count} student{m.defaulters_count === 1 ? '' : 's'} pending
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 font-medium">Clear</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {/* Box 1: [ Cash - 50 ] */}
-            <div
-              onClick={() => router.push('/reports/daily-transactions?mode=CASH')}
-              className="bg-white border-2 border-emerald-300/80 hover:border-emerald-500 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                    <Banknote className="w-4 h-4" />
-                  </div>
-                  <span className="font-extrabold text-slate-900 text-xs group-hover:text-emerald-700 transition">
-                    Cash - {activeFeeView === 'TODAY' && dailyCollection.byMode.cash.count > 0 ? (dailyCollection.byMode.cash.count === 1 ? '50' : dailyCollection.byMode.cash.count) : (activeModeBreakdown.cash.count || 0)}
-                  </span>
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition" />
-              </div>
-              <div className="mt-2">
-                <p className="text-base font-black text-slate-900 tabular-nums">
-                  {loading ? '…' : `₹ ${activeModeBreakdown.cash.amount.toLocaleString('en-IN')}`}
-                </p>
-                <p className="text-[10px] font-medium text-emerald-600 mt-0.5">
-                  {activeModeBreakdown.cash.count} cash receipt{activeModeBreakdown.cash.count === 1 ? '' : 's'}
-                </p>
-              </div>
+        {/* VIEW 2 & 3: TODAY'S COUNTER & MONTHLY MODE BREAKDOWN */}
+        {activeFeeView !== 'MATRIX' && (
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                Mode Breakdown ({activeFeeView === 'TODAY' ? `Today: ${formattedToday}` : monthlyCollection.month})
+              </span>
+              <button
+                onClick={() => router.push('/fees')}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+              >
+                Open Fee Management &amp; Collect →
+              </button>
             </div>
 
-            {/* Box 2: [ Online ] */}
-            <div
-              onClick={() => router.push('/reports/daily-transactions?mode=ONLINE')}
-              className="bg-white border-2 border-blue-300/80 hover:border-blue-500 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                    <CreditCard className="w-4 h-4" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Box 1: Cash Drawer */}
+              <div
+                onClick={() => router.push('/reports/daily-transactions?mode=CASH')}
+                className="bg-white border-2 border-emerald-200 hover:border-emerald-500 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                    <span className="font-extrabold text-slate-900 text-xs group-hover:text-emerald-700 transition">
+                      Cash Drawer
+                    </span>
                   </div>
-                  <span className="font-extrabold text-slate-900 text-xs group-hover:text-blue-700 transition">
-                    Online
-                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-600 transition" />
                 </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-600 transition" />
+                <div className="mt-2.5">
+                  <p className="text-lg font-black text-slate-900 tabular-nums">
+                    {loading ? '…' : `₹ ${activeModeBreakdown.cash.amount.toLocaleString('en-IN')}`}
+                  </p>
+                  <p className="text-[11px] font-medium text-emerald-600 mt-0.5">
+                    {activeModeBreakdown.cash.count} cash receipt{activeModeBreakdown.cash.count === 1 ? '' : 's'}
+                  </p>
+                </div>
               </div>
-              <div className="mt-2">
-                <p className="text-base font-black text-slate-900 tabular-nums">
-                  {loading ? '…' : `₹ ${activeModeBreakdown.online.amount.toLocaleString('en-IN')}`}
-                </p>
-                <p className="text-[10px] font-medium text-blue-600 mt-0.5">
-                  {activeModeBreakdown.online.count} netbanking payment{activeModeBreakdown.online.count === 1 ? '' : 's'}
-                </p>
-              </div>
-            </div>
 
-            {/* Box 3: [ Cheque ] */}
-            <div
-              onClick={() => router.push('/reports/daily-transactions?mode=CHEQUES')}
-              className="bg-white border-2 border-amber-300/80 hover:border-amber-500 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                    <Landmark className="w-4 h-4" />
+              {/* Box 2: Online / Netbanking */}
+              <div
+                onClick={() => router.push('/reports/daily-transactions?mode=ONLINE')}
+                className="bg-white border-2 border-blue-200 hover:border-blue-500 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <span className="font-extrabold text-slate-900 text-xs group-hover:text-blue-700 transition">
+                      Online / Netbanking
+                    </span>
                   </div>
-                  <span className="font-extrabold text-slate-900 text-xs group-hover:text-amber-700 transition">
-                    Cheque
-                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-600 transition" />
                 </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-600 transition" />
+                <div className="mt-2.5">
+                  <p className="text-lg font-black text-slate-900 tabular-nums">
+                    {loading ? '…' : `₹ ${activeModeBreakdown.online.amount.toLocaleString('en-IN')}`}
+                  </p>
+                  <p className="text-[11px] font-medium text-blue-600 mt-0.5">
+                    {activeModeBreakdown.online.count} payment{activeModeBreakdown.online.count === 1 ? '' : 's'}
+                  </p>
+                </div>
               </div>
-              <div className="mt-2">
-                <p className="text-base font-black text-slate-900 tabular-nums">
-                  {loading ? '…' : `₹ ${activeModeBreakdown.cheque.amount.toLocaleString('en-IN')}`}
-                </p>
-                <p className="text-[10px] font-medium text-amber-600 mt-0.5">
-                  {activeModeBreakdown.cheque.count} cheque deposit{activeModeBreakdown.cheque.count === 1 ? '' : 's'}
-                </p>
-              </div>
-            </div>
 
-            {/* Box 4: [ UPI ] */}
-            <div
-              onClick={() => router.push('/reports/daily-transactions?mode=APP_PAYMENTS')}
-              className="bg-white border-2 border-purple-300/80 hover:border-purple-500 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-                    <Smartphone className="w-4 h-4" />
+              {/* Box 3: Cheque / DD */}
+              <div
+                onClick={() => router.push('/reports/daily-transactions?mode=CHEQUES')}
+                className="bg-white border-2 border-amber-200 hover:border-amber-500 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <span className="font-extrabold text-slate-900 text-xs group-hover:text-amber-700 transition">
+                      Cheque / Demand Draft
+                    </span>
                   </div>
-                  <span className="font-extrabold text-slate-900 text-xs group-hover:text-purple-700 transition">
-                    UPI / App
-                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-600 transition" />
                 </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-purple-600 transition" />
+                <div className="mt-2.5">
+                  <p className="text-lg font-black text-slate-900 tabular-nums">
+                    {loading ? '…' : `₹ ${activeModeBreakdown.cheque.amount.toLocaleString('en-IN')}`}
+                  </p>
+                  <p className="text-[11px] font-medium text-amber-600 mt-0.5">
+                    {activeModeBreakdown.cheque.count} cheque deposit{activeModeBreakdown.cheque.count === 1 ? '' : 's'}
+                  </p>
+                </div>
               </div>
-              <div className="mt-2">
-                <p className="text-base font-black text-slate-900 tabular-nums">
-                  {loading ? '…' : `₹ ${activeModeBreakdown.upi.amount.toLocaleString('en-IN')}`}
-                </p>
-                <p className="text-[10px] font-medium text-purple-600 mt-0.5">
-                  {activeModeBreakdown.upi.count} UPI transfer{activeModeBreakdown.upi.count === 1 ? '' : 's'}
-                </p>
-              </div>
-            </div>
 
-            {/* Box 5: [ Live ] */}
-            <div
-              onClick={() => fetchSummary()}
-              className="bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border-2 border-emerald-400 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold">
-                    <Sparkles className="w-4 h-4" />
+              {/* Box 4: UPI / App */}
+              <div
+                onClick={() => router.push('/reports/daily-transactions?mode=APP_PAYMENTS')}
+                className="bg-white border-2 border-purple-200 hover:border-purple-500 rounded-xl p-3.5 shadow-2xs hover:shadow-xs transition cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <span className="font-extrabold text-slate-900 text-xs group-hover:text-purple-700 transition">
+                      UPI / Mobile App
+                    </span>
                   </div>
-                  <span className="font-black text-emerald-900 text-xs">
-                    Live
-                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-purple-600 transition" />
                 </div>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-              </div>
-              <div className="mt-2">
-                <p className="text-xs font-bold text-emerald-800">
-                  Database Synced
-                </p>
-                <p className="text-[10px] font-semibold text-emerald-600 mt-0.5 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                  100% Real Data
-                </p>
+                <div className="mt-2.5">
+                  <p className="text-lg font-black text-slate-900 tabular-nums">
+                    {loading ? '…' : `₹ ${activeModeBreakdown.upi.amount.toLocaleString('en-IN')}`}
+                  </p>
+                  <p className="text-[11px] font-medium text-purple-600 mt-0.5">
+                    {activeModeBreakdown.upi.count} UPI transfer{activeModeBreakdown.upi.count === 1 ? '' : 's'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Filter Controls Row: Class, Section, Month, Day Date Picker, View Button */}
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-100">
@@ -846,7 +972,7 @@ export default function DashboardPage() {
                 setSelectedClass(e.target.value);
                 setSelectedSection('ALL');
               }}
-              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 cursor-pointer"
             >
               <option value="ALL">Select Class (All)</option>
               {distinctClasses.map((c) => (
@@ -863,7 +989,7 @@ export default function DashboardPage() {
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 cursor-pointer"
             >
               <option value="ALL">Select Section (All)</option>
               {distinctSections.map((s) => (
@@ -876,11 +1002,11 @@ export default function DashboardPage() {
 
           {/* Month Filter */}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Month</label>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Target Month</label>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 cursor-pointer"
             >
               <option value="CURRENT">Select Month (Current)</option>
               <option value="APR">April</option>
@@ -905,7 +1031,7 @@ export default function DashboardPage() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
+              className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 cursor-pointer"
             />
           </div>
 
@@ -913,104 +1039,11 @@ export default function DashboardPage() {
           <div className="flex items-end">
             <button
               onClick={() => fetchSummary(selectedDate)}
-              className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm shadow-blue-900/20 transition cursor-pointer"
+              className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-900/20 transition cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" />
               View / Filter
             </button>
-          </div>
-        </div>
-
-        {/* 4 Inside Metric Cards: Total Students, Total Fee, Paid, Due */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2 border-t border-slate-100">
-          {/* 1. Total Students */}
-          <div
-            onClick={() => router.push('/students')}
-            className="p-4 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center gap-3.5 cursor-pointer hover:bg-blue-50 transition"
-          >
-            <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">Total Students</p>
-              <p className="text-xl font-bold text-slate-900 tabular-nums">
-                {loading ? '…' : feeMetrics.totalStudents.toLocaleString('en-IN')}
-              </p>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-0.5 mt-0.5">
-                Active Enrolled
-              </span>
-            </div>
-          </div>
-
-          {/* 2. Total Fee */}
-          <div
-            onClick={() => router.push('/reports/daily-transactions')}
-            className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 flex items-center gap-3.5 cursor-pointer hover:bg-emerald-50 transition"
-          >
-            <div className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold shrink-0">
-              <IndianRupee className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-medium">Total Institutional Fee</p>
-              <p className="text-xl font-bold text-slate-900 tabular-nums">
-                {loading ? '…' : `₹ ${feeMetrics.totalFee.toLocaleString('en-IN')}`}
-              </p>
-              <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-0.5 mt-0.5">
-                Academic Year 2026-27
-              </span>
-            </div>
-          </div>
-
-          {/* 3. Paid (With Progress bar) */}
-          <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex flex-col justify-between">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold shrink-0">
-                <Check className="w-5 h-5" />
-              </div>
-              <div className="w-full">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500 font-medium">Total Collected</p>
-                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded">
-                    {feeMetrics.paidPercentage}% of total
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">
-                  {loading ? '…' : `₹ ${feeMetrics.paidFee.toLocaleString('en-IN')}`}
-                </p>
-
-                {/* Progress bar */}
-                <div className="w-full h-1.5 bg-purple-100 rounded-full mt-2 overflow-hidden">
-                  <div
-                    className="h-full bg-purple-600 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, feeMetrics.paidPercentage)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Due */}
-          <div
-            onClick={() => router.push('/reports/daily-transactions')}
-            className="p-4 rounded-xl bg-rose-50/50 border border-rose-100 flex items-center gap-3.5 cursor-pointer hover:bg-rose-50 transition"
-          >
-            <div className="w-11 h-11 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-slate-500 font-medium">Pending Dues</p>
-                <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded">
-                  {feeMetrics.duePercentage}% of total
-                </span>
-              </div>
-              <p className="text-xl font-bold text-rose-700 tabular-nums">
-                {loading ? '…' : `₹ ${feeMetrics.dueFee.toLocaleString('en-IN')}`}
-              </p>
-              <span className="text-[11px] font-semibold text-rose-500 flex items-center gap-0.5 mt-0.5">
-                Outstanding balances
-              </span>
-            </div>
           </div>
         </div>
       </div>

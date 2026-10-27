@@ -116,6 +116,21 @@ export interface MonthlyCollectionSummary {
   };
 }
 
+export interface AcademicMonthFeeSummary {
+  month_index: number;
+  month_number: number;
+  month_key: string;
+  month_name: string;
+  year: number;
+  scheduled_amount: number;
+  collected_amount: number;
+  pending_amount: number;
+  collection_percentage: number;
+  receipts_count: number;
+  defaulters_count: number;
+  status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -133,6 +148,7 @@ export interface DashboardSummaryResponse {
   };
   daily_collection?: DaywiseCollectionSummary;
   monthly_collection?: MonthlyCollectionSummary;
+  monthly_matrix?: AcademicMonthFeeSummary[];
   fee_realized?: {
     total: number;
     by_mode: {
@@ -676,7 +692,25 @@ export class AdminRepository {
     const dailyTotalCreated = Number(dailyCreatedRes.rows[0]?.total_created || 0);
     const dailyCreatedCount = Number(dailyCreatedRes.rows[0]?.created_count || 0);
 
-    // 9c. Monthly Fee Collection (Current Month / Target Date Month)
+    // 9c. Monthly Fee Collection & Academic Month Matrix Calculation
+    const MONTH_KEY_TO_NUM: Record<string, number> = {
+      APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9,
+      OCT: 10, NOV: 11, DEC: 12, JAN: 1, FEB: 2, MAR: 3
+    };
+
+    const todayDateObj = new Date(today);
+    const currentCalMonth = !isNaN(todayDateObj.getTime()) ? todayDateObj.getMonth() + 1 : 10;
+    const currentCalYear = !isNaN(todayDateObj.getTime()) ? todayDateObj.getFullYear() : 2026;
+    const academicStartYear = currentCalMonth >= 4 ? currentCalYear : currentCalYear - 1;
+
+    let targetMonthNum = currentCalMonth;
+    let targetYearNum = currentCalYear;
+
+    if (filterMonth && filterMonth !== 'CURRENT' && MONTH_KEY_TO_NUM[filterMonth.toUpperCase()]) {
+      targetMonthNum = MONTH_KEY_TO_NUM[filterMonth.toUpperCase()];
+      targetYearNum = targetMonthNum >= 4 ? academicStartYear : academicStartYear + 1;
+    }
+
     const monthlyFeeRes = await pool.query(
       `SELECT 
          payment_mode,
@@ -684,35 +718,159 @@ export class AdminRepository {
          COUNT(*)::int AS count
        FROM fee_receipts fr
        WHERE fr.school_id = $1 
-         AND EXTRACT(MONTH FROM fr.payment_date) = EXTRACT(MONTH FROM $2::date)
-         AND EXTRACT(YEAR FROM fr.payment_date) = EXTRACT(YEAR FROM $2::date)
+         AND EXTRACT(MONTH FROM fr.payment_date) = $2
+         AND EXTRACT(YEAR FROM fr.payment_date) = $3
          ${classFilterReceipts}
          ${sectionFilterReceipts}
        GROUP BY payment_mode;`,
-      [schoolId, today]
+      [schoolId, targetMonthNum, targetYearNum]
     );
     const monthlyParsed = parseModeBreakdown(monthlyFeeRes.rows);
 
-    // 9d. Monthly Fee Created (Invoiced This Month)
+    // 9d. Monthly Fee Created (Invoiced for Target Month)
     const monthlyCreatedRes = await pool.query(
       `SELECT 
          COALESCE(SUM(amount), 0)::float AS total_created,
          COUNT(*)::int AS created_count
        FROM student_fees sf
        WHERE sf.school_id = $1 
-         AND EXTRACT(MONTH FROM sf.created_at) = EXTRACT(MONTH FROM $2::date)
-         AND EXTRACT(YEAR FROM sf.created_at) = EXTRACT(YEAR FROM $2::date)
+         AND (
+           (EXTRACT(MONTH FROM sf.due_date) = $2 AND EXTRACT(YEAR FROM sf.due_date) = $3)
+           OR (EXTRACT(MONTH FROM sf.created_at) = $2 AND EXTRACT(YEAR FROM sf.created_at) = $3)
+         )
          ${classFilterFees}
          ${sectionFilterFees};`,
-      [schoolId, today]
+      [schoolId, targetMonthNum, targetYearNum]
     );
     const monthlyTotalCreated = Number(monthlyCreatedRes.rows[0]?.total_created || 0);
     const monthlyCreatedCount = Number(monthlyCreatedRes.rows[0]?.created_count || 0);
 
-    const monthDateObj = new Date(today);
-    const monthLabel = !isNaN(monthDateObj.getTime())
-      ? monthDateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
-      : 'October 2026';
+    const targetDateObj = new Date(targetYearNum, targetMonthNum - 1, 1);
+    const monthLabel = !isNaN(targetDateObj.getTime())
+      ? targetDateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+      : `${filterMonth || 'October'} ${targetYearNum}`;
+
+    // 9e. Academic 12-Month Matrix Aggregation
+    const ACADEMIC_MONTH_CONFIG = [
+      { key: 'APR', name: 'April', num: 4 },
+      { key: 'MAY', name: 'May', num: 5 },
+      { key: 'JUN', name: 'June', num: 6 },
+      { key: 'JUL', name: 'July', num: 7 },
+      { key: 'AUG', name: 'August', num: 8 },
+      { key: 'SEP', name: 'September', num: 9 },
+      { key: 'OCT', name: 'October', num: 10 },
+      { key: 'NOV', name: 'November', num: 11 },
+      { key: 'DEC', name: 'December', num: 12 },
+      { key: 'JAN', name: 'January', num: 1 },
+      { key: 'FEB', name: 'February', num: 2 },
+      { key: 'MAR', name: 'March', num: 3 },
+    ];
+
+    const scheduledByMonthRes = await pool.query(
+      `SELECT 
+         EXTRACT(YEAR FROM sf.due_date)::int AS due_year,
+         EXTRACT(MONTH FROM sf.due_date)::int AS due_month,
+         COALESCE(SUM(sf.amount), 0)::float AS scheduled_amount,
+         COALESCE(SUM(sf.amount_paid), 0)::float AS paid_amount,
+         COALESCE(SUM(GREATEST(0, sf.amount - sf.amount_paid)), 0)::float AS pending_amount,
+         COUNT(DISTINCT CASE WHEN sf.status != 'PAID' THEN sf.student_id END)::int AS defaulters_count,
+         COUNT(sf.id)::int AS total_heads
+       FROM student_fees sf
+       WHERE sf.school_id = $1
+         ${classFilterFees}
+         ${sectionFilterFees}
+       GROUP BY due_year, due_month;`,
+      [schoolId]
+    );
+
+    const scheduledMap = new Map<string, {
+      scheduled_amount: number;
+      paid_amount: number;
+      pending_amount: number;
+      defaulters_count: number;
+      total_heads: number;
+    }>();
+
+    for (const r of scheduledByMonthRes.rows) {
+      const k = `${r.due_year}_${r.due_month}`;
+      scheduledMap.set(k, {
+        scheduled_amount: Number(r.scheduled_amount) || 0,
+        paid_amount: Number(r.paid_amount) || 0,
+        pending_amount: Number(r.pending_amount) || 0,
+        defaulters_count: Number(r.defaulters_count) || 0,
+        total_heads: Number(r.total_heads) || 0,
+      });
+    }
+
+    const receiptsByMonthRes = await pool.query(
+      `SELECT 
+         EXTRACT(YEAR FROM fr.payment_date)::int AS pay_year,
+         EXTRACT(MONTH FROM fr.payment_date)::int AS pay_month,
+         COALESCE(SUM(fr.amount_paid), 0)::float AS collected_amount,
+         COUNT(fr.id)::int AS receipts_count
+       FROM fee_receipts fr
+       WHERE fr.school_id = $1
+         ${classFilterReceipts}
+         ${sectionFilterReceipts}
+       GROUP BY pay_year, pay_month;`,
+      [schoolId]
+    );
+
+    const receiptsMap = new Map<string, { collected_amount: number; receipts_count: number }>();
+    for (const r of receiptsByMonthRes.rows) {
+      const k = `${r.pay_year}_${r.pay_month}`;
+      receiptsMap.set(k, {
+        collected_amount: Number(r.collected_amount) || 0,
+        receipts_count: Number(r.receipts_count) || 0,
+      });
+    }
+
+    const monthlyMatrix: AcademicMonthFeeSummary[] = ACADEMIC_MONTH_CONFIG.map((m, idx) => {
+      const mYear = m.num >= 4 ? academicStartYear : academicStartYear + 1;
+      const key = `${mYear}_${m.num}`;
+      const sch = scheduledMap.get(key);
+      const rec = receiptsMap.get(key);
+
+      const scheduledAmt = sch ? sch.scheduled_amount : 0;
+      const collectedAmt = Math.max(sch?.paid_amount || 0, rec?.collected_amount || 0);
+      const pendingAmt = Math.max(0, scheduledAmt - collectedAmt);
+      const collectionPct = scheduledAmt > 0
+        ? Math.min(100, Math.round((collectedAmt / scheduledAmt) * 100))
+        : (collectedAmt > 0 ? 100 : 0);
+
+      const isPastMonth = mYear < currentCalYear || (mYear === currentCalYear && m.num < currentCalMonth);
+      const isCurrentMonth = mYear === currentCalYear && m.num === currentCalMonth;
+
+      let status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING' = 'UPCOMING';
+      if (scheduledAmt > 0) {
+        if (pendingAmt === 0 || collectionPct >= 100) {
+          status = 'PAID';
+        } else if (isPastMonth) {
+          status = 'OVERDUE';
+        } else if (isCurrentMonth) {
+          status = collectedAmt > 0 ? 'PARTIAL' : 'OVERDUE';
+        } else {
+          status = 'UPCOMING';
+        }
+      } else if (collectedAmt > 0) {
+        status = 'PAID';
+      }
+
+      return {
+        month_index: idx + 1,
+        month_number: m.num,
+        month_key: m.key,
+        month_name: m.name,
+        year: mYear,
+        scheduled_amount: scheduledAmt,
+        collected_amount: collectedAmt,
+        pending_amount: pendingAmt,
+        collection_percentage: collectionPct,
+        receipts_count: rec?.receipts_count || 0,
+        defaulters_count: sch?.defaulters_count || 0,
+        status,
+      };
+    });
 
     // 9e. Overall Fee Realized across all time
     const overallFeeRes = await pool.query(
@@ -871,6 +1029,7 @@ export class AdminRepository {
       },
       daily_collection: dailyCollectionSummary,
       monthly_collection: monthlyCollectionSummary,
+      monthly_matrix: monthlyMatrix,
       fee_realized: {
         total: overallParsed.totalReceived,
         by_mode: {

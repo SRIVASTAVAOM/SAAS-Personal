@@ -136,6 +136,21 @@ export interface MonthlyCollectionSummary {
   };
 }
 
+export interface AcademicMonthFeeSummary {
+  month_index: number;
+  month_number: number;
+  month_key: string;
+  month_name: string;
+  year: number;
+  scheduled_amount: number;
+  collected_amount: number;
+  pending_amount: number;
+  collection_percentage: number;
+  receipts_count: number;
+  defaulters_count: number;
+  status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
+}
+
 export interface DashboardSummaryResponse {
   date: string;
   sections: SectionSummary[];
@@ -153,6 +168,7 @@ export interface DashboardSummaryResponse {
   };
   daily_collection?: DaywiseCollectionSummary;
   monthly_collection?: MonthlyCollectionSummary;
+  monthly_matrix?: AcademicMonthFeeSummary[];
   fee_realized?: {
     total: number;
     by_mode: {
