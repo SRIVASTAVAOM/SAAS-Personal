@@ -2253,23 +2253,29 @@ export class AdminRepository {
     try {
       await client.query('BEGIN');
 
+      const empCode = (data.employee_code || '').toString().trim();
+      if (!empCode) {
+        throw new Error('Employee Code is required.');
+      }
+      const identifier = (data.identifier || data.username || empCode).toString().trim();
+
       const userCheck = await client.query(
-        'SELECT id FROM users WHERE (identifier = $1 OR (email IS NOT NULL AND email = $2)) AND school_id = $3',
-        [data.identifier.trim(), data.email ? data.email.trim().toLowerCase() : null, schoolId]
+        'SELECT id FROM users WHERE (LOWER(TRIM(identifier)) = LOWER($1) OR (email IS NOT NULL AND LOWER(TRIM(email)) = $2)) AND school_id = $3',
+        [identifier, data.email ? data.email.trim().toLowerCase() : null, schoolId]
       );
       if (userCheck.rows.length > 0) {
         throw new Error('A user with this username/identifier or email already exists.');
       }
 
       const empCheck = await client.query(
-        'SELECT id FROM staff_profiles WHERE employee_code = $1',
-        [data.employee_code.trim()]
+        'SELECT id FROM staff_profiles WHERE LOWER(TRIM(employee_code)) = LOWER($1)',
+        [empCode]
       );
       if (empCheck.rows.length > 0) {
         throw new Error('A staff member with this Employee Code already exists.');
       }
 
-      const password = data.password || 'Staff@123';
+      const password = (data.password && data.password.trim()) ? data.password.trim() : 'Staff@123';
       const passwordHash = await bcrypt.hash(password, 12);
 
       const userRes = await client.query(
@@ -2277,7 +2283,7 @@ export class AdminRepository {
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
         [
           schoolId,
-          data.identifier.trim(),
+          identifier,
           data.email ? data.email.trim().toLowerCase() : null,
           data.phone || null,
           passwordHash,
@@ -2286,8 +2292,11 @@ export class AdminRepository {
       );
       const userId = userRes.rows[0].id;
 
-      const roleName = data.role || 'TEACHER';
-      const roleRes = await client.query('SELECT id FROM roles WHERE name = $1', [roleName]);
+      const roleName = (data.role || 'TEACHER').toString().trim().toUpperCase();
+      let roleRes = await client.query('SELECT id FROM roles WHERE UPPER(name) = $1', [roleName]);
+      if (roleRes.rows.length === 0) {
+        roleRes = await client.query("SELECT id FROM roles WHERE name = 'TEACHER'");
+      }
       if (roleRes.rows.length > 0) {
         await client.query(
           'INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
@@ -2451,7 +2460,11 @@ export class AdminRepository {
       }
 
       if (data.role) {
-        const roleRes = await client.query('SELECT id FROM roles WHERE name = $1', [data.role]);
+        const roleName = data.role.toString().trim().toUpperCase();
+        let roleRes = await client.query('SELECT id FROM roles WHERE UPPER(name) = $1', [roleName]);
+        if (roleRes.rows.length === 0) {
+          roleRes = await client.query("SELECT id FROM roles WHERE name = 'TEACHER'");
+        }
         if (roleRes.rows.length > 0) {
           await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
           await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [

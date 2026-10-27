@@ -160,6 +160,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const roleName = user?.roles?.[0] || 'ADMIN';
   const isSuperAdmin = user?.roles?.includes('SUPER_ADMIN');
+  const isAdmin = user?.roles?.includes('ADMIN');
+  const isTeacherOnly = user?.roles?.includes('TEACHER') && !isAdmin && !isSuperAdmin;
 
   const sectionsToRender = React.useMemo(() => {
     if (isSuperAdmin) {
@@ -178,8 +180,21 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         ...navSections,
       ];
     }
+    if (isTeacherOnly) {
+      return navSections
+        .filter((sec) => sec.title !== 'Finance & Accounts' && sec.title !== 'Staff Management')
+        .map((sec) => {
+          if (sec.title === 'Students & Academics') {
+            return {
+              ...sec,
+              items: sec.items.filter((item) => item.name !== '2. Subject Master'),
+            };
+          }
+          return sec;
+        });
+    }
     return navSections;
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, isTeacherOnly]);
 
   return (
     <>
@@ -208,13 +223,15 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
                 isSuperAdmin 
                   ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                  : isTeacherOnly
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-indigo-50 text-indigo-700 border-indigo-200/60'
               }`}>
-                {isSuperAdmin ? 'Super Admin' : 'Web Admin'}
+                {isSuperAdmin ? 'Super Admin' : (isTeacherOnly ? 'Teacher Portal' : 'Web Admin')}
               </span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium">
-              {isSuperAdmin ? 'Multi-School SaaS Hub' : 'Accretion+ Core Suite'}
+              {isSuperAdmin ? 'Multi-School SaaS Hub' : (isTeacherOnly ? 'Faculty Academic Suite' : 'Accretion+ Core Suite')}
             </div>
           </div>
         </div>

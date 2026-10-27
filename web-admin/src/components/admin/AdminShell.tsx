@@ -24,7 +24,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const permittedRoles = ['SUPER_ADMIN', 'ADMIN'];
+    const permittedRoles = ['SUPER_ADMIN', 'ADMIN', 'TEACHER'];
     const hasRole = user.roles?.some((r: string) => permittedRoles.includes(r));
 
     if (!hasRole) {

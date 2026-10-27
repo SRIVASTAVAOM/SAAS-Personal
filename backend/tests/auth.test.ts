@@ -46,7 +46,7 @@ describe('Authentication API Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.user.roles).toContain('ACCOUNTANT');
+      expect(res.body.data.user.roles).toContain('ADMIN');
     });
 
     it('should reject with 401 for incorrect password', async () => {
@@ -119,6 +119,54 @@ describe('Authentication API Tests', () => {
 
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
+    });
+  });
+
+  describe('Unified Cross-Role Authentication (Employee Code, Admission No, Casing, Leading @)', () => {
+    it('should login a newly created teacher using their Employee Code, lowercase, and @ identifier', async () => {
+      // 1. Login as admin to create staff
+      const adminLogin = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ identifier: 'admin', password: 'Password@123' });
+      expect(adminLogin.status).toBe(200);
+      const adminToken = adminLogin.body.data.token;
+
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const empCode = `EMP-TCH-${randomSuffix}`;
+      const username = `teacher_pooja_${randomSuffix}`;
+
+      const newTeacher = await request(app)
+        .post('/api/v1/admin/staff')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          first_name: 'Pooja',
+          last_name: 'Verma',
+          employee_code: empCode,
+          identifier: username,
+          password: 'Teacher@123',
+          role: 'TEACHER',
+        });
+      expect(newTeacher.status).toBe(201);
+
+      // 2. Login using exact Employee Code
+      const empLogin = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ identifier: empCode, password: 'Teacher@123' });
+      expect(empLogin.status).toBe(200);
+      expect(empLogin.body.data.user.roles).toContain('TEACHER');
+      expect(empLogin.body.data.user.profileId).toBeDefined();
+
+      // 3. Login using lowercase Employee Code
+      const lowerEmpLogin = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ identifier: empCode.toLowerCase(), password: 'Teacher@123' });
+      expect(lowerEmpLogin.status).toBe(200);
+
+      // 4. Login using username with leading '@' (as copied from web table)
+      const atLogin = await request(app)
+        .post('/api/v1/auth/login')
+        .send({ identifier: `@${username}`, password: 'Teacher@123' });
+      expect(atLogin.status).toBe(200);
     });
   });
 });

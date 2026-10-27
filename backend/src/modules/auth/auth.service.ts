@@ -38,7 +38,25 @@ export class AuthService {
       throw new Error('SCHOOL_SUSPENDED');
     }
 
-    const isMatch = await bcrypt.compare(rawPassword, user.password_hash);
+    let isMatch = await bcrypt.compare(rawPassword, user.password_hash);
+    if (!isMatch && rawPassword.trim() !== rawPassword) {
+      isMatch = await bcrypt.compare(rawPassword.trim(), user.password_hash);
+    }
+
+    // Resilience fallback: If plain_login_password in staff_profiles or student_profiles matches,
+    // immediately re-sync the password hash in the users table and permit login
+    if (!isMatch && user.plain_login_password) {
+      if (rawPassword === user.plain_login_password || rawPassword.trim() === user.plain_login_password) {
+        isMatch = true;
+        try {
+          const freshHash = await bcrypt.hash(rawPassword.trim(), 12);
+          await AuthRepository.updateUserPassword(user.id, freshHash, rawPassword.trim());
+        } catch (_) {
+          // non-blocking
+        }
+      }
+    }
+
     if (!isMatch) {
       throw new Error('INVALID_CREDENTIALS');
     }

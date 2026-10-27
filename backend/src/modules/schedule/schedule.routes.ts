@@ -9,14 +9,14 @@ const router = Router();
 router.use(authenticateToken);
 
 // Teacher Timetable
-router.get('/timetable/my-teacher', requireRole(['TEACHER']), ScheduleController.getTeacherTimetable);
+router.get('/timetable/my-teacher', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), ScheduleController.getTeacherTimetable);
 
 // Teacher Substitutions
-router.get('/substitutions/my-teacher', requireRole(['TEACHER']), ScheduleController.getTeacherSubstitutions);
+router.get('/substitutions/my-teacher', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), ScheduleController.getTeacherSubstitutions);
 
-// Online Classes (Teachers & Students can view; Teachers can schedule & delete)
-router.get('/online-classes', requireRole(['TEACHER', 'STUDENT']), ScheduleController.getOnlineClasses);
-router.post('/online-classes', requireRole(['TEACHER']), ScheduleController.createOnlineClass);
-router.delete('/online-classes/:id', requireRole(['TEACHER']), ScheduleController.deleteOnlineClass);
+// Online Classes (Teachers & Students can view; Teachers/Admin can schedule & delete)
+router.get('/online-classes', requireRole(['TEACHER', 'STUDENT', 'ADMIN', 'SUPER_ADMIN']), ScheduleController.getOnlineClasses);
+router.post('/online-classes', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), ScheduleController.createOnlineClass);
+router.delete('/online-classes/:id', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), ScheduleController.deleteOnlineClass);
 
 export default router;

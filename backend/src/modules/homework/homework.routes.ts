@@ -8,13 +8,13 @@ const router = Router();
 router.use(authenticateToken);
 
 // Teacher creates homework
-router.post('/', requireRole(['TEACHER']), HomeworkController.createHomework);
+router.post('/', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), HomeworkController.createHomework);
 
 // Teacher updates their assigned homework
-router.patch('/:id', requireRole(['TEACHER']), HomeworkController.updateHomework);
+router.patch('/:id', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), HomeworkController.updateHomework);
 
 // Teacher views their assigned homework
-router.get('/teacher/my-assigned', requireRole(['TEACHER']), HomeworkController.getTeacherMyAssignedHomework);
+router.get('/teacher/my-assigned', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), HomeworkController.getTeacherMyAssignedHomework);
 
 // Student views homework for their class/section
 router.get('/student/my-class', requireRole(['STUDENT']), HomeworkController.getStudentMyClassHomework);

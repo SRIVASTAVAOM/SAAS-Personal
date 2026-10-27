@@ -12,11 +12,11 @@ router.get('/mock-s3-download', MaterialsController.mockDownloadHandler);
 // Authenticated API Endpoints
 router.use(authenticateToken);
 
-// Teacher requests pre-signed upload URL for academic material
-router.post('/presigned-upload-url', requireRole(['TEACHER']), MaterialsController.initiatePresignedUpload);
+// Teacher / Admin requests pre-signed upload URL for academic material
+router.post('/presigned-upload-url', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), MaterialsController.initiatePresignedUpload);
 
-// Teacher verifies completed upload
-router.post('/:id/verify-upload', requireRole(['TEACHER']), MaterialsController.verifyUpload);
+// Teacher / Admin verifies completed upload
+router.post('/:id/verify-upload', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), MaterialsController.verifyUpload);
 
 // List materials for class & subject (scoped for Students, Teachers, Coordinators)
 router.get('/class/:classId/:subjectId', MaterialsController.getMaterials);

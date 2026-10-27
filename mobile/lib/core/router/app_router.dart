@@ -13,10 +13,14 @@ class AppRouter {
   AppRouter({required this.authBloc});
 
   static String getHomeForRole(String role) {
-    switch (role) {
+    switch (role.toUpperCase()) {
       case 'STUDENT':
         return '/student';
       case 'TEACHER':
+      case 'ADMIN':
+      case 'SUPER_ADMIN':
+      case 'STAFF':
+      case 'PRINCIPAL':
         return '/teacher';
       default:
         return '/login';
@@ -47,7 +51,10 @@ class AppRouter {
       if (location.startsWith('/student') && authState.activeRole != 'STUDENT') {
         return roleHome;
       }
-      if (location.startsWith('/teacher') && authState.activeRole != 'TEACHER') {
+      if (location.startsWith('/teacher') &&
+          authState.activeRole != 'TEACHER' &&
+          authState.activeRole != 'ADMIN' &&
+          authState.activeRole != 'SUPER_ADMIN') {
         return roleHome;
       }
 
@@ -72,7 +79,12 @@ class AppRouter {
         path: '/teacher',
         builder: (context, state) {
           final authState = authBloc.state;
-          if (authState is Authenticated && authState.activeRole == 'TEACHER') {
+          if (authState is Authenticated &&
+              (authState.activeRole == 'TEACHER' ||
+               authState.activeRole == 'ADMIN' ||
+               authState.activeRole == 'SUPER_ADMIN' ||
+               authState.user.roles.any((r) =>
+                   ['TEACHER', 'ADMIN', 'SUPER_ADMIN', 'STAFF', 'PRINCIPAL'].contains(r.toUpperCase())))) {
             return TeacherShell(user: authState.user);
           }
           return const LoginScreen();

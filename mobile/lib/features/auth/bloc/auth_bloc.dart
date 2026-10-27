@@ -21,13 +21,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = await authRepository.checkAuthStatus();
       if (user != null) {
-        if (user.primaryRole != 'STUDENT' && user.primaryRole != 'TEACHER') {
+        final upperRoles = user.roles.map((r) => r.toUpperCase()).toList();
+        final hasValidRole = upperRoles.any((r) =>
+            ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN', 'PRINCIPAL', 'STAFF'].contains(r));
+
+        if (!hasValidRole) {
           await authRepository.logout();
           emit(Unauthenticated());
         } else {
+          final activeRole = upperRoles.contains('STUDENT')
+              ? 'STUDENT'
+              : 'TEACHER';
+
           emit(Authenticated(
             user: user,
-            activeRole: user.primaryRole,
+            activeRole: activeRole,
           ));
         }
       } else {
@@ -49,18 +57,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         password: event.password,
       );
 
-      // Mobile app restriction: only STUDENT and TEACHER roles permitted
-      if (user.primaryRole != 'STUDENT' && user.primaryRole != 'TEACHER') {
+      final upperRoles = user.roles.map((r) => r.toUpperCase()).toList();
+      final hasValidRole = upperRoles.any((r) =>
+          ['STUDENT', 'TEACHER', 'ADMIN', 'SUPER_ADMIN', 'PRINCIPAL', 'STAFF'].contains(r));
+
+      if (!hasValidRole) {
         await authRepository.logout();
         emit(const AuthFailure(
-          'Mobile app access is restricted to Student and Teacher roles. Please log in via the Web Admin Portal.',
+          'Your account does not have mobile app permissions. Please contact your administrator.',
         ));
         return;
       }
 
+      final activeRole = upperRoles.contains('STUDENT')
+          ? 'STUDENT'
+          : 'TEACHER';
+
       emit(Authenticated(
         user: user,
-        activeRole: user.primaryRole,
+        activeRole: activeRole,
       ));
     } catch (e) {
       final msg = e.toString().replaceAll('Exception: ', '');

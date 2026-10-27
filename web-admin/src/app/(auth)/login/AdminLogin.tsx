@@ -37,12 +37,12 @@ export default function AdminLogin() {
       // Validate that user is administrative
       const userRoles = data.user.roles || [];
       const isAllowed = userRoles.some((r: string) =>
-        ['SUPER_ADMIN', 'ADMIN'].includes(r)
+        ['SUPER_ADMIN', 'ADMIN', 'TEACHER'].includes(r)
       );
 
       if (!isAllowed) {
         setError(
-          'Access Restricted: Only Super Admin and School Admin roles can access the Web Admin Portal.'
+          'Access Restricted: Student accounts should log in via the School Mobile App.'
         );
         setLoading(false);
         return;

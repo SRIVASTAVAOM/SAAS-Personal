@@ -15,8 +15,8 @@ router.post('/subjects', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsControl
 router.patch('/subjects/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsController.updateSubject);
 router.delete('/subjects/:id', requireRole(['ADMIN', 'SUPER_ADMIN']), AcademicsController.deleteSubject);
 router.get('/class-roster/:classId/:sectionId', AcademicsController.getClassRoster);
-router.get('/my-roster', requireRole(['TEACHER']), AcademicsController.getMyRoster);
-router.get('/my-allocations', requireRole(['TEACHER']), AcademicsController.getMyAllocations);
+router.get('/my-roster', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), AcademicsController.getMyRoster);
+router.get('/my-allocations', requireRole(['TEACHER', 'ADMIN', 'SUPER_ADMIN']), AcademicsController.getMyAllocations);
 router.get('/subject-teachers', requireRole(['STUDENT']), AcademicsController.getSubjectTeachers);
 router.get('/classmates-birthdays', requireRole(['STUDENT']), AcademicsController.getClassmatesBirthdays);
 

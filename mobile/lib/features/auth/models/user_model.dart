@@ -36,7 +36,14 @@ class UserModel extends Equatable {
     return identifier;
   }
 
-  String get primaryRole => roles.isNotEmpty ? roles.first : 'UNKNOWN';
+  String get primaryRole {
+    final upperRoles = roles.map((r) => r.toUpperCase()).toList();
+    if (upperRoles.contains('SUPER_ADMIN')) return 'SUPER_ADMIN';
+    if (upperRoles.contains('ADMIN')) return 'ADMIN';
+    if (upperRoles.contains('TEACHER')) return 'TEACHER';
+    if (upperRoles.contains('STUDENT')) return 'STUDENT';
+    return roles.isNotEmpty ? roles.first : 'UNKNOWN';
+  }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
