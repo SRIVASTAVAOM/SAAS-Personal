@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Eye, EyeOff, School, User } from 'lucide-react';
 import { api, setSession } from '@/lib/api';
+import ForgotPasswordModal from './ForgotPasswordModal';
 import './AdminLogin.css';
 
 // Brand and school text shown in the header. Replace SCHOOL_NAME once the
@@ -12,8 +13,6 @@ import './AdminLogin.css';
 const BRAND_NAME = 'Acccebx';
 const SCHOOL_NAME = 'School Name';
 
-const INFO_PASSWORD_RESET =
-  "Password reset isn't available in this portal yet. Please contact your school administrator.";
 const INFO_SIGN_UP =
   "Self-service sign-up isn't available. Please contact your school administrator to get access.";
 
@@ -25,6 +24,7 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +162,8 @@ export default function AdminLogin() {
                   className="admin-login-link"
                   onClick={() => {
                     setError(null);
-                    setInfo(INFO_PASSWORD_RESET);
+                    setInfo(null);
+                    setIsForgotOpen(true);
                   }}
                 >
                   Forgot Password?
@@ -201,6 +202,19 @@ export default function AdminLogin() {
           </div>
         </div>
       </main>
+
+      {/* Challenge-Based Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotOpen}
+        onClose={() => setIsForgotOpen(false)}
+        initialIdentifier={identifier}
+        onSuccess={(resetId, newPass) => {
+          setIdentifier(resetId);
+          setPassword(newPass);
+          setError(null);
+          setInfo(`Password successfully updated for ${resetId}! Click Login to proceed.`);
+        }}
+      />
     </div>
   );
 }

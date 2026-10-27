@@ -110,6 +110,54 @@ export const api = {
       });
       return res;
     },
+
+    getForgotRequirements: async (
+      identifier: string
+    ): Promise<{
+      userType: string;
+      identifier: string;
+      maskedPhone?: string;
+      maskedDob?: string;
+      prompt: string;
+    }> => {
+      return request<{
+        userType: string;
+        identifier: string;
+        maskedPhone?: string;
+        maskedDob?: string;
+        prompt: string;
+      }>(`/auth/forgot-password/requirements?identifier=${encodeURIComponent(identifier)}`);
+    },
+
+    verifyForgotChallenge: async (payload: {
+      identifier: string;
+      phone?: string;
+      dob?: string;
+      email?: string;
+    }): Promise<{
+      resetToken: string;
+      userType: string;
+      name: string;
+    }> => {
+      return request<{
+        resetToken: string;
+        userType: string;
+        name: string;
+      }>('/auth/forgot-password/verify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+
+    resetPasswordWithToken: async (
+      resetToken: string,
+      newPassword: string
+    ): Promise<{ message: string }> => {
+      return request<{ message: string }>('/auth/forgot-password/reset', {
+        method: 'POST',
+        body: JSON.stringify({ resetToken, newPassword }),
+      });
+    },
   },
 
   // Admin Command Center & Core
