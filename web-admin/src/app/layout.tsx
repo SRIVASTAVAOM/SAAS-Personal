@@ -4,6 +4,15 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SAMAGRA - Web Admin Command Center',
   description: 'Enterprise Web Admin Panel for SAMAGRA School ERP (The Complete School Platform)',
+  icons: {
+    icon: [
+      { url: '/favicon.ico?v=2' },
+      { url: '/icon.png?v=2', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon.png?v=2' },
+    ],
+  },
 };
 
 export default function RootLayout({

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/bloc/auth_bloc.dart';
 import '../../features/auth/bloc/auth_state.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/student/presentation/student_shell.dart';
 import '../../features/teacher/presentation/teacher_shell.dart';
 
@@ -28,12 +29,18 @@ class AppRouter {
   }
 
   late final GoRouter router = GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
       final authState = authBloc.state;
       final location = state.matchedLocation;
+      final isSplash = location == '/splash';
       final isLoggingIn = location == '/login';
+
+      // Keep splash intact while initializing
+      if (isSplash) {
+        return null;
+      }
 
       if (authState is! Authenticated) {
         return isLoggingIn ? null : '/login';
@@ -61,6 +68,10 @@ class AppRouter {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
