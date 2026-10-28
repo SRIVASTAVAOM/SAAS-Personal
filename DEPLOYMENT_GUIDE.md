@@ -1,6 +1,6 @@
-# 🚀 School ERP — Cloud Deployment Guide (Render + Vercel)
+# 🚀 SAMAGRA — Cloud Deployment Guide (Render + Vercel)
 
-This guide walks you through deploying the **School ERP** full-stack system online using **Render** (for Backend API & PostgreSQL Database) and **Vercel** (for the Next.js Web Admin Portal). Both platforms offer free tiers suitable for production demos and evaluation.
+This guide walks you through deploying the **SAMAGRA** full-stack system online using **Render** (for Backend API & PostgreSQL Database) and **Vercel** (for the Next.js Web Admin Portal). Both platforms offer free tiers suitable for production demos and evaluation.
 
 ---
 
@@ -49,7 +49,7 @@ You have two convenient options on Render:
 ### Option A: 1-Click Blueprint (Recommended)
 1. Go to [Render Dashboard](https://dashboard.render.com/) and sign in with GitHub.
 2. Click **New +** and select **Blueprint**.
-3. Connect your repository: `SRIVASTAVAOM/SAAS-Personal`.
+3. Connect your repository: `SRIVASTAVAOM/SAAS-Personal` (or `SRIVASTAVAOM/samagra`).
 4. Render will automatically read `render.yaml` and configure:
    - **Database**: `school-erp-db` (PostgreSQL)
    - **Web Service**: `school-erp-backend`
@@ -71,7 +71,7 @@ If you prefer setting it up step-by-step:
    - Once created, copy the **Internal Database URL** (or External if hosting backend elsewhere).
 2. **Create Backend Web Service**:
    - In Render Dashboard, click **New +** -> **Web Service**.
-   - Connect your GitHub repo `SRIVASTAVAOM/SAAS-Personal`.
+   - Connect your GitHub repo `SRIVASTAVAOM/SAAS-Personal` (or `SRIVASTAVAOM/samagra`).
    - Settings:
      - **Root Directory**: `backend`
      - **Runtime**: `Node`
@@ -92,7 +92,7 @@ If you prefer setting it up step-by-step:
 
 1. Go to [Vercel Dashboard](https://vercel.com/) and sign in with GitHub.
 2. Click **Add New...** -> **Project**.
-3. Import the repository: `SRIVASTAVAOM/SAAS-Personal`.
+3. Import the repository: `SRIVASTAVAOM/SAAS-Personal` (or `SRIVASTAVAOM/samagra`).
 4. In the Project Configuration:
    - **Framework Preset**: `Next.js`
    - **Root Directory**: Click **Edit** and choose `web-admin`.

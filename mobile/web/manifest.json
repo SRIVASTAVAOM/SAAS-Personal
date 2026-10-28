@@ -1,11 +1,11 @@
 {
-    "name": "School ERP",
-    "short_name": "School ERP",
+    "name": "SAMAGRA - The Complete School Platform",
+    "short_name": "SAMAGRA",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "School ERP Mobile Suite for Students, Teachers & Staff",
+    "background_color": "#FFFFFF",
+    "theme_color": "#0A1128",
+    "description": "SAMAGRA School ERP Mobile Suite for Students, Teachers & Staff",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

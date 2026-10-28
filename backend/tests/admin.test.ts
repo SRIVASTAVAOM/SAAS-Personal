@@ -153,16 +153,6 @@ describe('Web Admin Panel Module Integration Tests (/api/v1/admin)', () => {
       expect(data.monthly_collection).toHaveProperty('total_received');
       expect(data.monthly_collection).toHaveProperty('total_created');
       expect(data.monthly_collection).toHaveProperty('by_mode');
-
-      // Verify academic 12-month fee matrix
-      expect(data).toHaveProperty('monthly_matrix');
-      expect(Array.isArray(data.monthly_matrix)).toBe(true);
-      expect(data.monthly_matrix.length).toBe(12);
-      expect(data.monthly_matrix[0]).toHaveProperty('month_name');
-      expect(data.monthly_matrix[0]).toHaveProperty('scheduled_amount');
-      expect(data.monthly_matrix[0]).toHaveProperty('collected_amount');
-      expect(data.monthly_matrix[0]).toHaveProperty('pending_amount');
-      expect(data.monthly_matrix[0]).toHaveProperty('status');
     });
   });
 

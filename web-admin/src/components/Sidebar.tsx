@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -214,12 +215,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       >
         {/* Brand Header */}
         <div className="h-16 flex items-center px-5 border-b border-slate-200 gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-            <Building2 className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+            <Image
+              src="/logo-icon.png"
+              alt="SAMAGRA Logo"
+              width={36}
+              height={36}
+              className="w-full h-full object-contain"
+              priority
+            />
           </div>
-          <div>
-            <div className="font-semibold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
-              ERP PORTAL
+          <div className="min-w-0">
+            <div className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5 truncate">
+              SAMAGRA
               <span className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${
                 isSuperAdmin 
                   ? 'bg-purple-50 text-purple-700 border-purple-200' 
@@ -230,8 +238,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 {isSuperAdmin ? 'Super Admin' : (isTeacherOnly ? 'Teacher Portal' : 'Web Admin')}
               </span>
             </div>
-            <div className="text-[11px] text-slate-500 font-medium">
-              {isSuperAdmin ? 'Multi-School SaaS Hub' : (isTeacherOnly ? 'Faculty Academic Suite' : 'Accretion+ Core Suite')}
+            <div className="text-[11px] text-slate-500 font-medium truncate">
+              {isSuperAdmin ? 'Multi-School Hub' : (isTeacherOnly ? 'Faculty Academic Suite' : 'SAMAGRA Core Suite')}
             </div>
           </div>
         </div>

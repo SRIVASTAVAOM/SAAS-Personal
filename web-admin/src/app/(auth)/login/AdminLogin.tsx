@@ -10,8 +10,8 @@ import './AdminLogin.css';
 
 // Brand and school text shown in the header. Replace SCHOOL_NAME once the
 // school's name is available to the frontend.
-const BRAND_NAME = 'Acccebx';
-const SCHOOL_NAME = 'School Name';
+const BRAND_NAME = 'SAMAGRA';
+const SCHOOL_NAME = 'School Command Center';
 
 const INFO_SIGN_UP =
   "Self-service sign-up isn't available. Please contact your school administrator to get access.";
@@ -70,11 +70,16 @@ export default function AdminLogin() {
   return (
     <div className="admin-login">
       <header className="admin-login-header">
-        <div className="admin-login-brand">
-          <span className="admin-login-brand-mark" aria-hidden="true">
-            A
-          </span>
-          <span className="admin-login-brand-name">{BRAND_NAME}</span>
+        <div className="admin-login-brand flex items-center gap-2.5">
+          <Image
+            src="/logo-icon.png"
+            alt="SAMAGRA Logo"
+            width={30}
+            height={30}
+            className="w-7 h-7 object-contain"
+            priority
+          />
+          <span className="admin-login-brand-name font-bold tracking-tight">SAMAGRA</span>
         </div>
         <div className="admin-login-school">
           <span className="admin-login-school-mark" aria-hidden="true">

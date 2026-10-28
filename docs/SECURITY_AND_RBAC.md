@@ -44,7 +44,7 @@ Controller / Business Logic Execution
 During the Milestone 2 codebase audit, 4 specific architectural and security defects were identified:
 
 ### Defect 1: Mobile Client Cross-Role Route Guard Missing
-* **Location:** [`mobile/lib/core/router/app_router.dart`](file:///Users/omsrivastava/Desktop/Project_SAAS/mobile/lib/core/router/app_router.dart)
+* **Location:** [`mobile/lib/core/router/app_router.dart`](../mobile/lib/core/router/app_router.dart)
 * **Vulnerability:** The `redirect` callback only triggers when `state.matchedLocation == '/login'`. If an authenticated user with `role: 'STUDENT'` manually deep-links or navigates to `/accountant` or `/management`, the router returns `null` and mounts the `AccountantShell` widget. While backend APIs return 403 Forbidden, rendering privileged screens to unauthorized users is an interface security flaw.
 * **Smallest Safe Fix:** Add route-matching checks inside `redirect`:
   ```dart
@@ -54,17 +54,17 @@ During the Milestone 2 codebase audit, 4 specific architectural and security def
   ```
 
 ### Defect 2: Dio 401 Expiry Interceptor Desynchronization
-* **Location:** [`mobile/lib/core/network/dio_client.dart`](file:///Users/omsrivastava/Desktop/Project_SAAS/mobile/lib/core/network/dio_client.dart)
+* **Location:** [`mobile/lib/core/network/dio_client.dart`](../mobile/lib/core/network/dio_client.dart)
 * **Vulnerability:** When an API request returns `401 Unauthorized` (token expired), `storageService.clearAll()` is executed. However, `AuthBloc` is not notified. The in-memory state remains `Authenticated`, leaving the user on the dashboard with failing API calls until they manually restart the app.
 * **Smallest Safe Fix:** Provide an `onUnauthorized` callback from `DioClient` to dispatch `LogoutRequestedEvent()` to `AuthBloc`.
 
 ### Defect 3: Hardcoded API Base URL
-* **Location:** [`mobile/lib/core/network/api_endpoints.dart`](file:///Users/omsrivastava/Desktop/Project_SAAS/mobile/lib/core/network/api_endpoints.dart)
+* **Location:** [`mobile/lib/core/network/api_endpoints.dart`](../mobile/lib/core/network/api_endpoints.dart)
 * **Vulnerability:** `baseUrl = 'http://localhost:5001/api/v1'` is hardcoded. It works on macOS Desktop and Chrome, but fails on Android Emulators (which require `10.0.2.2:5001`) and physical test devices.
 * **Smallest Safe Fix:** Use `String.fromEnvironment('API_BASE_URL', defaultValue: ...)` with platform detection fallback (`Platform.isAndroid ? 'http://10.0.2.2:5001/api/v1' : 'http://localhost:5001/api/v1'`).
 
 ### Defect 4: Production Fallback for `JWT_SECRET`
-* **Location:** [`backend/src/config/env.config.ts`](file:///Users/omsrivastava/Desktop/Project_SAAS/backend/src/config/env.config.ts)
+* **Location:** [`backend/src/config/env.config.ts`](../backend/src/config/env.config.ts)
 * **Vulnerability:** `JWT_SECRET` has a default string value. In production environments, forgetting to supply `JWT_SECRET` in `.env` would silently allow deployment with a known key.
 * **Smallest Safe Fix:** Use Zod refinement: if `NODE_ENV === 'production'`, require `JWT_SECRET` to be provided and minimum 32 characters.
 

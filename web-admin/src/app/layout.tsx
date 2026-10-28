@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'School ERP - Web Admin Command Center',
-  description: 'Enterprise Web Admin Panel for School ERP SaaS (Accretion+ Core Suite)',
+  title: 'SAMAGRA - Web Admin Command Center',
+  description: 'Enterprise Web Admin Panel for SAMAGRA School ERP (The Complete School Platform)',
 };
 
 export default function RootLayout({

@@ -114,45 +114,74 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Brand Icon Mark
+                          // Brand Logo Header
                           Row(
                             children: [
                               Container(
-                                width: 44,
-                                height: 44,
+                                width: 52,
+                                height: 52,
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  gradient: AppColors.indigoGradient,
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: AppColors.cardBorder,
+                                    width: 1,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.indigo500.withValues(alpha: 0.3),
+                                      color: Colors.black.withValues(alpha: 0.04),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.school_rounded,
-                                  color: Colors.white,
-                                  size: 24,
+                                child: Image.asset(
+                                  'assets/images/logo_icon.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: const [
+                                    Text(
+                                      'SAMAGRA',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.primaryText,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      'THE COMPLETE SCHOOL PLATFORM',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.6,
+                                        color: AppColors.secondaryText,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 18),
-                          // Header
                           const Text(
-                            'School ERP',
+                            'Welcome Back',
                             style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.primaryText,
-                              letterSpacing: -0.5,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           const Text(
-                            'Enter your credentials to access your portal.',
+                            'Sign in with your Admission No, Emp Code, or Email to continue.',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.secondaryText,

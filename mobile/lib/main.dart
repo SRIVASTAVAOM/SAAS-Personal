@@ -131,7 +131,7 @@ class SchoolErpApp extends StatelessWidget {
       child: BlocProvider.value(
         value: authBloc,
         child: MaterialApp.router(
-          title: 'School ERP',
+          title: 'SAMAGRA',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           routerConfig: appRouter.router,

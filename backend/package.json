@@ -1,7 +1,7 @@
 {
-  "name": "school-erp-backend",
+  "name": "samagra-backend",
   "version": "1.0.0",
-  "description": "Backend API for School ERP - Multi-role architecture",
+  "description": "Backend API for SAMAGRA - The Complete School Platform",
   "main": "dist/app.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
