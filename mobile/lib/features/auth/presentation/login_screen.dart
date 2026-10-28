@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: AppColors.cardBorder,
+                                    color: AppColors.border,
                                     width: 1,
                                   ),
                                   boxShadow: [
