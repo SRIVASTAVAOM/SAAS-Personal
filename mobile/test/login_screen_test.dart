@@ -38,8 +38,8 @@ void main() {
       await tester.pumpWidget(createWidgetUnderTest());
 
       // Header
-      expect(find.text('School ERP'), findsOneWidget);
-      expect(find.text('Enter your credentials to access your portal.'), findsOneWidget);
+      expect(find.text('SAMAGRA'), findsOneWidget);
+      expect(find.text('THE COMPLETE SCHOOL PLATFORM'), findsOneWidget);
 
       // Form Fields
       expect(find.byKey(const Key('identifierField')), findsOneWidget);

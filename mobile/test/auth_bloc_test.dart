@@ -79,7 +79,7 @@ void main() {
         isA<AuthFailure>().having(
           (f) => f.errorMessage,
           'errorMessage',
-          contains('restricted to Student and Teacher roles'),
+          contains('mobile app permissions'),
         ),
       ],
     );
