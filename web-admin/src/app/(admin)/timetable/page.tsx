@@ -564,7 +564,7 @@ export default function MasterTimetablePage() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
               <h2 className="text-base font-bold text-slate-900 tracking-tight">
-                Accretion+ Master Timetable Grid
+                SAMAGRA Master Timetable Grid
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">

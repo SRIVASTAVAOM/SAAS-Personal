@@ -564,7 +564,7 @@ export default function NotificationsPage() {
                 <div className="flex items-center justify-between text-[11px] text-slate-400">
                   <span className="font-semibold text-indigo-300 flex items-center gap-1">
                     <Bell className="w-3 h-3 text-indigo-400" />
-                    School ERP Alert
+                    SAMAGRA Alert
                   </span>
                   <span>Just now</span>
                 </div>

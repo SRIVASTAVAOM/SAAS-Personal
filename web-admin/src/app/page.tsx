@@ -17,7 +17,7 @@ export default function RootPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-xs">
-      Directing to School ERP Portal...
+      Directing to SAMAGRA Command Center...
     </div>
   );
 }

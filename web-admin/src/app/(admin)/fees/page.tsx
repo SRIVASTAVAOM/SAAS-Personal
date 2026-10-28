@@ -775,7 +775,7 @@ export default function FeesSectionPage() {
               {/* Header */}
               <div className="text-center border-b border-slate-200 pb-4">
                 <div className="text-base font-bold text-slate-900 uppercase tracking-tight">
-                  ACCRETION+ ACADEMY ERP
+                  SAMAGRA SCHOOL PLATFORM
                 </div>
                 <div className="text-[11px] text-slate-500">Official Fee Payment Receipt</div>
                 <div className="text-xs font-mono font-bold text-indigo-700 mt-1">
