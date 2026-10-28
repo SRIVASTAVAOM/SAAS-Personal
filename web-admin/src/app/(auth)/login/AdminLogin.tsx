@@ -93,10 +93,10 @@ export default function AdminLogin() {
         <div className="admin-login-card">
           <div className="admin-login-illustration" aria-hidden="true">
             <Image
-              src="/admin-login-illustration.webp"
-              alt=""
-              width={1048}
-              height={1008}
+              src="/logo.png"
+              alt="SAMAGRA - The Complete School Platform"
+              width={380}
+              height={380}
               className="admin-login-illustration-img"
               priority
             />

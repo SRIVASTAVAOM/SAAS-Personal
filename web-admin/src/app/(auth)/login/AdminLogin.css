@@ -121,17 +121,27 @@
 
 .admin-login-illustration {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 32px;
+  padding: 48px 36px;
   min-width: 0;
+  background: linear-gradient(145deg, #f8faff 0%, #f0f4ff 100%);
+  border-right: 1px solid var(--admin-login-divider);
+  align-self: stretch;
 }
 
 .admin-login-illustration-img {
   display: block;
   width: 100%;
-  max-width: 480px;
+  max-width: 340px;
   height: auto;
+  filter: drop-shadow(0 12px 24px rgba(10, 17, 40, 0.08));
+  transition: transform 0.3s ease;
+}
+
+.admin-login-illustration-img:hover {
+  transform: translateY(-2px);
 }
 
 .admin-login-panel {
@@ -379,11 +389,13 @@
   }
 
   .admin-login-illustration {
-    padding: 20px 16px 0;
+    padding: 32px 20px 24px;
+    border-right: none;
+    border-bottom: 1px solid var(--admin-login-divider);
   }
 
   .admin-login-illustration-img {
-    max-width: 260px;
+    max-width: 220px;
   }
 
   .admin-login-panel {
