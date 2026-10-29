@@ -180,11 +180,15 @@ class _StudentShellState extends State<StudentShell> {
                 builder: (context, state) {
                   String subtitle = 'Student Portal';
                   if (state is StudentProfileLoaded) {
-                    final cls = state.profile.className ?? 'Grade 10';
-                    final sec = state.profile.sectionName ?? 'Section A';
-                    subtitle = '$cls $sec';
+                    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+                    final rawCls = state.profile.className;
+                    final rawSec = state.profile.sectionName;
+                    final cls = (rawCls != null && rawCls.trim().isNotEmpty && !isUuid.hasMatch(rawCls)) ? rawCls.trim() : 'Grade 10';
+                    final sec = (rawSec != null && rawSec.trim().isNotEmpty && !isUuid.hasMatch(rawSec)) ? rawSec.trim() : 'Section A';
+                    subtitle = '$cls • $sec';
                     if (state.profile.rollNumber != null &&
-                        state.profile.rollNumber!.isNotEmpty) {
+                        state.profile.rollNumber!.isNotEmpty &&
+                        !isUuid.hasMatch(state.profile.rollNumber!)) {
                       subtitle += ' • Roll #${state.profile.rollNumber}';
                     }
                   }

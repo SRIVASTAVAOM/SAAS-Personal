@@ -624,18 +624,26 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
         ? profile!.fullName
         : widget.user.displayName;
 
-    String classSubtitle;
-    if (profile != null) {
-      final cls = profile.className ?? (widget.user.classId != null ? 'Class ${widget.user.classId}' : 'Grade 10');
-      final sec = profile.sectionName ?? (widget.user.sectionId ?? 'Section A');
-      classSubtitle = '$cls • $sec';
-      if (profile.rollNumber != null && profile.rollNumber!.trim().isNotEmpty) {
-        classSubtitle += ' • Roll #${profile.rollNumber}';
-      }
-    } else {
-      final cls = widget.user.classId != null ? 'Class ${widget.user.classId}' : 'Grade 10';
-      final sec = widget.user.sectionId ?? 'Section A';
-      classSubtitle = '$cls • $sec';
+    bool isUuid(String? s) {
+      if (s == null) return false;
+      return RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(s.trim());
+    }
+
+    String resolveClass(String? raw) {
+      if (raw == null || raw.trim().isEmpty || isUuid(raw)) return 'Grade 10';
+      return raw.trim();
+    }
+
+    String resolveSection(String? raw) {
+      if (raw == null || raw.trim().isEmpty || isUuid(raw)) return 'Section A';
+      return raw.trim();
+    }
+
+    final cls = resolveClass(profile?.className);
+    final sec = resolveSection(profile?.sectionName);
+    String classSubtitle = '$cls • $sec';
+    if (profile?.rollNumber != null && profile!.rollNumber!.trim().isNotEmpty && !isUuid(profile.rollNumber)) {
+      classSubtitle += ' • Roll #${profile.rollNumber}';
     }
 
     String initials = 'S';

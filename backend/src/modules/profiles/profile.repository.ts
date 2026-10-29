@@ -35,8 +35,17 @@ export class ProfileRepository {
       JOIN schools sch ON u.school_id = sch.id
       WHERE stp.id = $1;
     `;
-    const { rows } = await pool.query(query, [profileId]);
-    return rows[0] || null;
+    try {
+      const { rows } = await pool.query(query, [profileId]);
+      return rows[0] || null;
+    } catch (err: any) {
+      if (err.message && err.message.includes('document_url')) {
+        await pool.query('ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS document_url TEXT NULL;').catch(() => {});
+        const { rows } = await pool.query(query, [profileId]);
+        return rows[0] || null;
+      }
+      throw err;
+    }
   }
 
   static async updateStudentProfile(
@@ -78,8 +87,17 @@ export class ProfileRepository {
       WHERE id = $${idx}
       RETURNING id, emergency_phone, blood_group, medical_notes, document_url;
     `;
-    const { rows } = await pool.query(query, values);
-    return rows[0] || null;
+    try {
+      const { rows } = await pool.query(query, values);
+      return rows[0] || null;
+    } catch (err: any) {
+      if (err.message && err.message.includes('document_url')) {
+        await pool.query('ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS document_url TEXT NULL;').catch(() => {});
+        const { rows } = await pool.query(query, values);
+        return rows[0] || null;
+      }
+      throw err;
+    }
   }
 
   static async getStaffProfile(profileId: string) {
@@ -231,8 +249,17 @@ export class ProfileRepository {
       WHERE id = $${idx}
       RETURNING id, admission_number, roll_number, first_name, last_name, emergency_phone, blood_group, medical_notes, document_url;
     `;
-    const { rows } = await pool.query(query, values);
-    return rows[0] || null;
+    try {
+      const { rows } = await pool.query(query, values);
+      return rows[0] || null;
+    } catch (err: any) {
+      if (err.message && err.message.includes('document_url')) {
+        await pool.query('ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS document_url TEXT NULL;').catch(() => {});
+        const { rows } = await pool.query(query, values);
+        return rows[0] || null;
+      }
+      throw err;
+    }
   }
 }
 
