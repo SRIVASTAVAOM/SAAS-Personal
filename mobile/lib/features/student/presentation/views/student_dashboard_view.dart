@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../academics/bloc/exams_bloc.dart';
 import '../../../academics/views/exams_list_view.dart';
@@ -36,12 +38,14 @@ import 'student_notices_view.dart';
 class _StudentMenuItem {
   final String key;
   final String defaultLabel;
+  final String category;
   final IconData icon;
   final void Function(BuildContext) onTap;
 
   const _StudentMenuItem({
     required this.key,
     required this.defaultLabel,
+    this.category = 'General',
     required this.icon,
     required this.onTap,
   });
@@ -66,6 +70,17 @@ class StudentDashboardView extends StatefulWidget {
 class _StudentDashboardViewState extends State<StudentDashboardView> {
   List<NoticeModel>? _cachedNotices;
   FeeOverviewModel? _cachedFeeOverview;
+  List<String>? _customQuickLinkKeys;
+  final SecureStorageService _storageService = SecureStorageService();
+
+  static const List<String> _defaultQuickLinkKeys = [
+    'fee',
+    'exams',
+    'timetable',
+    'study_materials',
+    'leaves',
+    'online_classes',
+  ];
 
   @override
   void initState() {
@@ -77,6 +92,21 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
 
   Future<void> _fetchInitialData() async {
     if (!mounted) return;
+    try {
+      final savedKeysJson = await _storageService.read('student_quick_links_${widget.user.id}');
+      if (savedKeysJson != null && savedKeysJson.isNotEmpty) {
+        final decoded = jsonDecode(savedKeysJson);
+        if (decoded is List) {
+          final loadedKeys = decoded.map((e) => e.toString()).toList();
+          if (loadedKeys.isNotEmpty && mounted) {
+            setState(() {
+              _customQuickLinkKeys = loadedKeys;
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
     try {
       StudentFeaturesRepository? repo;
       try {
@@ -97,6 +127,18 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     } catch (_) {
       // Graceful fallback to Bloc states
     }
+  }
+
+  Future<void> _saveQuickLinks(List<String> keys) async {
+    setState(() {
+      _customQuickLinkKeys = List<String>.from(keys);
+    });
+    try {
+      await _storageService.write(
+        'student_quick_links_${widget.user.id}',
+        jsonEncode(keys),
+      );
+    } catch (_) {}
   }
 
   // --- Safe Navigation Handlers ---
@@ -1133,124 +1175,143 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     );
   }
 
-  // --- 4. QUICK LINKS GRID ---
+  // --- 4. QUICK LINKS GRID (CUSTOMIZABLE) ---
   Widget _buildQuickLinksSection(BuildContext context, StudentProfileModel? profile) {
     final studentMenusConfig =
         (profile?.menuConfig?['student_menus'] as Map<String, dynamic>?) ?? {};
 
-    final allItems = [
+    final allCatalogItems = [
       _StudentMenuItem(
         key: 'fee',
         defaultLabel: 'Fee',
+        category: 'Finance',
         icon: Icons.receipt_long_outlined,
         onTap: (c) => _navigateToFee(c),
       ),
       _StudentMenuItem(
         key: 'exams',
         defaultLabel: 'Exams/Results',
+        category: 'Academics',
         icon: Icons.assignment_turned_in_outlined,
         onTap: (c) => _navigateToExams(c),
       ),
       _StudentMenuItem(
         key: 'timetable',
         defaultLabel: 'Timetable',
+        category: 'Daily Routine',
         icon: Icons.calendar_month_outlined,
         onTap: (c) => _navigateToTimetable(c),
       ),
       _StudentMenuItem(
         key: 'study_materials',
         defaultLabel: 'Study Materials',
+        category: 'Academics',
         icon: Icons.menu_book_outlined,
         onTap: (c) => _navigateToStudyMaterials(c),
       ),
       _StudentMenuItem(
         key: 'leaves',
         defaultLabel: 'Leaves',
+        category: 'Services',
         icon: Icons.event_busy_outlined,
         onTap: (c) => _navigateToLeaves(c),
       ),
       _StudentMenuItem(
-        key: 'attendance',
-        defaultLabel: 'My Attendance',
-        icon: Icons.fact_check_outlined,
-        onTap: (c) => _navigateToAttendance(c),
+        key: 'online_classes',
+        defaultLabel: 'Online Classes',
+        category: 'Daily Routine',
+        icon: Icons.video_camera_front_outlined,
+        onTap: (c) => _navigateToOnlineClasses(c),
       ),
       _StudentMenuItem(
         key: 'homework',
         defaultLabel: 'Homework',
+        category: 'Academics',
         icon: Icons.assignment_outlined,
         onTap: (c) => _navigateToHomework(c),
       ),
       _StudentMenuItem(
+        key: 'attendance',
+        defaultLabel: 'My Attendance',
+        category: 'Daily Routine',
+        icon: Icons.fact_check_outlined,
+        onTap: (c) => _navigateToAttendance(c),
+      ),
+      _StudentMenuItem(
         key: 'syllabus',
         defaultLabel: 'Syllabus',
+        category: 'Academics',
         icon: Icons.format_list_bulleted_outlined,
         onTap: (c) => _navigateToSyllabus(c),
       ),
       _StudentMenuItem(
         key: 'classmates',
         defaultLabel: 'Classmates',
+        category: 'Academics',
         icon: Icons.people_outline,
         onTap: (c) => _navigateToClassmates(c),
       ),
       _StudentMenuItem(
         key: 'birthdays',
         defaultLabel: 'Birthdays',
+        category: 'Academics',
         icon: Icons.cake_outlined,
         onTap: (c) => _navigateToBirthdays(c),
       ),
       _StudentMenuItem(
         key: 'teachers',
         defaultLabel: 'Teachers',
+        category: 'Academics',
         icon: Icons.person_outline,
         onTap: (c) => _navigateToTeachers(c),
       ),
       _StudentMenuItem(
-        key: 'online_classes',
-        defaultLabel: 'Online Classes',
-        icon: Icons.video_camera_front_outlined,
-        onTap: (c) => _navigateToOnlineClasses(c),
+        key: 'report_card',
+        defaultLabel: 'Report Card',
+        category: 'Academics',
+        icon: Icons.grade_outlined,
+        onTap: (c) => _navigateToReportCard(c),
       ),
       _StudentMenuItem(
-        key: 'profile',
-        defaultLabel: 'Profile',
-        icon: Icons.account_circle_outlined,
-        onTap: (c) => _navigateToProfile(c),
+        key: 'school_contact',
+        defaultLabel: 'School Contact',
+        category: 'Services',
+        icon: Icons.contact_phone_outlined,
+        onTap: (c) => _navigateToSchoolContact(c),
       ),
       _StudentMenuItem(
         key: 'notices',
         defaultLabel: 'Notices',
+        category: 'Services',
         icon: Icons.campaign_outlined,
         onTap: (c) => _navigateToNotices(c),
       ),
       _StudentMenuItem(
         key: 'complaints',
         defaultLabel: 'Complaints',
+        category: 'Services',
         icon: Icons.report_problem_outlined,
         onTap: (c) => _navigateToComplaints(c),
       ),
       _StudentMenuItem(
         key: 'feedback',
         defaultLabel: 'Feedback',
+        category: 'Services',
         icon: Icons.rate_review_outlined,
         onTap: (c) => _navigateToFeedback(c),
       ),
       _StudentMenuItem(
-        key: 'school_contact',
-        defaultLabel: 'School Contact',
-        icon: Icons.contact_phone_outlined,
-        onTap: (c) => _navigateToSchoolContact(c),
-      ),
-      _StudentMenuItem(
-        key: 'report_card',
-        defaultLabel: 'Report Card',
-        icon: Icons.grade_outlined,
-        onTap: (c) => _navigateToReportCard(c),
+        key: 'profile',
+        defaultLabel: 'Profile',
+        category: 'Services',
+        icon: Icons.account_circle_outlined,
+        onTap: (c) => _navigateToProfile(c),
       ),
     ];
 
-    final visibleItems = <({_StudentMenuItem item, String label})>[];
-    for (final item in allItems) {
+    // Filter available catalog by school-level config (if super admin disabled anything)
+    final availableCatalog = <({_StudentMenuItem item, String label})>[];
+    for (final item in allCatalogItems) {
       final cfg = studentMenusConfig[item.key];
       bool enabled = true;
       String label = item.defaultLabel;
@@ -1264,9 +1325,28 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
         }
       }
       if (enabled) {
-        visibleItems.add((item: item, label: label));
+        availableCatalog.add((item: item, label: label));
       }
     }
+
+    // Determine active keys based on user preferences or defaults
+    final activeKeys = _customQuickLinkKeys ?? _defaultQuickLinkKeys;
+    final activeItems = <({_StudentMenuItem item, String label})>[];
+
+    for (final key in activeKeys) {
+      final match = availableCatalog.where((e) => e.item.key == key);
+      if (match.isNotEmpty) {
+        activeItems.add(match.first);
+      }
+    }
+
+    // Fallback if user had no matches
+    if (activeItems.isEmpty && availableCatalog.isNotEmpty) {
+      activeItems.addAll(availableCatalog.take(6));
+    }
+
+    // Total tiles = active shortcuts + 1 ("+ Add Menu" tile)
+    final totalTileCount = activeItems.length + 1;
 
     return Container(
       decoration: BoxDecoration(
@@ -1279,16 +1359,44 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.grid_view_outlined,
-                  size: 16, color: AppColors.primaryAccent),
-              SizedBox(width: 8),
-              Text(
-                'Quick Links',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryText,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.grid_view_outlined,
+                      size: 16, color: AppColors.primaryAccent),
+                  SizedBox(width: 8),
+                  Text(
+                    'Quick Links',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryText,
+                    ),
+                  ),
+                ],
+              ),
+              InkWell(
+                key: const Key('customize_quick_links_btn'),
+                onTap: () => _showCustomizeQuickLinksModal(context, availableCatalog),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.tune_rounded, size: 14, color: AppColors.primaryAccent),
+                      SizedBox(width: 4),
+                      Text(
+                        'Customize',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryAccent,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1297,7 +1405,7 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: visibleItems.length,
+            itemCount: totalTileCount,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               crossAxisSpacing: 10,
@@ -1305,17 +1413,286 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
               childAspectRatio: 0.95,
             ),
             itemBuilder: (context, index) {
-              final entry = visibleItems[index];
-              return _buildQuickActionCard(
-                context: context,
-                label: entry.label,
-                icon: entry.item.icon,
-                onTap: () => entry.item.onTap(context),
-              );
+              if (index < activeItems.length) {
+                final entry = activeItems[index];
+                return _buildQuickActionCard(
+                  context: context,
+                  label: entry.label,
+                  icon: entry.item.icon,
+                  onTap: () => entry.item.onTap(context),
+                );
+              }
+              // Last tile is "+ Add Menu"
+              return _buildAddMenuCard(context, availableCatalog);
             },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAddMenuCard(
+    BuildContext context,
+    List<({_StudentMenuItem item, String label})> availableCatalog,
+  ) {
+    return Material(
+      color: AppColors.scaffoldBackground,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        key: const Key('add_menu_tile'),
+        onTap: () => _showCustomizeQuickLinksModal(context, availableCatalog),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.primaryAccent.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primaryAccent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  size: 22,
+                  color: AppColors.primaryAccent,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Add Menu',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryAccent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCustomizeQuickLinksModal(
+    BuildContext context,
+    List<({_StudentMenuItem item, String label})> allCatalog,
+  ) {
+    final currentKeys = _customQuickLinkKeys ?? _defaultQuickLinkKeys;
+    final selectedKeys = Set<String>.from(currentKeys);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Material(
+              color: AppColors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: Column(
+                  children: [
+                  // Drag handle & Header
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 6),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 16, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Customize Quick Links',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryText,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${selectedKeys.length} shortcuts selected',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.secondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              selectedKeys.clear();
+                              selectedKeys.addAll(_defaultQuickLinkKeys);
+                            });
+                          },
+                          child: const Text(
+                            'Reset Default',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: AppColors.border, height: 1),
+                  // Catalog List
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: allCatalog.length,
+                      separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 1),
+                      itemBuilder: (ctx, index) {
+                        final entry = allCatalog[index];
+                        final isSelected = selectedKeys.contains(entry.item.key);
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          leading: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.indigo50 : AppColors.scaffoldBackground,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? AppColors.indigo200 : AppColors.border,
+                              ),
+                            ),
+                            child: Icon(
+                              entry.item.icon,
+                              size: 20,
+                              color: isSelected ? AppColors.primaryAccent : AppColors.secondaryText,
+                            ),
+                          ),
+                          title: Text(
+                            entry.label,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              color: AppColors.primaryText,
+                            ),
+                          ),
+                          subtitle: Text(
+                            entry.item.category,
+                            style: const TextStyle(fontSize: 11, color: AppColors.secondaryText),
+                          ),
+                          trailing: Checkbox(
+                            value: isSelected,
+                            activeColor: AppColors.primaryAccent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            onChanged: (val) {
+                              setModalState(() {
+                                if (val == true) {
+                                  selectedKeys.add(entry.item.key);
+                                } else {
+                                  if (selectedKeys.length > 1) {
+                                    selectedKeys.remove(entry.item.key);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('At least 1 shortcut is required.'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              });
+                            },
+                          ),
+                          onTap: () {
+                            setModalState(() {
+                              if (isSelected) {
+                                if (selectedKeys.length > 1) {
+                                  selectedKeys.remove(entry.item.key);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('At least 1 shortcut is required.'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                selectedKeys.add(entry.item.key);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  // Bottom Save Button
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border(top: BorderSide(color: AppColors.border)),
+                    ),
+                    child: SafeArea(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _saveQuickLinks(selectedKeys.toList());
+                            Navigator.of(sheetContext).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Quick links updated!'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryText,
+                            foregroundColor: AppColors.surface,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Save Quick Links',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+          },
+        );
+      },
     );
   }
 
