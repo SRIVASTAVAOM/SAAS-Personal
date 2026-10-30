@@ -1,3 +1,29 @@
+double _toDouble(dynamic val, [double defaultVal = 0.0]) {
+  if (val == null) return defaultVal;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? defaultVal;
+  return defaultVal;
+}
+
+double? _toNullableDouble(dynamic val) {
+  if (val == null) return null;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val);
+  return null;
+}
+
+int _toInt(dynamic val, [int defaultVal = 0]) {
+  if (val == null) return defaultVal;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? defaultVal;
+  return defaultVal;
+}
+
+String _toString(dynamic val, [String defaultVal = '']) {
+  if (val == null) return defaultVal;
+  return val.toString();
+}
+
 class ExamModel {
   final String id;
   final String name;
@@ -21,14 +47,14 @@ class ExamModel {
 
   factory ExamModel.fromJson(Map<String, dynamic> json) {
     return ExamModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      startDate: json['start_date'] as String,
-      endDate: json['end_date'] as String,
+      id: _toString(json['id']),
+      name: _toString(json['name']),
+      description: json['description']?.toString(),
+      startDate: _toString(json['start_date']),
+      endDate: _toString(json['end_date']),
       isPublished: json['is_published'] as bool? ?? false,
-      academicYearLabel: json['academic_year_label'] as String?,
-      wingName: json['wing_name'] as String?,
+      academicYearLabel: json['academic_year_label']?.toString(),
+      wingName: json['wing_name']?.toString(),
     );
   }
 
@@ -87,22 +113,22 @@ class ExamDatesheetModel {
 
   factory ExamDatesheetModel.fromJson(Map<String, dynamic> json) {
     return ExamDatesheetModel(
-      id: json['id'] as String,
-      examId: json['exam_id'] as String,
-      examName: json['exam_name'] as String?,
-      classId: json['class_id'] as String,
-      className: json['class_name'] as String?,
-      sectionId: json['section_id'] as String?,
-      sectionName: json['section_name'] as String?,
-      subjectId: json['subject_id'] as String,
-      subjectName: json['subject_name'] as String?,
-      subjectCode: json['subject_code'] as String?,
-      examDate: json['exam_date'] as String,
-      startTime: json['start_time'] as String,
-      endTime: json['end_time'] as String,
-      maxMarks: (json['max_marks'] as num).toDouble(),
-      passingMarks: (json['passing_marks'] as num?)?.toDouble() ?? 33.0,
-      invigilatorName: json['invigilator_name'] as String?,
+      id: _toString(json['id']),
+      examId: _toString(json['exam_id']),
+      examName: json['exam_name']?.toString(),
+      classId: _toString(json['class_id']),
+      className: json['class_name']?.toString(),
+      sectionId: json['section_id']?.toString(),
+      sectionName: json['section_name']?.toString(),
+      subjectId: _toString(json['subject_id']),
+      subjectName: json['subject_name']?.toString(),
+      subjectCode: json['subject_code']?.toString(),
+      examDate: _toString(json['exam_date']),
+      startTime: _toString(json['start_time']),
+      endTime: _toString(json['end_time']),
+      maxMarks: _toDouble(json['max_marks'], 100.0),
+      passingMarks: _toDouble(json['passing_marks'], 33.0),
+      invigilatorName: json['invigilator_name']?.toString(),
       isPublished: json['is_published'] as bool? ?? false,
       isLocked: json['is_locked'] as bool? ?? false,
     );
@@ -161,17 +187,17 @@ class StudentMarkRosterModel {
 
   factory StudentMarkRosterModel.fromJson(Map<String, dynamic> json) {
     return StudentMarkRosterModel(
-      studentId: json['student_id'] as String,
-      firstName: json['first_name'] as String,
-      lastName: json['last_name'] as String,
-      admissionNumber: json['admission_number'] as String,
-      rollNumber: json['roll_number'] as String,
-      markId: json['mark_id'] as String?,
-      marksObtained: (json['marks_obtained'] as num?)?.toDouble(),
+      studentId: _toString(json['student_id']),
+      firstName: _toString(json['first_name']),
+      lastName: _toString(json['last_name']),
+      admissionNumber: _toString(json['admission_number']),
+      rollNumber: _toString(json['roll_number']),
+      markId: json['mark_id']?.toString(),
+      marksObtained: _toNullableDouble(json['marks_obtained']),
       isAbsent: json['is_absent'] as bool? ?? false,
-      remarks: json['remarks'] as String?,
-      status: json['status'] as String? ?? 'NOT_ENTERED',
-      enteredByName: json['entered_by_name'] as String?,
+      remarks: json['remarks']?.toString(),
+      status: _toString(json['status'], 'NOT_ENTERED'),
+      enteredByName: json['entered_by_name']?.toString(),
     );
   }
 
@@ -219,17 +245,17 @@ class DatesheetSummaryModel {
 
   factory DatesheetSummaryModel.fromJson(Map<String, dynamic> json) {
     return DatesheetSummaryModel(
-      datesheetId: json['datesheet_id'] as String,
-      subjectName: json['subject_name'] as String,
-      maxMarks: (json['max_marks'] as num).toDouble(),
-      totalStudents: json['total_students'] as int,
-      enteredCount: json['entered_count'] as int,
-      absentCount: json['absent_count'] as int,
-      missingCount: json['missing_count'] as int,
-      averageMarks: (json['average_marks'] as num?)?.toDouble(),
-      highestMarks: (json['highest_marks'] as num?)?.toDouble(),
-      lowestMarks: (json['lowest_marks'] as num?)?.toDouble(),
-      status: json['status'] as String,
+      datesheetId: _toString(json['datesheet_id']),
+      subjectName: _toString(json['subject_name']),
+      maxMarks: _toDouble(json['max_marks'], 100.0),
+      totalStudents: _toInt(json['total_students']),
+      enteredCount: _toInt(json['entered_count']),
+      absentCount: _toInt(json['absent_count']),
+      missingCount: _toInt(json['missing_count']),
+      averageMarks: _toNullableDouble(json['average_marks']),
+      highestMarks: _toNullableDouble(json['highest_marks']),
+      lowestMarks: _toNullableDouble(json['lowest_marks']),
+      status: _toString(json['status']),
     );
   }
 }
@@ -271,21 +297,21 @@ class ReportCardModel {
 
   factory ReportCardModel.fromJson(Map<String, dynamic> json) {
     return ReportCardModel(
-      id: json['id'] as String,
-      examId: json['exam_id'] as String,
-      studentId: json['student_id'] as String,
-      studentName: json['student_name'] as String?,
-      rollNumber: json['roll_number'] as String?,
-      admissionNumber: json['admission_number'] as String?,
-      className: json['class_name'] as String?,
-      sectionName: json['section_name'] as String?,
-      totalMarksObtained: (json['total_marks_obtained'] as num).toDouble(),
-      totalMaxMarks: (json['total_max_marks'] as num).toDouble(),
-      percentage: (json['percentage'] as num).toDouble(),
-      subjectsEvaluatedCount: json['subjects_evaluated_count'] as int? ?? 0,
-      subjectsAbsentCount: json['subjects_absent_count'] as int? ?? 0,
-      status: json['status'] as String,
-      classTeacherRemarks: json['class_teacher_remarks'] as String?,
+      id: _toString(json['id']),
+      examId: _toString(json['exam_id']),
+      studentId: _toString(json['student_id']),
+      studentName: json['student_name']?.toString(),
+      rollNumber: json['roll_number']?.toString(),
+      admissionNumber: json['admission_number']?.toString(),
+      className: json['class_name']?.toString(),
+      sectionName: json['section_name']?.toString(),
+      totalMarksObtained: _toDouble(json['total_marks_obtained']),
+      totalMaxMarks: _toDouble(json['total_max_marks']),
+      percentage: _toDouble(json['percentage']),
+      subjectsEvaluatedCount: _toInt(json['subjects_evaluated_count']),
+      subjectsAbsentCount: _toInt(json['subjects_absent_count']),
+      status: _toString(json['status'], 'GENERATED'),
+      classTeacherRemarks: json['class_teacher_remarks']?.toString(),
     );
   }
 }
@@ -335,14 +361,14 @@ class SubjectMarkItemModel {
 
   factory SubjectMarkItemModel.fromJson(Map<String, dynamic> json) {
     return SubjectMarkItemModel(
-      subjectName: json['subject_name'] as String,
-      subjectCode: json['subject_code'] as String,
-      maxMarks: (json['max_marks'] as num).toDouble(),
-      passingMarks: (json['passing_marks'] as num?)?.toDouble() ?? 33.0,
-      marksObtained: (json['marks_obtained'] as num?)?.toDouble(),
+      subjectName: _toString(json['subject_name'], 'Subject'),
+      subjectCode: _toString(json['subject_code'], '-'),
+      maxMarks: _toDouble(json['max_marks'], 100.0),
+      passingMarks: _toDouble(json['passing_marks'], 33.0),
+      marksObtained: _toNullableDouble(json['marks_obtained']),
       isAbsent: json['is_absent'] as bool? ?? false,
-      remarks: json['remarks'] as String?,
-      status: json['status'] as String? ?? 'NOT_ENTERED',
+      remarks: json['remarks']?.toString(),
+      status: _toString(json['status'], 'NOT_ENTERED'),
     );
   }
 }

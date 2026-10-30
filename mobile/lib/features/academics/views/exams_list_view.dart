@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../bloc/exams_bloc.dart';
 import '../models/exam_model.dart';
 import '../repositories/exams_repository.dart';
@@ -26,6 +27,9 @@ class ExamsListView extends StatefulWidget {
 }
 
 class _ExamsListViewState extends State<ExamsListView> {
+  // Cache the last loaded exams so we can re-render after navigation back
+  List<ExamModel>? _cachedExams;
+
   @override
   void initState() {
     super.initState();
@@ -35,39 +39,67 @@ class _ExamsListViewState extends State<ExamsListView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppColors.scaffoldBackground,
       body: BlocConsumer<ExamsBloc, ExamsState>(
         listener: (context, state) {
           if (state is ExamsError) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message), backgroundColor: Colors.red.shade700),
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppColors.error,
+              ),
             );
+          }
+          // Cache exams whenever they load so navigating to datesheet and back
+          // doesn't produce a blank screen (Bloc state is overwritten by
+          // ExamDatesheetsLoaded while on the child screen).
+          if (state is ExamsLoaded) {
+            _cachedExams = state.exams;
           }
         },
         builder: (context, state) {
-          if (state is ExamsLoading) {
+          if (state is ExamsLoading && _cachedExams == null) {
             return const Center(child: CircularProgressIndicator(strokeWidth: 2));
           }
 
-          if (state is ExamsLoaded) {
-            final exams = state.exams;
-            if (exams.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.assignment_outlined, size: 48, color: Colors.grey.shade400),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No examinations scheduled.',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                    ),
-                  ],
-                ),
-              );
-            }
+          // Prefer live data; fall back to cache when state has moved on
+          // (e.g. ExamDatesheetsLoaded after returning from datesheet screen).
+          final exams = (state is ExamsLoaded) ? state.exams : (_cachedExams ?? []);
 
-            return ListView.separated(
+          if (exams.isEmpty && state is! ExamsLoading) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.assignment_outlined, size: 48, color: AppColors.tertiaryText),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No examinations scheduled.',
+                    style: TextStyle(color: AppColors.secondaryText, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () => context.read<ExamsBloc>().add(const LoadExamsEvent()),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Refresh'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      foregroundColor: AppColors.primaryText,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            color: AppColors.primaryAccent,
+            backgroundColor: AppColors.surface,
+            onRefresh: () async {
+              context.read<ExamsBloc>().add(const LoadExamsEvent());
+            },
+            child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: exams.length,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -75,10 +107,8 @@ class _ExamsListViewState extends State<ExamsListView> {
                 final exam = exams[index];
                 return _buildExamCard(context, exam);
               },
-            );
-          }
-
-          return const SizedBox.shrink();
+            ),
+          );
         },
       ),
     );
@@ -88,37 +118,50 @@ class _ExamsListViewState extends State<ExamsListView> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
                   exam.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.primaryText,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: exam.isPublished ? Colors.green.shade50 : Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(4),
+                  color: exam.isPublished ? AppColors.successLight : AppColors.warningLight,
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: exam.isPublished ? Colors.green.shade200 : Colors.amber.shade200,
+                    color: exam.isPublished ? AppColors.successBorder : AppColors.warningBorder,
                   ),
                 ),
                 child: Text(
-                  exam.isPublished ? 'PUBLISHED' : 'UPCOMING / UNPUBLISHED',
+                  exam.isPublished ? 'PUBLISHED' : 'UPCOMING',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: exam.isPublished ? Colors.green.shade800 : Colors.amber.shade800,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: exam.isPublished ? AppColors.success : AppColors.warning,
                   ),
                 ),
               ),
@@ -128,30 +171,46 @@ class _ExamsListViewState extends State<ExamsListView> {
             const SizedBox(height: 6),
             Text(
               exam.description!,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              style: const TextStyle(fontSize: 13, color: AppColors.secondaryText),
             ),
           ],
           const SizedBox(height: 10),
           Row(
             children: [
-              Icon(Icons.calendar_month_outlined, size: 16, color: Colors.grey.shade600),
+              const Icon(Icons.calendar_month_outlined, size: 15, color: AppColors.secondaryText),
               const SizedBox(width: 6),
               Text(
-                '${exam.startDate} to ${exam.endDate}',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                '${exam.startDate} → ${exam.endDate}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryText,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               if (exam.academicYearLabel != null) ...[
-                const SizedBox(width: 12),
-                Text(
-                  '• ${exam.academicYearLabel}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.indigo50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppColors.indigo100),
+                  ),
+                  child: Text(
+                    exam.academicYearLabel!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.primaryAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 12),
-          Divider(color: Colors.grey.shade100),
-          const SizedBox(height: 6),
+          Divider(color: AppColors.borderLight, height: 1),
+          const SizedBox(height: 10),
           _buildActionRow(context, exam),
         ],
       ),
@@ -164,24 +223,15 @@ class _ExamsListViewState extends State<ExamsListView> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => BlocProvider.value(
-                      value: context.read<ExamsBloc>(),
-                      child: ExamDatesheetView(
-                        examId: exam.id,
-                        examName: exam.name,
-                      ),
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.calendar_today_outlined, size: 16),
+              onPressed: () => _openDatesheet(context, exam),
+              icon: const Icon(Icons.calendar_today_outlined, size: 15),
               label: const Text('Datesheet'),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black87),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                foregroundColor: AppColors.primaryAccent,
+                side: const BorderSide(color: AppColors.indigo200),
+                backgroundColor: AppColors.indigo50,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
@@ -199,15 +249,21 @@ class _ExamsListViewState extends State<ExamsListView> {
                       ),
                     ),
                   ),
-                );
+                ).then((_) {
+                  // Reload exams list when returning from result screen
+                  if (mounted) {
+                    context.read<ExamsBloc>().add(const LoadExamsEvent());
+                  }
+                });
               },
-              icon: const Icon(Icons.assignment_turned_in_outlined, size: 16),
+              icon: const Icon(Icons.assignment_turned_in_outlined, size: 15),
               label: const Text('View Result'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black87,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primaryAccent,
+                foregroundColor: AppColors.surface,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
@@ -221,25 +277,14 @@ class _ExamsListViewState extends State<ExamsListView> {
         runSpacing: 8,
         children: [
           OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => BlocProvider.value(
-                    value: context.read<ExamsBloc>(),
-                    child: ExamDatesheetView(
-                      examId: exam.id,
-                      examName: exam.name,
-                      classId: widget.classId,
-                    ),
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _openDatesheet(context, exam),
             icon: const Icon(Icons.calendar_today_outlined, size: 14),
             label: const Text('Datesheet', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.black87),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              foregroundColor: AppColors.primaryAccent,
+              side: const BorderSide(color: AppColors.indigo200),
+              backgroundColor: AppColors.indigo50,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
           ElevatedButton.icon(
@@ -247,10 +292,10 @@ class _ExamsListViewState extends State<ExamsListView> {
             icon: const Icon(Icons.edit_note_outlined, size: 14),
             label: const Text('Marks Entry', style: TextStyle(fontSize: 12)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black87,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.primaryAccent,
+              foregroundColor: AppColors.surface,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
           if (widget.classId != null && widget.sectionId != null)
@@ -274,8 +319,9 @@ class _ExamsListViewState extends State<ExamsListView> {
               icon: const Icon(Icons.assessment_outlined, size: 14),
               label: const Text('Report Cards', style: TextStyle(fontSize: 12)),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black87),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                foregroundColor: AppColors.secondaryText,
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
         ],
@@ -288,25 +334,14 @@ class _ExamsListViewState extends State<ExamsListView> {
       runSpacing: 8,
       children: [
         OutlinedButton.icon(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => BlocProvider.value(
-                  value: context.read<ExamsBloc>(),
-                  child: ExamDatesheetView(
-                    examId: exam.id,
-                    examName: exam.name,
-                    classId: widget.classId,
-                  ),
-                ),
-              ),
-            );
-          },
+          onPressed: () => _openDatesheet(context, exam),
           icon: const Icon(Icons.calendar_today_outlined, size: 14),
           label: const Text('Datesheet', style: TextStyle(fontSize: 12)),
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.black87),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            foregroundColor: AppColors.primaryAccent,
+            side: const BorderSide(color: AppColors.indigo200),
+            backgroundColor: AppColors.indigo50,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         ElevatedButton.icon(
@@ -314,10 +349,10 @@ class _ExamsListViewState extends State<ExamsListView> {
           icon: const Icon(Icons.verified_outlined, size: 14),
           label: const Text('Review & Verify', style: TextStyle(fontSize: 12)),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black87,
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.primaryAccent,
+            foregroundColor: AppColors.surface,
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         if (widget.classId != null && widget.sectionId != null)
@@ -341,12 +376,35 @@ class _ExamsListViewState extends State<ExamsListView> {
             icon: const Icon(Icons.approval_outlined, size: 14),
             label: const Text('Approve Cards', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.black87),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              foregroundColor: AppColors.secondaryText,
+              side: const BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
       ],
     );
+  }
+
+  /// Opens the datesheet screen and reloads exams on return.
+  void _openDatesheet(BuildContext context, ExamModel exam) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: context.read<ExamsBloc>(),
+          child: ExamDatesheetView(
+            examId: exam.id,
+            examName: exam.name,
+            classId: widget.classId,
+          ),
+        ),
+      ),
+    ).then((_) {
+      // After returning, reload exams so the list is shown again
+      // (navigating to datesheet changes Bloc state to ExamDatesheetsLoaded).
+      if (mounted) {
+        context.read<ExamsBloc>().add(const LoadExamsEvent());
+      }
+    });
   }
 
   void _openTeacherMarksEntry(ExamModel exam) async {
@@ -373,23 +431,25 @@ class _ExamsListViewState extends State<ExamsListView> {
             ),
           ),
         ),
-      );
+      ).then((_) {
+        if (mounted) context.read<ExamsBloc>().add(const LoadExamsEvent());
+      });
       return;
     }
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (bottomSheetCtx) => ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: dsList.length,
-        separatorBuilder: (_, _) => const Divider(),
+        separatorBuilder: (_, _) => const Divider(color: AppColors.border),
         itemBuilder: (ctx, i) {
           final ds = dsList[i];
           return ListTile(
             title: Text(ds.subjectName ?? 'Subject', style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('${ds.examDate} • Max: ${ds.maxMarks.toStringAsFixed(0)}'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.primaryAccent),
             onTap: () {
               Navigator.pop(ctx);
               Navigator.of(context).push(
@@ -403,7 +463,9 @@ class _ExamsListViewState extends State<ExamsListView> {
                     ),
                   ),
                 ),
-              );
+              ).then((_) {
+                if (mounted) context.read<ExamsBloc>().add(const LoadExamsEvent());
+              });
             },
           );
         },
@@ -425,17 +487,17 @@ class _ExamsListViewState extends State<ExamsListView> {
 
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (bottomSheetCtx) => ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: dsList.length,
-        separatorBuilder: (_, _) => const Divider(),
+        separatorBuilder: (_, _) => const Divider(color: AppColors.border),
         itemBuilder: (ctx, i) {
           final ds = dsList[i];
           return ListTile(
             title: Text(ds.subjectName ?? 'Subject', style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text('${ds.examDate} • Max: ${ds.maxMarks.toStringAsFixed(0)}'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.primaryAccent),
             onTap: () {
               Navigator.pop(ctx);
               Navigator.of(context).push(
