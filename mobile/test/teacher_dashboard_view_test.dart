@@ -306,5 +306,26 @@ void main() {
       expect(tappedTab, equals(3));
       expect(tappedLeavesSub, equals(1));
     });
+
+    testWidgets('Tapping Add Menu opens Customize Quick Links bottom sheet for teachers',
+        (tester) async {
+      await tester.pumpWidget(createTestWidget());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byKey(const Key('add_menu_tile')), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('add_menu_tile')));
+      await tester.tap(find.byKey(const Key('add_menu_tile')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Customize Quick Links'), findsOneWidget);
+      expect(find.text('Save Quick Links'), findsOneWidget);
+      expect(find.text('Reset Default'), findsOneWidget);
+
+      await tester.tap(find.text('Save Quick Links'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Customize Quick Links'), findsNothing);
+    });
   });
 }
