@@ -108,6 +108,7 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
     } catch (_) {}
 
     try {
+      if (!mounted) return;
       StudentFeaturesRepository? repo;
       try {
         repo = context.read<StudentFeaturesRepository>();
@@ -1569,7 +1570,7 @@ class _StudentDashboardViewState extends State<StudentDashboardView> {
                     child: ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemCount: allCatalog.length,
-                      separatorBuilder: (_, __) => const Divider(color: AppColors.border, height: 1),
+                      separatorBuilder: (_, _) => const Divider(color: AppColors.border, height: 1),
                       itemBuilder: (ctx, index) {
                         final entry = allCatalog[index];
                         final isSelected = selectedKeys.contains(entry.item.key);

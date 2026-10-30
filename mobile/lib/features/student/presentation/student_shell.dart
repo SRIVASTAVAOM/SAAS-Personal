@@ -169,101 +169,105 @@ class _StudentShellState extends State<StudentShell> {
           ),
         ),
       ],
-      child: Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
-        appBar: AppBar(
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10, right: 2),
-            child: Image.asset(
-              'assets/images/logo_icon.png',
-              fit: BoxFit.contain,
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            appBar: AppBar(
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10, right: 2),
+                child: Image.asset(
+                  'assets/images/logo_icon.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              leadingWidth: 44,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_selectedIndex == 0 ? 'Student Dashboard' : widget.user.displayName),
+                  BlocBuilder<ProfileBloc, ProfileState>(
+                    builder: (context, state) {
+                      String subtitle = 'Student Portal';
+                      if (state is StudentProfileLoaded) {
+                        final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+                        final rawCls = state.profile.className;
+                        final rawSec = state.profile.sectionName;
+                        final cls = (rawCls != null && rawCls.trim().isNotEmpty && !isUuid.hasMatch(rawCls)) ? rawCls.trim() : 'Grade 10';
+                        final sec = (rawSec != null && rawSec.trim().isNotEmpty && !isUuid.hasMatch(rawSec)) ? rawSec.trim() : 'Section A';
+                        subtitle = '$cls • $sec';
+                        if (state.profile.rollNumber != null &&
+                            state.profile.rollNumber!.isNotEmpty &&
+                            !isUuid.hasMatch(state.profile.rollNumber!)) {
+                          subtitle += ' • Roll #${state.profile.rollNumber}';
+                        }
+                      }
+                      return Text(
+                        subtitle,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.secondaryText),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Sign Out',
+                  icon: const Icon(Icons.logout,
+                      size: 20, color: AppColors.secondaryText),
+                  onPressed: () {
+                    context.read<AuthBloc>().add(LogoutRequestedEvent());
+                  },
+                ),
+              ],
             ),
-          ),
-          leadingWidth: 44,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_selectedIndex == 0 ? 'Student Dashboard' : widget.user.displayName),
-              BlocBuilder<ProfileBloc, ProfileState>(
-                builder: (context, state) {
-                  String subtitle = 'Student Portal';
-                  if (state is StudentProfileLoaded) {
-                    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
-                    final rawCls = state.profile.className;
-                    final rawSec = state.profile.sectionName;
-                    final cls = (rawCls != null && rawCls.trim().isNotEmpty && !isUuid.hasMatch(rawCls)) ? rawCls.trim() : 'Grade 10';
-                    final sec = (rawSec != null && rawSec.trim().isNotEmpty && !isUuid.hasMatch(rawSec)) ? rawSec.trim() : 'Section A';
-                    subtitle = '$cls • $sec';
-                    if (state.profile.rollNumber != null &&
-                        state.profile.rollNumber!.isNotEmpty &&
-                        !isUuid.hasMatch(state.profile.rollNumber!)) {
-                      subtitle += ' • Roll #${state.profile.rollNumber}';
-                    }
-                  }
-                  return Text(
-                    subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.secondaryText),
-                  );
-                },
+            body: _buildCurrentTab(context),
+            bottomNavigationBar: Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: AppColors.border, width: 1.0)),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Sign Out',
-              icon: const Icon(Icons.logout,
-                  size: 20, color: AppColors.secondaryText),
-              onPressed: () {
-                context.read<AuthBloc>().add(LogoutRequestedEvent());
-              },
+              child: NavigationBar(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (idx) =>
+                    setState(() => _selectedIndex = idx),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.dashboard_outlined),
+                    selectedIcon: Icon(Icons.dashboard),
+                    label: 'Dashboard',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.fact_check_outlined),
+                    selectedIcon: Icon(Icons.fact_check),
+                    label: 'Attendance',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.menu_book_outlined),
+                    selectedIcon: Icon(Icons.menu_book),
+                    label: 'Academics',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.receipt_long_outlined),
+                    selectedIcon: Icon(Icons.receipt_long),
+                    label: 'Fees',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.apps_outlined),
+                    selectedIcon: Icon(Icons.apps),
+                    label: 'Services',
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        body: _buildCurrentTab(),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            border: Border(
-                top: BorderSide(color: AppColors.border, width: 1.0)),
-          ),
-          child: NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (idx) =>
-                setState(() => _selectedIndex = idx),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.fact_check_outlined),
-                selectedIcon: Icon(Icons.fact_check),
-                label: 'Attendance',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.menu_book_outlined),
-                selectedIcon: Icon(Icons.menu_book),
-                label: 'Academics',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long),
-                label: 'Fees',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.apps_outlined),
-                selectedIcon: Icon(Icons.apps),
-                label: 'Services',
-              ),
-            ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCurrentTab() {
+  Widget _buildCurrentTab(BuildContext context) {
     switch (_selectedIndex) {
       case 0:
         return StudentDashboardView(
@@ -273,17 +277,17 @@ class _StudentShellState extends State<StudentShell> {
       case 1:
         return const StudentAttendanceHistoryView();
       case 2:
-        return _buildAcademicsTab();
+        return _buildAcademicsTab(context);
       case 3:
         return const StudentFeesView();
       case 4:
       default:
-        return _buildServicesTab();
+        return _buildServicesTab(context);
     }
   }
 
   // --- ACADEMICS TAB ---
-  Widget _buildAcademicsTab() {
+  Widget _buildAcademicsTab(BuildContext context) {
     return Column(
       children: [
         // Sub-navigation bar
@@ -410,7 +414,7 @@ class _StudentShellState extends State<StudentShell> {
               if (_academicSubTab == 1) {
                 return Column(
                   children: [
-                    _buildSubjectSelectorChips(isMaterials: true),
+                    _buildSubjectSelectorChips(context, isMaterials: true),
                     Expanded(
                       child: AcademicMaterialsView(
                         key: ValueKey('mat-${widget.user.classId}-${_selectedSubject?.id}'),
@@ -424,7 +428,7 @@ class _StudentShellState extends State<StudentShell> {
               if (_academicSubTab == 2) {
                 return Column(
                   children: [
-                    _buildSubjectSelectorChips(isMaterials: false),
+                    _buildSubjectSelectorChips(context, isMaterials: false),
                     Expanded(
                       child: CurriculumView(
                         key: ValueKey('curr-${widget.user.classId}-${_selectedSubject?.id}'),
@@ -520,7 +524,7 @@ class _StudentShellState extends State<StudentShell> {
     );
   }
 
-  Widget _buildSubjectSelectorChips({required bool isMaterials}) {
+  Widget _buildSubjectSelectorChips(BuildContext context, {required bool isMaterials}) {
     if (_loadingSubjects) {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -585,7 +589,7 @@ class _StudentShellState extends State<StudentShell> {
   }
 
   // --- SERVICES TAB ---
-  Widget _buildServicesTab() {
+  Widget _buildServicesTab(BuildContext context) {
     return Column(
       children: [
         Container(

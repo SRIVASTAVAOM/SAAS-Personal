@@ -237,84 +237,88 @@ class _TeacherShellState extends State<TeacherShell> {
           ),
         ),
       ],
-      child: Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
-        appBar: AppBar(
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10, right: 2),
-            child: Image.asset(
-              'assets/images/logo_icon.png',
-              fit: BoxFit.contain,
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            appBar: AppBar(
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10, right: 2),
+                child: Image.asset(
+                  'assets/images/logo_icon.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              leadingWidth: 44,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.user.displayName),
+                  Text(
+                    _allocations?.homeroom != null
+                        ? 'Teacher Portal • Class Teacher: ${_allocations!.homeroom!.className} ${_allocations!.homeroom!.sectionName}'
+                        : 'Teacher Portal • Subject Teacher',
+                    style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Sign Out',
+                  icon: const Icon(Icons.logout,
+                      size: 20, color: AppColors.secondaryText),
+                  onPressed: () {
+                    context.read<AuthBloc>().add(LogoutRequestedEvent());
+                  },
+                ),
+              ],
             ),
-          ),
-          leadingWidth: 44,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.user.displayName),
-              Text(
-                _allocations?.homeroom != null
-                    ? 'Teacher Portal • Class Teacher: ${_allocations!.homeroom!.className} ${_allocations!.homeroom!.sectionName}'
-                    : 'Teacher Portal • Subject Teacher',
-                style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
+            body: _buildCurrentTab(context),
+            bottomNavigationBar: Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: AppColors.border, width: 1.0)),
               ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'Sign Out',
-              icon: const Icon(Icons.logout,
-                  size: 20, color: AppColors.secondaryText),
-              onPressed: () {
-                context.read<AuthBloc>().add(LogoutRequestedEvent());
-              },
+              child: NavigationBar(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (idx) =>
+                    setState(() => _selectedIndex = idx),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.dashboard_outlined),
+                    selectedIcon: Icon(Icons.dashboard),
+                    label: 'Dashboard',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.check_circle_outline),
+                    selectedIcon: Icon(Icons.check_circle),
+                    label: 'Attendance',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.class_outlined),
+                    selectedIcon: Icon(Icons.class_),
+                    label: 'Classes',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.beach_access_outlined),
+                    selectedIcon: Icon(Icons.beach_access),
+                    label: 'Leaves',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person),
+                    label: 'Profile',
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        body: _buildCurrentTab(),
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            border: Border(
-                top: BorderSide(color: AppColors.border, width: 1.0)),
-          ),
-          child: NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (idx) =>
-                setState(() => _selectedIndex = idx),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.check_circle_outline),
-                selectedIcon: Icon(Icons.check_circle),
-                label: 'Attendance',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.class_outlined),
-                selectedIcon: Icon(Icons.class_),
-                label: 'Classes',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.beach_access_outlined),
-                selectedIcon: Icon(Icons.beach_access),
-                label: 'Leaves',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                selectedIcon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildCurrentTab() {
+  Widget _buildCurrentTab(BuildContext context) {
     switch (_selectedIndex) {
       case 0:
         return TeacherDashboardView(
@@ -323,9 +327,9 @@ class _TeacherShellState extends State<TeacherShell> {
           onNavigateToTab: _navigateToTab,
         );
       case 1:
-        return _buildAttendanceTab();
+        return _buildAttendanceTab(context);
       case 2:
-        return _buildClassesTab();
+        return _buildClassesTab(context);
       case 3:
         return TeacherLeaveView(initialTab: _leavesInitialTab);
       case 4:
@@ -334,7 +338,7 @@ class _TeacherShellState extends State<TeacherShell> {
     }
   }
 
-  Widget _buildAttendanceTab() {
+  Widget _buildAttendanceTab(BuildContext context) {
     return Column(
       children: [
         Container(
@@ -411,7 +415,7 @@ class _TeacherShellState extends State<TeacherShell> {
     );
   }
 
-  Widget _buildAllocationSelectorChips() {
+  Widget _buildAllocationSelectorChips(BuildContext context) {
     if (_isLoadingAllocations) {
       return const Padding(
         padding: EdgeInsets.all(8.0),
@@ -494,7 +498,7 @@ class _TeacherShellState extends State<TeacherShell> {
     );
   }
 
-  Widget _buildClassesTab() {
+  Widget _buildClassesTab(BuildContext context) {
     return Column(
       children: [
         Container(
@@ -641,7 +645,7 @@ class _TeacherShellState extends State<TeacherShell> {
               if (_classesSubTab == 1) {
                 return Column(
                   children: [
-                    _buildAllocationSelectorChips(),
+                    _buildAllocationSelectorChips(context),
                     Expanded(
                       child: TeacherHomeworkManageView(
                         key: ValueKey('hw-$_activeClassId-$_activeSectionId-$_activeSubjectId'),
@@ -659,7 +663,7 @@ class _TeacherShellState extends State<TeacherShell> {
                 }
                 return Column(
                   children: [
-                    _buildAllocationSelectorChips(),
+                    _buildAllocationSelectorChips(context),
                     Expanded(
                       child: AcademicMaterialsView(
                         key: ValueKey('mat-$_activeClassId-$_activeSubjectId'),
@@ -676,7 +680,7 @@ class _TeacherShellState extends State<TeacherShell> {
                 }
                 return Column(
                   children: [
-                    _buildAllocationSelectorChips(),
+                    _buildAllocationSelectorChips(context),
                     Expanded(
                       child: CurriculumView(
                         key: ValueKey('curr-$_activeClassId-$_activeSubjectId'),
@@ -690,7 +694,7 @@ class _TeacherShellState extends State<TeacherShell> {
               if (_classesSubTab == 4) {
                 return Column(
                   children: [
-                    _buildAllocationSelectorChips(),
+                    _buildAllocationSelectorChips(context),
                     Expanded(
                       child: ExamsListView(
                         key: ValueKey('exam-$_activeClassId-$_activeSectionId'),
