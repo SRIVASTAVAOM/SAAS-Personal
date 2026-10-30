@@ -240,6 +240,14 @@ class _TeacherShellState extends State<TeacherShell> {
       child: Scaffold(
         backgroundColor: AppColors.scaffoldBackground,
         appBar: AppBar(
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 14, top: 10, bottom: 10, right: 2),
+            child: Image.asset(
+              'assets/images/logo_icon.png',
+              fit: BoxFit.contain,
+            ),
+          ),
+          leadingWidth: 44,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
